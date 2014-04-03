@@ -1,4 +1,6 @@
 import inspect
+import requests
+import contextlib
 
 # Global logger object
 g_logger = None
@@ -128,3 +130,4 @@ def cleanurl(url):
     if '#' in url:
         url = url[:url.index('#')]
     return url.rstrip('/&')
+
