@@ -16,6 +16,10 @@ class SingletonMeta(type):
         if not cls.instance:
             cls.instance = type.__call__(cls, *args, **kwargs)
         return cls.instance
+
+    def getInstance(cls, *args, **kwargs):
+        """ Return an instance """
+        return cls(*args, **kwargs)
     
 def getPreviousFrame(n=2):
     """ Get the stack frame at levels 'n' above
