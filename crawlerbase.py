@@ -8,6 +8,8 @@ import urlhelper
 import random
 import urlparse
 import time
+import collections
+import datetime
 
 class CrawlPolicy(object):
     """ Crawl policy w.r.t site root and folders """
@@ -50,8 +52,207 @@ class CrawlerLimits(object):
     # Maximum size of single file from a site in MB
     site_maxfilesize = 20
     # Flags
+
+# Event management for crawling - this implements a simple decoupled Publisher-Subscriber
+# design pattern through a mediator whereby specific events are raised during the crawler workflow.
+# Client objects can subscribe to these events by passing a function that should be called
+# when the event occurs. The mediator keeps a handle of the functions. When an event occurs
+# the object that raises the event does so by calling "publish(publisher, event_name, **kwargs)" on the
+# mediator. The mediator creates an Event object from the keyword arguments and notifies all
+# the subscribers to that event by invoking their functions they have registerd with the
+# event object as argument.
+
+class CrawlerEvent(object):
+    """ Class describing a crawler event raised by publishers
+    during crawler workflow """
+
+    def __init__(self, publisher, event_name, source=None, message=None,
+                 message_type='str',code=0, is_error=False, is_critical=False, 
+                 callback=None,params={}):
+        # Object that publishes the event. This should
+        # never be Null.
+        self.publisher = publisher
+        # Event published for
+        self.event_name = event_name
+        # The function or method that raises the event.
+        # This can be Null.
+        self.source = source
+        # Time of publishing
+        self.timestamp = datetime.datetime.now()
+        # Message string if any. This can be an
+        # error message for communicating situations
+        # with errors.
+        self.message = message
+        self.message_type = message_type
+        # The message_type is used to 'massage' the message
+        # into information
+        # Code if any - this can be an error code
+        # for communicating situations with errors
+        self.code = code
+        # Is this an error situation ?
+        self.is_error = is_error
+        # Indicates an urgent situation
+        self.is_critical = is_critical
+        # Indicates a callback method (object, not name)
+        # that can give more information - this can be Null
+        # If not null, the callback should accept the publisher
+        # and the same keyword arguments that was sent along
+        # with the event as arguments.
+        self.callback = callback
+        # Dictionary of additional information which is
+        # mostly understood only by the subscriber method
+        # (Protocol between publisher and subscriber)
+        self.params = params
+        # print 'Params dict =>',params, event_name
+        # ID of the event
+        self.id = uuid.uuid4().hex
+
+        # NOTE: The publisher should at least provide the
+        # publisher instance itself and a message.
+        self._massage()
+
+    def _massage(self):
+        """ Massage the message into information """
+
+        try:
+            self.data = eval("%s('%s')" % (self.message_type, self.message))
+        except Exception, e:
+            self.data = ''
+            print e
+
+    def __str__(self):
+        return 'Event for "%s", published at [%s] - id <%s>' % (self.event_name,
+                                                              self.timestamp,
+                                                              self.id)
+
+class CrawlerEventRegistry(object):
+    """ Event mediator class which allows subscribers to listen to published
+    events from event publishers and take actions accordingly """
+
+    # This class is a Singleton
+    __metaclass__ = utils.SingletonMeta
     
-    
+    def __init__(self):
+        # Dictionary of subscriber objects and the method
+        # to invoke mapped against the event name as key
+        # A key is mapped to a list of subscribers where each
+        # entry in the list is the subscriber method (method
+        # object, not name)
+        self.subscribers = collections.defaultdict(list)
+
+    def publish(self, publisher, event_name, **kwargs):
+        """ API called by the event publisher to announce an event.
+        The required arguments for creating the Event object should
+        be passed as keyword arguments. The first argument is always
+        a handle to the publisher object itself """
+
+        # Create event object
+        event = CrawlerEvent(publisher, event_name, **kwargs)
+        # Notify all subscribers
+        self.notify(event)
+
+    def notify(self, event):
+        """ Notify all subscribers subscribed to an event """
+        
+        # Find subscribers
+        print 'Notifying all subscribers...',event
+        for sub in self.subscribers.get(event.event_name, []):
+            sub(event)
+
+    def subscribe(self, event_name, method):
+        """ Subscribe to an event with the given method """
+
+        self.subscribers[event_name].append(method)
+
+class CrawlerStats(object):
+    """ Class keeping crawler statistics such as total URLs downloaded,
+    total URLs parsed, total time taken etc """
+
+    # Stats kept
+    # URLs
+    # Number of total URLs crawled (not saved)
+    num_urls = 0
+    # Number of total URLs downloaded
+    num_urls_downloaded = 0
+    # Number of URLs skipped (due to rules etc)
+    num_urls_skipped = 0
+    # Number of URLs with error
+    num_urls_error = 0
+    # Number of urls not found (404 error)
+    num_urls_notfound = 0
+
+    # Time
+    # Start time-stamp
+    start_timestamp = ''
+    # End time-stamp
+    end_timestamp = ''
+    # Time taken for total crawl
+    crawl_time = 0
+    # Time taken for download
+    download_time = 0
+    # Total sleep time
+    sleep_time = 0
+
+    def __init__(self):
+        # Subscribe to events
+        eventr = CrawlerEventRegistry.getInstance()
+        eventr.subscribe('download_complete', self.update_total_urls_downloaded)
+        eventr.subscribe('download_error', self.update_total_urls_error)
+        eventr.subscribe('url_obtained', self.update_total_urls)
+        eventr.subscribe('url_filtered', self.update_total_urls_skipped)
+        eventr.subscribe('crawl_started', self.mark_start_time)
+        eventr.subscribe('crawl_ended', self.mark_end_time)                     
+        pass
+
+    def update_total_urls(self, event):
+        """ Update total number of URLs """
+
+        # NOTE: This also includes duplicates, URLs with errors - everything.
+        self.num_urls += 1
+
+    def update_total_urls_downloaded(self, event):
+        """ Update total number of URLs downloaded """
+
+        self.num_urls_downloaded += 1
+
+    def update_total_urls_skipped(self, event):
+        """ Update total number of URLs skipped """
+
+        self.num_urls_skipped += 1
+        # Skipped URLs have to be added to total URLs
+        # since these don't get into the queue
+        self.num_urls += 1
+
+    def update_total_urls_error(self, event):
+        """ Update total number of URLs that failed to download with error """
+
+        self.num_urls_error += 1        
+        if event.code == 404:
+            self.num_urls_notfound += 1
+
+    def mark_start_time(self, event):
+        """ Mark starting time of crawl """
+
+        self.start_timestamp = datetime.datetime.now()
+
+    def mark_end_time(self, event):
+        """ Mark end time of crawl """
+
+        self.end_timestamp = datetime.datetime.now()
+        self.crawl_time = self.end_timestamp - self.start_timestamp
+        
+    def publish_stats(self):
+        """ Publish crawl stats """
+
+        print "Total URLs =>",self.num_urls
+        print "Total URLs downloaded =>",self.num_urls_downloaded
+        print "Total URLs with error =>",self.num_urls_error
+        print "Total 404 URLs =>",self.num_urls_notfound
+        print "Total URLs skipped =>",self.num_urls_skipped
+        print "Crawl start time =>",self.start_timestamp
+        print "Crawl end time =>",self.end_timestamp
+        print "Time taken for crawl =>",str(self.crawl_time)
+        
 class CrawlerConfig(dict):
     """ Configuration for the Crawler """
 
@@ -358,6 +559,8 @@ class CrawlerWorkerBase(threading.Thread):
                         
                     newurls = []
                     for curl in child_urls:
+                        # Skip empty strings
+                        if len(curl.strip())==0: continue
                         # Build full URL
                         full_curl = self.build_url(curl, url)
                         # Insert this back to the queue
