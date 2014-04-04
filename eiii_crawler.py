@@ -1,6 +1,7 @@
 """ Implementation of EIII crawler """
 
 import crawlerbase
+from crawlerbase import CrawlerEventRegistry
 import sys
 import Queue
 import requests
@@ -18,15 +19,37 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
 
     def download(self, crawler):
         """ Overloaded download method """
+
+        eventr = CrawlerEventRegistry.getInstance()
         
         try:
-            self.content, self.headers = urlhelper.fetch_url(self.url, {'user-agent': self.useragent})
-            # Notify the crawler of download
-            # Later - implement events for this
-            crawler.notify_download(self.url, self.content, self.headers)
+            freq = urlhelper.get_url(self.url, {'user-agent': self.useragent})
+
+            self.content = freq.content
+            self.headers = freq.headers
+
+            # requests does not raise an exception for 404 URLs instead
+            # it is wrapped into the status code
+            if freq.status_code == 200:
+                eventr.publish(self, 'download_complete',
+                               message='URL has been downloaded successfully',
+                               code=200,
+                               params=self.__dict__)
+            else:
+                eventr.publish(self, 'download_error',
+                               message='URL has not been downloaded successfully',
+                               code=freq.status_code,
+                               params=self.__dict__)             
         except urlhelper.FetchUrlException, e:
             print 'Error downloading',self.url,'=>',str(e)
-            crawler.notify_download_error(self.url, str(e))
+            # FIXME: Parse HTTP error string and find out the
+            # proper code to put here if HTTPError.
+            eventr.publish(self, 'download_error',
+                           message=str(e),
+                           is_error = True,
+                           code=0,
+                           params=self.__dict__)
+
             
     def get_data(self):
         """ Return the data """
@@ -47,23 +70,13 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         self.sig_count = 0
         # Robots parser
         self.robots_p = robocop.Robocop(useragent=config.get_real_useragent())
+        # Event registry
+        self.eventr = CrawlerEventRegistry.getInstance()
         # Install signal handlers
         signal.signal(signal.SIGINT, self.sighandler)
         signal.signal(signal.SIGTERM, self.sighandler)              
         
         super(self.__class__,  self).__init__(config)
-
-    # Notification methods for event handling from sub-objects
-    # START: Notification methods
-    def notify_download(self, url, content, headers):
-        """ Notification that download is complete. """
-
-        self.manager.url_download_complete(url, content, headers)
-
-    def notify_download_error(self, url, error):
-        """ Notification that download did not complete """
-
-        self.manager.url_download_error(url, error)
 
     # END: Notification methods
     
@@ -83,7 +96,12 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     def get(self, timeout=10):
         """ Get the data to crawl """
 
-        return self.manager.get(timeout=timeout)
+        data = self.manager.get(timeout=timeout)
+        # Each data is a URL, so raise the event
+        # 'obtained_url' here.
+        self.eventr.publish(self, 'url_obtained',
+                            params=locals())
+        return data
 
     def push(self, data):
         """ Push new data to crawl """
@@ -173,6 +191,10 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             print "Parsing URL",url
             parser.feed(data)
             parser.close()
+
+            self.eventr.publish(self, 'url_parsed',
+                                params=locals())
+            
         except sgmllib.SGMLParseError, e:
             print "Error parsing data for URL =>",url
 
@@ -196,9 +218,25 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             print 'Yes.'
 
         return (not result)
-            
+
     def allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
-        """ Is fetching of URL allowed ? """
+        """ Is fetching of URL allowed ? """        
+
+        # NOTE: This is a wrapper over the actual function _allowed which does all
+        # the work. This is to allow publication of events after capturing the return
+        # value of the method.
+        result = self._allowed(url, parent_url=parent_url, content=content,
+                               content_type=content_type, headers=headers)
+
+        if not result:
+            # Filtered
+            self.eventr.publish(self, 'url_filtered',
+                                params=locals())
+
+        return result
+        
+    def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
+        """ Is fetching of URL allowed ? - Actual Implementation """                
 
         # Is already downloaded ? Then skip right away
         # NOTE - Do this only for child URLs!
@@ -262,6 +300,17 @@ class EIIICrawler(object):
         # Bitmap instance for keeping record of
         # downloaded URLs
         self.url_bitmap = {}
+        # Crawl stats
+        self.stats = crawlerbase.CrawlerStats()
+        # Event registry
+        self.eventr = CrawlerEventRegistry.getInstance()
+        self.subscribe_events()
+
+    def subscribe_events(self):
+        """ Subscribe to events """
+
+        self.eventr.subscribe('download_complete', self.url_download_complete)
+        self.eventr.subscribe('download_error', self.url_download_error)     
 
     def get(self, timeout=10):
         """ Return the data for crawling """
@@ -289,17 +338,19 @@ class EIIICrawler(object):
 
         return self.url_bitmap.has_key(url)
     
-    def url_download_complete(self, url, content, headers):
+    def url_download_complete(self, event):
         """ Event callback for notifying download for a URL is done """
 
         # Mark in bitmap
+        url = event.params.get('url')
         print 'Making entry for URL',url,'in bitmap...'
         self.url_bitmap[url] = 1
 
-    def url_download_error(self, url, errmsg):
+    def url_download_error(self, event):
         """ Event callback for notifying download for a URL in error """
 
         # Mark in bitmap
+        url = event.params.get('url')       
         print 'Making entry for URL',url,'in bitmap...'     
         self.url_bitmap[url] = 1
         
@@ -309,11 +360,18 @@ class EIIICrawler(object):
         # Push the URLs to queue
         for url in self.urls:
             self.dqueue.put(('text/html',url,None))
-            
+
+        # Mark start time
+        self.eventr.publish(self, 'crawl_started')
+
         worker = EIIICrawlerQueuedWorker(self.config, self)
         worker.start()
         worker.join()
+
+        self.eventr.publish(self, 'crawl_ended')        
         print 'Crawl done.'
+
+        self.stats.publish_stats()
 
 
 if __name__ == "__main__":
