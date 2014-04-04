@@ -80,7 +80,7 @@ def fetch_url(url, headers={}):
 
     return (None, None)
 
-def get_url(url):
+def get_url(url, headers={}):
     """ Download a URL and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
@@ -94,7 +94,7 @@ def get_url(url):
     else:
         method = fetch
         
-    with method(url, *exceptions) as freq:
+    with method(url, *exceptions, **headers) as freq:
         return freq
 
 def get_root_website(site):
