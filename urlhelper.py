@@ -79,6 +79,18 @@ def fetch(url, *exceptions, **headers):
         raise
 
 @contextlib.contextmanager
+def head(url, *exceptions, **headers):
+    
+    try:
+        # Don't bother verifying SSL certificates for HTTPS urls.
+        yield requests.head(url, headers=headers)
+        # Catch a bunch of network errors - courtesy havestman
+    except exceptions, e:
+        raise FetchUrlException(e)
+    except Exception, e:
+        raise
+    
+@contextlib.contextmanager
 def fetch_ftp(url, *exception, **headers):
     """ Fetch ftp urls using urlgrabber library """
     
@@ -130,6 +142,77 @@ def get_url(url, headers={}):
     with method(url, *exceptions, **headers) as freq:
         return freq
 
+def head_url(url, headers={}):
+    """ Download a URL with a HEAD request and return the requests object back """
+    
+    exceptions = [requests.exceptions.RequestException,
+                  urllib2.HTTPError,urllib2.URLError,
+                  httplib.BadStatusLine,IOError,TypeError,
+                  ValueError, AssertionError,
+                  socket.error, socket.timeout]
+
+    method = head
+        
+    with method(url, *exceptions, **headers) as freq:
+        return freq 
+
+def get_url_directory(url):
+    """ Return the URL 'directory' of a given URL
+
+    >>> get_url_directory('http://www.python.org')
+    'http://www.python.org'
+    >>> get_url_directory('http://www.python.org/')
+    'http://www.python.org/'
+    >>> get_url_directory('http://www.python.org/doc')
+    'http://www.python.org/doc/'
+    >>> get_url_directory('http://www.python.org/doc/')
+    'http://www.python.org/doc/'
+    >>> get_url_directory('http://www.python.org/doc/index.html')
+    'http://www.python.org/doc/'
+    >>> get_url_directory('http://docs.python.org/doc/index.html')
+    'http://docs.python.org/doc/'
+
+    """
+
+    # If the site does not have a path e.g: http://www.python.org
+    # or http://www.python.org/, the directory is same as the URL.
+    # If the site has a path e.g: http://www.python.org/docs or
+    # http://www.python.org/docs/ or http://python.org/docs/file.html
+    # the directory is http://www.python.org/docs/
+
+    urlp = urlparse.urlparse(url)
+    if urlp.path in ('', '/'):
+        # First case
+        return url
+
+    paths = urlp.path.split('/')
+    # If lastpath does not have an extension like file.html
+    # then the whole thing can be assumed as a directory.
+    # E.g: http://www.python.org/docs or http://www.python.org/docs/
+    try:
+        if paths[-1].find('.') == -1:
+            # Append '/' at end if not found
+            if url[-1] != '/': url += '/'
+            # Can return full URL again
+            return url
+        else:
+            # URL like http://www.python.org/doc/index.html
+            # Return All minus the last path i.e
+            # http://www.python.org/doc/
+            paths.pop()
+            urlpath = '/'.join(paths)
+
+            urlp = urlp._replace(path=urlpath)
+            newurl = urlparse.urlunparse(urlp)
+
+            # Append '/' at end if not found
+            if newurl[-1] != '/': newurl += '/'
+
+            return newurl
+    except:
+        return url
+    
+    
 def get_root_website(site):
     """ Get the root website. For example this returns
     foo.com if the input is images.foo.com or static.foo.com
