@@ -10,6 +10,10 @@ import urlparse
 import time
 import collections
 import datetime
+import json
+import logger
+
+log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
 
 class CrawlPolicy(object):
     """ Crawl policy w.r.t site root and folders """
@@ -36,11 +40,20 @@ class CrawlPolicy(object):
     all_fullsite_scopes = (site_full_scope, site_full_link_scope) 
     
 class CrawlerLimits(object):
-    """ Class keeping constants on maximum limits for the crawler
-    on various aspects """
+    """ Class keeping constants on maximum limits for the
+    crawler on various aspects """
 
     # Maximum number of files fetched from a single site
     site_maxfiles = 10000
+    # Max HTML files
+    site_maxhtmlfiles = 8000
+    # Max PDF files
+    site_maxpdffiles = 1000
+    # Max other files
+    site_maxotherfiles = 1000
+    # NOTE that the sum of (site_maxhtmlfiles, site_maxpdffiles, site_maxotherfiles)
+    # SHOULD equal value of site_maxfiles.
+    
     # Maximum depth of a URL relative to site root
     site_maxdepth = 20
     # Maximum number of URLs to be sampled from a site
@@ -103,7 +116,6 @@ class CrawlerEvent(object):
         # mostly understood only by the subscriber method
         # (Protocol between publisher and subscriber)
         self.params = params
-        # print 'Params dict =>',params, event_name
         # ID of the event
         self.id = uuid.uuid4().hex
 
@@ -118,7 +130,7 @@ class CrawlerEvent(object):
             self.data = eval("%s('%s')" % (self.message_type, self.message))
         except Exception, e:
             self.data = ''
-            print e
+            log.error(str(e))
 
     def __str__(self):
         return 'Event for "%s", published at [%s] - id <%s>' % (self.event_name,
@@ -131,7 +143,18 @@ class CrawlerEventRegistry(object):
 
     # This class is a Singleton
     __metaclass__ = utils.SingletonMeta
-    
+    # Dictionary of allowed event names and descriptions
+    __events__ = {'download_complete': 'Published when a URL is downloaded successfully',
+                  'download_error': 'Published when a URL fails to download',
+                  'url_obtained': 'Published when a URL is obtained from the pipeline for processing',
+                  'url_parsed': "Published after a URL's data has been parsed for new (child) URLs",
+                  'url_filtered': "Published when a URL has been filtered after applying a rule",
+                  'crawl_started': "Published when the crawl is started, no events can be published before this event",
+                  'crawl_ended': "Published when the crawl ends, no events can be published after this event",
+                  'abort_crawling': "Published if the crawl has to be aborted midway"
+                  # More to come
+                  }
+     
     def __init__(self):
         # Dictionary of subscriber objects and the method
         # to invoke mapped against the event name as key
@@ -146,18 +169,28 @@ class CrawlerEventRegistry(object):
         be passed as keyword arguments. The first argument is always
         a handle to the publisher object itself """
 
+        # Not confirming to the list of supported events ? 
+        if event_name not in self.__events__:
+            log.info('Unrecognized event =>',event_name)
+            return False
+            
         # Create event object
         event = CrawlerEvent(publisher, event_name, **kwargs)
         # Notify all subscribers
-        self.notify(event)
-
+        return self.notify(event)
+        
     def notify(self, event):
         """ Notify all subscribers subscribed to an event """
         
         # Find subscribers
-        print 'Notifying all subscribers...',event
+        log.debug('Notifying all subscribers...',event)
+
+        count = 0
         for sub in self.subscribers.get(event.event_name, []):
             sub(event)
+            count += 1
+
+        return count
 
     def subscribe(self, event_name, method):
         """ Subscribe to an event with the given method """
@@ -168,6 +201,9 @@ class CrawlerStats(object):
     """ Class keeping crawler statistics such as total URLs downloaded,
     total URLs parsed, total time taken etc """
 
+    # This class is a Singleton
+    __metaclass__ = utils.SingletonMeta
+    
     # Stats kept
     # URLs
     # Number of total URLs crawled (not saved)
@@ -214,6 +250,7 @@ class CrawlerStats(object):
         """ Update total number of URLs downloaded """
 
         self.num_urls_downloaded += 1
+        log.debug('===> Number of URLs downloaded <===',self.num_urls_downloaded)
 
     def update_total_urls_skipped(self, event):
         """ Update total number of URLs skipped """
@@ -244,16 +281,16 @@ class CrawlerStats(object):
     def publish_stats(self):
         """ Publish crawl stats """
 
-        print "Total URLs =>",self.num_urls
-        print "Total URLs downloaded =>",self.num_urls_downloaded
-        print "Total URLs with error =>",self.num_urls_error
-        print "Total 404 URLs =>",self.num_urls_notfound
-        print "Total URLs skipped =>",self.num_urls_skipped
-        print "Crawl start time =>",self.start_timestamp
-        print "Crawl end time =>",self.end_timestamp
-        print "Time taken for crawl =>",str(self.crawl_time)
+        log.info("Total URLs =>",self.num_urls)
+        log.info("Total URLs downloaded =>",self.num_urls_downloaded)
+        log.info("Total URLs with error =>",self.num_urls_error)
+        log.info("Total 404 URLs =>",self.num_urls_notfound)
+        log.info("Total URLs skipped =>",self.num_urls_skipped)
+        log.info("Crawl start time =>",self.start_timestamp)
+        log.info("Crawl end time =>",self.end_timestamp)
+        log.info("Time taken for crawl =>",str(self.crawl_time))
         
-class CrawlerConfig(dict):
+class CrawlerConfig(object):
     """ Configuration for the Crawler """
 
     # This class is a Singleton
@@ -264,9 +301,10 @@ class CrawlerConfig(dict):
         self.site_scope = CrawlPolicy.site_scope
 
         # Site specific limites
-        for attr in ('maxfiles','maxdepth','maxurls','maxrequests','maxbytes', 'maxfilesize'):
-            fullattr = 'site_' + attr
-            setattr(self, fullattr, getattr(CrawlerLimits, fullattr))
+        for attr in CrawlerLimits.__dict__: 
+            # Only attributes
+            if not attr.startswith('__'):
+                setattr(self, attr, getattr(CrawlerLimits, attr))
 
         # Times
         # Sleep times between crawls
@@ -299,7 +337,24 @@ class CrawlerConfig(dict):
         # Client settings
         self.client_useragent = 'EIII Web Crawler v1.0 - http://www.eiii.eu'
         # Spoofed user-agent
-        self.client_spoofuseragent = 'Mozilla/5.0'
+        self.client_spoofuseragent = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0'
+        # Other headers to send
+
+        # requests library does automatic gzip decoding, so this is OK.
+
+        # Copied from Firefox standard headers.
+        self.client_accept = 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        self.client_accept_encoding = 'gzip, deflate'
+        self.client_accept_language = 'en-US, en;q=0.5'
+        self.client_connection = 'Connection: keep-alive'
+        self.client_standard_headers = ['Accept','Accept-Encoding','Accept-Language','Connection']
+
+        # Mime-types which we want to deal with
+        # All HTML/XML and plain text mime-types only, no PDF.
+        self.client_mimetypes = ['text/html','text/plain','text/xml','application/xhtml+xml','application/xml']
+        
+        # System settings
+        self.num_workers = 2
 
     def get_real_useragent(self):
         """ Return the effective user-agent string """
@@ -309,6 +364,22 @@ class CrawlerConfig(dict):
         else:
             return self.client_useragent        
 
+    def save(self, filename):
+        """ Write the config in JSON format to a file """
+
+        open(filename, 'w').write(json.dumps(self.__dict__, indent=True, sort_keys=True) + '\n')
+
+    @classmethod
+    def fromfile(cls, filename):
+        """ Create config by loading data from a JSON file """
+
+        config = json.loads(open(filename).read())
+        cfg = cls()
+        
+        # Set value
+        cfg.__dict__ = config
+        return cfg
+        
 class CrawlerUrlData(object):
     """ Class representing downloaded data for a URL """
 
@@ -316,6 +387,7 @@ class CrawlerUrlData(object):
         self.url = url
         # Useful stuff
         self.useragent = config.get_real_useragent()
+        self.config = config
 
     def download(self, crawler):
         """ Download the data """
@@ -334,6 +406,55 @@ class CrawlerUrlData(object):
 
         return ''
 
+    def build_headers(self):
+        """ Build headers for the request """
+
+        return {}
+
+class CrawlerLimitRules(object):
+    """ Class implementing crawler limiting rules with respect
+    to maximum limits set if any """
+
+    def __init__(self, config):
+        self.config = config
+        # Map the limits to content-type
+        self.limits = {'text/html': self.config.site_maxhtmlfiles,
+                       'application/pdf': self.config.site_maxpdffiles}
+        self.url_counts = collections.defaultdict(int)
+        # Subscribe to events
+        self.eventr = CrawlerEventRegistry.getInstance()
+        self.eventr.subscribe('download_complete', self.check_crawler_limits)
+
+    def update_counts(self, ctype):
+        """ Update URL count for the content-type """
+
+        self.url_counts[ctype] += 1
+        log.debug('===> Updating count for',ctype,' <====', self.url_counts[ctype])
+        
+    def check_crawler_limits(self, event):
+        """ Check whether enough URLs have been downloaded """
+        
+        # Get URL
+        log.debug('Checking crawler limits')
+        url = event.params.get('url')
+        if url:
+            headers = event.params.get('headers', {})
+            # get content type
+            ctype = urlhelper.get_content_type(url, headers)
+            self.update_counts(ctype)
+            
+            # Get limit for the content-type
+            url_limit = self.limits.get(ctype)
+
+            log.debug('Limits: ===>',url_limit,self.url_counts.get(ctype, 0),'<========')
+            if url_limit and self.url_counts.get(ctype, 0)>url_limit:
+                log.info('URL limit for content-type',ctype,'reached.')
+                # Send abort_crawling event
+                self.eventr.publish(self, 'abort_crawling',
+                                    message='URL limit for content-type "%s" has reached' % ctype)
+        else:
+            pass
+    
 class CrawlerScopingRules(object):
     """ Class implementing crawler scoping rules with respect
     to site and URL """
@@ -463,6 +584,11 @@ class CrawlerWorkerBase(threading.Thread):
 
         return False
 
+    def stop(self):
+        """ Forcefully stop the crawl """
+
+        raise NotImplementedError
+    
     def get(self, timeout=30):
         """ Return data (URLs) to be crawled """
 
@@ -473,69 +599,28 @@ class CrawlerWorkerBase(threading.Thread):
 
         raise NotImplementedError
 
-    def _guess_content_type(self, url):
-        """ Return a valid content-type if the URL is one of supported
-        file types. Guess from the extension if any. If no extension
-        found assume text/html """
-
-        # If this is a type we don't process this will
-        # return None
-        urlp = urlparse.urlparse(url)
-        path = urlp.path
-        
-        if path:
-            splitpath = urlp.path.rsplit('.', 1)
-            if len(splitpath)==2:
-                ext = splitpath[-1].lower()
-
-                # We support PDF, word and ODF
-                if ext == 'pdf':
-                    return 'application/pdf'
-                elif ext in ('doc', 'rtf'):
-                    return 'application/msword'
-                elif ext in ('.ppt'):
-                    return 'application/vnd.ms-powerpoint'
-                elif ext in ('docx',):
-                    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                elif ext in ('odt',):
-                    return 'application/vnd.oasis.opendocument.text'
-                elif ext in ('odp',):
-                    return 'application/vnd.oasis.opendocument.presentation'
-                elif ext in ('ods',):
-                    return 'application/vnd.oasis.opendocument.spreadsheet'
-                else:
-                    return 'text/html'
-            else:
-                # No extension - assume HTML
-                return 'text/html'
-        else:
-            # No path, assume HTML
-            return 'text/html'
-        
-    def get_content_type(self, url, headers):
-        """ Given a URL and its headers find the content-type """
-
-        # If there is a content-type field in the headers
-        # return using that
-        try:
-            return headers['content-type']
-        except KeyError:
-            return self._guess_content_type(url)
-        
     def do_crawl(self):
-        """ Do the actual crawl """
+        """ Do the actual crawl. This function provides a pluggable
+        crawler workflow structure. The methods called by the crawler
+        are pluggable in the sense that sub-classes need to override
+        most of them for the actual crawl to work. However the skeleton
+        of the workflow is defined by this method.
+
+        A sub-class can implement a new crawl workflow by completely
+        overriding this method though it is not suggested.
+        """
 
         while self.work_pending() and (not self.should_stop()):
             data = self.get()
             if not data:
-                print 'No URLs to crawl.'
+                log.info('No URLs to crawl.')
                 break
 
             # Convert the data to URLs - namely child URL and parent URL and any additional data
             content_type, url, parent_url= self.parse_queue_urls(data)
 
             if self.allowed(url, parent_url, content_type):
-                print 'Downloading URL',url,'...'
+                log.info('Downloading URL',url,'...')
                 urlobj = self.download(url)
                 
                 # Data is obtained using the method urlobj.get_data()
@@ -564,23 +649,25 @@ class CrawlerWorkerBase(threading.Thread):
                         # Build full URL
                         full_curl = self.build_url(curl, url)
                         # Insert this back to the queue
-                        content_type = self.get_content_type(full_curl, headers)
+                        content_type = urlhelper.get_content_type(full_curl, headers)
                         # Skip if not allowed
                         if self.allowed(full_curl, parent_url=url, content_type=content_type):
                             newurls.append((content_type, full_curl, url))
                         else:
-                            print 'Skipping URL',full_curl,'...'
+                            log.info('Skipping URL',full_curl,'...')
                         
                     # Push data into the queue
                     for newurl in newurls:
                         self.push(newurl)
                 else:
-                    print 'No data for URL or content-rules do not allow indexing',url,'...'
+                    log.debug('No data for URL or content-rules do not allow indexing',url,'...')
 
             else:
-                print 'Skipping URL',url,'...'
+                log.info('Skipping URL',url,'...')
 
             self.sleep()
+
+        log.info('Worker',self,'done.')
 
     def sleep(self):
         """ Sleep it off """
@@ -600,11 +687,11 @@ class CrawlerWorkerBase(threading.Thread):
     def run(self):
         """ Do the actual crawl """
 
+        log.info('Worker',self,'starting...')
         # Defines the "framework" for crawling
         self.before_crawl()
         self.do_crawl()
         self.after_crawl()
     
 if __name__ == "__main__":
-    t = CrawlerWorkerBase(CrawlerConfig())
-    t.start()
+    CrawlerConfig().save('config.json')
