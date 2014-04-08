@@ -1,0 +1,42 @@
+{
+ "client_accept": "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 
+ "client_accept_encoding": "gzip, deflate", 
+ "client_accept_language": "en-US, en;q=0.5", 
+ "client_connection": "Connection: keep-alive", 
+ "client_mimetypes": [
+  "text/html", 
+  "text/plain", 
+  "text/xml", 
+  "application/xhtml+xml", 
+  "application/xml"
+ ], 
+ "client_spoofuseragent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0", 
+ "client_standard_headers": [
+  "Accept", 
+  "Accept-Encoding", 
+  "Accept-Language", 
+  "Connection"
+ ], 
+ "client_useragent": "EIII Web Crawler v1.0 - http://www.eiii.eu", 
+ "flag_cacheheaders": true, 
+ "flag_httpcompress": true, 
+ "flag_ignorerobots": false, 
+ "flag_ignoretlds": false, 
+ "flag_metarobots": true, 
+ "flag_randomize_sleep": true, 
+ "flag_randomize_urls": false, 
+ "flag_spoofua": true, 
+ "network_proxy": "", 
+ "num_workers": 2, 
+ "site_maxbytes": 500, 
+ "site_maxdepth": 20, 
+ "site_maxfiles": 10000, 
+ "site_maxfilesize": 20, 
+ "site_maxhtmlfiles": 8000, 
+ "site_maxotherfiles": 1000, 
+ "site_maxpdffiles": 1000, 
+ "site_maxrequests": 20, 
+ "site_maxurls": 10000, 
+ "site_scope": "SITE_SCOPE", 
+ "time_sleeptime": 1.0
+}
