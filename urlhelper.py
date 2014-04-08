@@ -13,10 +13,19 @@ import sgmllib
 import urlparse
 import base64
 import zlib
+import urlnorm
+import re
 
 ___author__ = "Anand B Pillai"
 __maintainer__ = "Anand B Pillai"
 __version__ = "0.1"
+
+# Regular expression for anchor tags
+anchor_re = re.compile(r'\#+')
+# Regular expression for www prefixes at front of a string
+www_re = re.compile(r'^www(\d*)\.')
+# Regular expression for www prefixes anywhere
+www2_re = re.compile(r'www(\d*)\.')
 
 # List of TLD (top-level domain) name endings from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 # courtesy HarvestMan, stored in base64 encoded, compressed, string form
@@ -154,6 +163,59 @@ def get_full_url(url):
 
     return url
 
+def guess_content_type(url):
+    """ Return a valid content-type if the URL is one of supported
+    file types. Guess from the extension if any. If no extension
+    found assume text/html """
+
+    # If this is a type we don't process this will
+    # return None
+    urlp = urlparse.urlparse(url)
+    path = urlp.path
+
+    if path:
+        splitpath = urlp.path.rsplit('.', 1)
+        if len(splitpath)==2:
+            ext = splitpath[-1].lower()
+
+            # We support PDF, word and ODF
+            if ext == 'pdf':
+                return 'application/pdf'
+            elif ext in ('doc', 'rtf'):
+                return 'application/msword'
+            elif ext in ('.ppt'):
+                return 'application/vnd.ms-powerpoint'
+            elif ext in ('docx',):
+                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            elif ext in ('odt',):
+                return 'application/vnd.oasis.opendocument.text'
+            elif ext in ('odp',):
+                return 'application/vnd.oasis.opendocument.presentation'
+            elif ext in ('ods',):
+                return 'application/vnd.oasis.opendocument.spreadsheet'
+            else:
+                return 'text/html'
+        else:
+            # No extension - assume HTML
+            return 'text/html'
+    else:
+        # No path, assume HTML
+        return 'text/html'
+
+def get_content_type(url, headers):
+    """ Given a URL and its headers find the content-type """
+
+    # If there is a content-type field in the headers
+    # return using that
+    try:
+        ctype_header = headers['content-type']
+        # This can be sometimes of the form text/html; charset=utf-8, we only
+        # want the former part.
+        return ctype_header.split(';')[0].strip()
+    except KeyError:
+        return guess_content_type(url)
+        
+
 class URLLister(sgmllib.SGMLParser):
     """ Simple HTML parser using sgmllib's SGMLParser """
 
@@ -196,3 +258,134 @@ class URLLister(sgmllib.SGMLParser):
         if href:
             self.urls.extend(href)
             self.lasthref = href
+
+class URLBuilder(object):
+    """ URL builder for building complete child URLs using
+    URL bits and source URLs """
+    
+    def __init__(self, url, parent_url=''):
+        self.url = url
+        self.parent_url = parent_url
+
+    def normalize(self, url):
+        try:
+            return urlnorm.norms(url)
+        except:
+            return url
+        
+    def build(self):
+        """ Build the full child URL using the original child URL
+        and the parent URL (NOTE: Parts of this code has been
+        borrowed from HarvestMan's urlparser library) """
+
+        # Courtesy: HarvestMan
+        url = self.url
+        parent_url = self.parent_url
+        
+        url = url.strip()
+            
+        if not url:
+            return ''
+
+        # Plain anchor URLs
+        if any([url.startswith(item) for item in ('#','mailto:','javascript:','tel:')]):
+            return ''
+
+        # Seriously I am surprised we don't handle anchor links properly yet.
+        if '#' in url:
+            items = anchor_re.split(url)
+            if len(items):
+                url = items[0]
+            else:
+                # Forget about it
+                return ''
+            
+        if (url.startswith('http:') or url.startswith('https:')):
+            return self.normalize(url)
+
+        # What about FTP ?
+        if url.startswith('ftp:'):
+            return self.normalize(url)
+
+        # We accept FTP urls beginning with just
+        # ftp.<server>, and consider it as FTP over HTTP
+        if url.startswith('ftp.'):
+            # FTP over HTTP
+            url = 'http://' + url           
+            return self.normalize(url)            
+
+        # URLs not starting with https?: or ftp: but with www, i.e http
+        # omitted - we need to treat them as HTTP.
+        if www_re.match(url):
+            url = 'http://' + url
+            return self.normalize(url)          
+            
+        # Urls relative to server might begin with a //. Then prefix the
+        # protocol string to them.
+        if url.startswith('//'):
+            if parent_url:
+                protocol = urlparse.urlparse(parent_url).scheme  + '://'
+            else:
+                protocol = "http://"   
+
+            url = protocol + url[2:]
+            return self.normalize(url)                      
+            
+        protocol,domain,path,dummy,dummy,dummy = urlparse.urlparse(parent_url)
+        
+        if url.startswith('/'):
+            try:
+                url = protocol + '://' + domain + url
+            except UnicodeDecodeError:
+                # Quote URL
+                url = protocol + '://' + domain + urllib.quote(url)
+        else:
+            path = path[:path.rfind('/')]
+            try:
+                url = protocol +'://' + domain + '/' + path +'/' + url
+            except UnicodeDecodeError:
+                # Quote URL
+                url = protocol +'://' + domain + '/' + path +'/' + urllib.quote(url)
+
+        return self.normalize(url)
+        
+if __name__ == "__main__":
+    hulist = [ URLBuilder('http://www.yahoo.com/photos/my photo.gif'),
+               URLBuilder('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
+               URLBuilder('http://cwc2003.rediffblogs.com'),
+               URLBuilder('/sports/2003/jun/25beck1.htm',
+                          'http://www.rediff.com'),
+               URLBuilder('http://ftp.gnu.org/pub/lpf.README'),
+               URLBuilder('http://www.python.org/doc/2.3b2/'),
+               URLBuilder('//images.sourceforge.net/div.png', # Works
+                          'http://sourceforge.net'),
+               URLBuilder('http://pyro.sourceforge.net/manual/LICENSE'),
+               URLBuilder('python/test.htm', 
+                          'http://www.foo.com/bar/index.html'),
+               URLBuilder('/python/test.css',
+                          'http://www.foo.com/bar/vodka/test.htm'),
+               URLBuilder('/visuals/standard.css', 
+                          'http://www.garshol.priv.no/download/text/perl.html'),
+               URLBuilder('www.fnorb.org/index.html', # Works
+                          'http://pyro.sourceforge.net'), 
+               URLBuilder('http://profigure.sourceforge.net/index.html',
+                          'http://pyro.sourceforge.net'),
+               URLBuilder('#anchor',   # Hmmm, 
+                          'http://www.foo.com/bar/index.html'),
+               URLBuilder('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after', # O.K
+                          'http://nltk.sourceforge.net/lite/doc/api/term-index.html'),
+               URLBuilder('../../icons/up.png',  # Works
+                          'http://www.python.org/doc/current/tut/node2.html'),
+               URLBuilder('../../eway/library/getmessage.asp?objectid=27015&moduleid=160', # Works
+                          'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
+               URLBuilder('fileadmin/dz.gov.si/templates/../../../index.php', # Works
+                          'http://www.dz-rs.si'),
+               URLBuilder('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70',
+                          'http://www.evvs.dk'),
+               URLBuilder('http://arstechnica.com/reviews/os/macosx-10.4.ars'),
+               URLBuilder('../index.php','http://www.foo.com/bar/'),
+               URLBuilder('./index.php','http://www.yahoo.com/images/public/'),
+               URLBuilder('http://www.foo.com/foo/../index.php')]    
+
+    for item in hulist:
+        print item.build()
