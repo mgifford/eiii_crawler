@@ -300,7 +300,57 @@ class URLBuilder(object):
     def build(self):
         """ Build the full child URL using the original child URL
         and the parent URL (NOTE: Parts of this code has been
-        borrowed from HarvestMan's urlparser library) """
+        borrowed from HarvestMan's urlparser library)
+
+        >>> URLBuilder('http://www.yahoo.com/photos/my photo.gif').build()
+        'http://www.yahoo.com/photos/my photo.gif'
+        >>> URLBuilder('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm').build()
+        'http://www.rediff.com/r/r/tn2/2003/jun/25usfed.htm'
+        >>> URLBuilder('http://cwc2003.rediffblogs.com').build()
+        'http://cwc2003.rediffblogs.com'
+        >>> URLBuilder('/sports/2003/jun/25beck1.htm','http://www.rediff.com').build()
+        'http://www.rediff.com/sports/2003/jun/25beck1.htm'
+        >>> URLBuilder('http://ftp.gnu.org/pub/lpf.README').build()
+        'http://ftp.gnu.org/pub/lpf.README'
+        >>> URLBuilder('http://www.python.org/doc/2.3b2/').build()
+        'http://www.python.org/doc/2.3b2/'
+        >>> URLBuilder('//images.sourceforge.net/div.png', 'http://sourceforge.net').build()
+        'http://images.sourceforge.net/div.png'
+        >>> URLBuilder('http://pyro.sourceforge.net/manual/LICENSE').build()
+        'http://pyro.sourceforge.net/manual/LICENSE'
+        >>> URLBuilder('python/test.htm', 'http://www.foo.com/bar/index.html').build()
+        'http://www.foo.com/bar/python/test.htm'
+        >>> URLBuilder('/python/test.css','http://www.foo.com/bar/vodka/test.htm').build()
+        'http://www.foo.com/python/test.css'
+        >>> URLBuilder('/visuals/standard.css', 'http://www.garshol.priv.no/download/text/perl.html').build()
+        'http://www.garshol.priv.no/visuals/standard.css'
+        >>> URLBuilder('www.fnorb.org/index.html', 'http://pyro.sourceforge.net').build()
+        'http://www.fnorb.org/index.html'
+        >>> URLBuilder('http://profigure.sourceforge.net/index.html','http://pyro.sourceforge.net').build()
+        'http://profigure.sourceforge.net/index.html'
+        >>> URLBuilder('#anchor', 'http://www.foo.com/bar/index.html').build()
+        ''
+        >>> URLBuilder('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after','http://nltk.sourceforge.net/lite/doc/api/term-index.html').build()
+        'http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html'
+        >>> URLBuilder('../../icons/up.png', 'http://www.python.org/doc/current/tut/node2.html').build()
+        'http://www.python.org/doc/icons/up.png'
+        >>> URLBuilder('../../eway/library/getmessage.asp?objectid=27015&moduleid=160', 'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160').build()
+        'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'
+        >>> URLBuilder('fileadmin/dz.gov.si/templates/../../../index.php', 'http://www.dz-rs.si').build()
+        'http://www.dz-rs.si/index.php'
+        >>> URLBuilder('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','http://www.evvs.dk').build()
+        'http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70'
+        >>> URLBuilder('http://arstechnica.com/reviews/os/macosx-10.4.ars').build()
+        'http://arstechnica.com/reviews/os/macosx-10.4.ars'
+        >>> URLBuilder('../index.php','http://www.foo.com/bar/').build()
+        'http://www.foo.com/index.php'
+        >>> URLBuilder('./index.php','http://www.yahoo.com/images/public/').build()
+        'http://www.yahoo.com/images/public/index.php'
+        >>> URLBuilder('http://www.foo.com/foo/../index.php').build()
+        'http://www.foo.com/index.php'
+        >>> 
+
+        """
 
         # Courtesy: HarvestMan
         url = self.url
@@ -374,42 +424,5 @@ class URLBuilder(object):
         return self.normalize(url)
         
 if __name__ == "__main__":
-    hulist = [ URLBuilder('http://www.yahoo.com/photos/my photo.gif'),
-               URLBuilder('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm'),
-               URLBuilder('http://cwc2003.rediffblogs.com'),
-               URLBuilder('/sports/2003/jun/25beck1.htm',
-                          'http://www.rediff.com'),
-               URLBuilder('http://ftp.gnu.org/pub/lpf.README'),
-               URLBuilder('http://www.python.org/doc/2.3b2/'),
-               URLBuilder('//images.sourceforge.net/div.png', # Works
-                          'http://sourceforge.net'),
-               URLBuilder('http://pyro.sourceforge.net/manual/LICENSE'),
-               URLBuilder('python/test.htm', 
-                          'http://www.foo.com/bar/index.html'),
-               URLBuilder('/python/test.css',
-                          'http://www.foo.com/bar/vodka/test.htm'),
-               URLBuilder('/visuals/standard.css', 
-                          'http://www.garshol.priv.no/download/text/perl.html'),
-               URLBuilder('www.fnorb.org/index.html', # Works
-                          'http://pyro.sourceforge.net'), 
-               URLBuilder('http://profigure.sourceforge.net/index.html',
-                          'http://pyro.sourceforge.net'),
-               URLBuilder('#anchor',   # Hmmm, 
-                          'http://www.foo.com/bar/index.html'),
-               URLBuilder('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after', # O.K
-                          'http://nltk.sourceforge.net/lite/doc/api/term-index.html'),
-               URLBuilder('../../icons/up.png',  # Works
-                          'http://www.python.org/doc/current/tut/node2.html'),
-               URLBuilder('../../eway/library/getmessage.asp?objectid=27015&moduleid=160', # Works
-                          'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'),
-               URLBuilder('fileadmin/dz.gov.si/templates/../../../index.php', # Works
-                          'http://www.dz-rs.si'),
-               URLBuilder('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70',
-                          'http://www.evvs.dk'),
-               URLBuilder('http://arstechnica.com/reviews/os/macosx-10.4.ars'),
-               URLBuilder('../index.php','http://www.foo.com/bar/'),
-               URLBuilder('./index.php','http://www.yahoo.com/images/public/'),
-               URLBuilder('http://www.foo.com/foo/../index.php')]    
-
-    for item in hulist:
-        print item.build()
+    import doctest
+    doctest.testmod(verbose=True)
