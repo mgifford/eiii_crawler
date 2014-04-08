@@ -1,6 +1,6 @@
 import inspect
 import requests
-import contextlib
+from contextlib import contextmanager
 
 # Global logger object
 g_logger = None
@@ -135,3 +135,45 @@ def cleanurl(url):
         url = url[:url.index('#')]
     return url.rstrip('/&')
 
+
+@contextmanager
+def ignored(*exceptions):
+    """ Ignore specific chain of exceptions
+
+    >>> import os
+    >>> with ignored(OSError):
+    ...     os.remove('notfound')
+    ... 
+    >>> 
+    """
+
+    try:
+        yield
+    except exceptions:
+        pass
+
+# Ignore exceptions
+class ignore(object):
+    """ Context manager class for ignoring exceptions
+    generated in the dependent block.
+
+    >>> x='python'
+    >>> try:
+    ...     x.index('.')
+    ... except ValueError, e:
+    ...     print e
+    ... 
+    substring not found
+    >>> with ignore():
+    ...     x.index('.')
+    ... 
+    """
+    
+    def __enter__(self):
+        pass
+    
+    def __exit__(self, type, value, traceback):
+        # According to PEP 343 returning True from
+        # __exit__ causes the context manager to ignore
+        # exceptions generated in the BLOCK.
+        return True
