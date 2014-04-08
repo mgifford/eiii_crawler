@@ -1,5 +1,8 @@
 import inspect
 import requests
+import itertools
+import os
+
 from contextlib import contextmanager
 
 # Global logger object
@@ -177,3 +180,17 @@ class ignore(object):
         # __exit__ causes the context manager to ignore
         # exceptions generated in the BLOCK.
         return True
+
+def create_cache_structure(root='.'):
+    """ Create folder structure for writing cache """
+
+    print "Creating cache directories..."
+    # All combinations
+    hexchars = 'abcdef0123456789'
+
+    for i in itertools.product(hexchars, hexchars):
+        folder = os.path.join(root, ''.join(i))
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+    print "done."
