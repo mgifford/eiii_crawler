@@ -12,6 +12,7 @@ import collections
 import datetime
 import json
 import logger
+import os
 
 log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
 
@@ -37,7 +38,8 @@ class CrawlPolicy(object):
     all_site_scopes = (site_scope, site_full_scope, site_link_scope,
                        site_full_link_scope, site_exhaustive_scope)
 
-    all_fullsite_scopes = (site_full_scope, site_full_link_scope) 
+    all_fullsite_scopes = (site_full_scope, site_full_link_scope)
+    all_folder_scopes = (folder_scope, folder_link_scope)
     
 class CrawlerLimits(object):
     """ Class keeping constants on maximum limits for the
@@ -66,6 +68,113 @@ class CrawlerLimits(object):
     site_maxfilesize = 20
     # Flags
 
+class CrawlerConfig(object):
+    """ Configuration for the Crawler """
+
+    # This class is a Singleton
+    __metaclass__ = utils.SingletonMeta
+    
+    def __init__(self):
+        # Site scope
+        self.site_scope = CrawlPolicy.site_scope
+
+        # Site specific limites
+        for attr in CrawlerLimits.__dict__: 
+            # Only attributes
+            if not attr.startswith('__'):
+                setattr(self, attr, getattr(CrawlerLimits, attr))
+
+        # Times
+        # Sleep times between crawls
+        self.time_sleeptime = 1.0
+
+        # Boolean Flags
+        # Randomize sleep ?
+        self.flag_randomize_sleep = True
+        # Randomize URLs pushed to Queue ?
+        self.flag_randomize_urls = False
+        # Request data as HTTP compressed ?
+        self.flag_httpcompress = True
+        # Store data - if this is set to true, URL data
+        # is saved in the local data store. This can be
+        # used to avoid network fetchers for URLs which
+        # are not modified w.r.t timestamps or Etags.
+        self.flag_storedata = True
+        # Enable HTTP 304 caching using last-modified ?
+        self.flag_use_last_modified = True
+        # Enable HTTP 304 caching using etag ?
+        self.flag_use_etags = True
+        # NOTE that above two would work only if flag_storedata
+        # is True, otherwise there is no actual use of these flags.
+        # Ignore TLDs ? If ignored www.foo.com, www.foo.co.uk, www.foo.org
+        # all evaluate to same server so site scope will download
+        # from all of these
+        self.flag_ignoretlds = False
+        # Spoof user-agent ?
+        self.flag_spoofua = True
+        # Ignore robots txt
+        self.flag_ignorerobots = False
+        # Obey meta robots txt ?
+        self.flag_metarobots = True
+
+        # Network settings - Address of network proxy including port if any
+        self.network_proxy = ''
+
+        # Client settings
+        self.client_useragent = 'EIII Web Crawler v1.0 - http://www.eiii.eu'
+        # Spoofed user-agent
+        self.client_spoofuseragent = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0'
+        # Other headers to send
+
+        # Copied from Firefox standard headers.
+        self.client_accept = 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        # requests library does automatic gzip decoding, so this is OK.     
+        self.client_accept_encoding = 'gzip, deflate'
+        self.client_accept_language = 'en-US, en;q=0.5'
+        self.client_connection = 'Connection: keep-alive'
+        self.client_standard_headers = ['Accept','Accept-Encoding','Accept-Language','Connection']
+
+        # Mime-types which we want to deal with
+        # All HTML/XML and plain text mime-types only, no PDF, no shit.
+        self.client_mimetypes = ['text/html','text/plain','text/xml','application/xhtml+xml','application/xml']
+        
+        # System settings
+        self.num_workers = 2
+        # Config directory 
+        self.configdir = '~/.eiii/crawler'      
+        # Store directory for file metadata, defaults to ~/.eiii/crawler/store folder
+        self.storedir = os.path.join(self.configdir, 'store')
+
+    def get_real_useragent(self):
+        """ Return the effective user-agent string """
+
+        if self.flag_spoofua:
+            return self.client_spoofuseragent
+        else:
+            return self.client_useragent        
+
+    def save(self, filename):
+        """ Write the config in JSON format to a file """
+
+        open(filename, 'w').write(json.dumps(self.__dict__, indent=True, sort_keys=True) + '\n')
+
+    def save_default(self):
+        """ Save configuration to default location """
+
+        fpath = os.path.expanduser(os.path.join(self.configdir, 'config.json'))
+        return self.save(fpath)
+    
+    @classmethod
+    def fromfile(cls, filename):
+        """ Create config by loading data from a JSON file """
+
+        config = json.loads(open(filename).read())
+        cfg = cls()
+        
+        # Set value
+        cfg.__dict__ = config
+        return cfg
+        
 # Event management for crawling - this implements a simple decoupled Publisher-Subscriber
 # design pattern through a mediator whereby specific events are raised during the crawler workflow.
 # Client objects can subscribe to these events by passing a function that should be called
@@ -146,6 +255,7 @@ class CrawlerEventRegistry(object):
     # Dictionary of allowed event names and descriptions
     __events__ = {'download_complete': 'Published when a URL is downloaded successfully',
                   'download_error': 'Published when a URL fails to download',
+                  'download_cache': 'Retrieved a URL from the cache',
                   'url_obtained': 'Published when a URL is obtained from the pipeline for processing',
                   'url_parsed': "Published after a URL's data has been parsed for new (child) URLs",
                   'url_filtered': "Published when a URL has been filtered after applying a rule",
@@ -216,6 +326,8 @@ class CrawlerStats(object):
     num_urls_error = 0
     # Number of urls not found (404 error)
     num_urls_notfound = 0
+    # Number of URLs retrieved from cache
+    num_urls_cache = 0
 
     # Time
     # Start time-stamp
@@ -233,6 +345,7 @@ class CrawlerStats(object):
         # Subscribe to events
         eventr = CrawlerEventRegistry.getInstance()
         eventr.subscribe('download_complete', self.update_total_urls_downloaded)
+        eventr.subscribe('download_cache', self.update_total_urls_cache)       
         eventr.subscribe('download_error', self.update_total_urls_error)
         eventr.subscribe('url_obtained', self.update_total_urls)
         eventr.subscribe('url_filtered', self.update_total_urls_skipped)
@@ -246,6 +359,12 @@ class CrawlerStats(object):
         # NOTE: This also includes duplicates, URLs with errors - everything.
         self.num_urls += 1
 
+    def update_total_urls_cache(self, event):
+        """ Update total number of URLs retrieved from cache """
+
+        self.num_urls_cache += 1
+        log.debug('===> Number of URLs from cache <===',self.num_urls_cache)
+        
     def update_total_urls_downloaded(self, event):
         """ Update total number of URLs downloaded """
 
@@ -284,101 +403,12 @@ class CrawlerStats(object):
         log.info("Total URLs =>",self.num_urls)
         log.info("Total URLs downloaded =>",self.num_urls_downloaded)
         log.info("Total URLs with error =>",self.num_urls_error)
+        log.info("Total URLs from Cache =>",self.num_urls_cache)        
         log.info("Total 404 URLs =>",self.num_urls_notfound)
         log.info("Total URLs skipped =>",self.num_urls_skipped)
         log.info("Crawl start time =>",self.start_timestamp)
         log.info("Crawl end time =>",self.end_timestamp)
         log.info("Time taken for crawl =>",str(self.crawl_time))
-        
-class CrawlerConfig(object):
-    """ Configuration for the Crawler """
-
-    # This class is a Singleton
-    __metaclass__ = utils.SingletonMeta
-    
-    def __init__(self):
-        # Site scope
-        self.site_scope = CrawlPolicy.site_scope
-
-        # Site specific limites
-        for attr in CrawlerLimits.__dict__: 
-            # Only attributes
-            if not attr.startswith('__'):
-                setattr(self, attr, getattr(CrawlerLimits, attr))
-
-        # Times
-        # Sleep times between crawls
-        self.time_sleeptime = 1.0
-
-        # Boolean Flags
-        # Randomize sleep ?
-        self.flag_randomize_sleep = True
-        # Randomize URLs pushed to Queue ?
-        self.flag_randomize_urls = False
-        # Request data as HTTP compressed ?
-        self.flag_httpcompress = True
-        # Cache HTTP headers for re-request and supporting
-        # last-modified time (304), etags etc
-        self.flag_cacheheaders = True
-        # Ignore TLDs ? If ignored www.foo.com, www.foo.co.uk, www.foo.org
-        # all evaluate to same server so site scope will download
-        # from all of these
-        self.flag_ignoretlds = False
-        # Spoof user-agent ?
-        self.flag_spoofua = True
-        # Ignore robots txt
-        self.flag_ignorerobots = False
-        # Obey meta robots txt ?
-        self.flag_metarobots = True
-
-        # Network settings - Address of network proxy including port if any
-        self.network_proxy = ''
-
-        # Client settings
-        self.client_useragent = 'EIII Web Crawler v1.0 - http://www.eiii.eu'
-        # Spoofed user-agent
-        self.client_spoofuseragent = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0'
-        # Other headers to send
-
-        # requests library does automatic gzip decoding, so this is OK.
-
-        # Copied from Firefox standard headers.
-        self.client_accept = 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-        self.client_accept_encoding = 'gzip, deflate'
-        self.client_accept_language = 'en-US, en;q=0.5'
-        self.client_connection = 'Connection: keep-alive'
-        self.client_standard_headers = ['Accept','Accept-Encoding','Accept-Language','Connection']
-
-        # Mime-types which we want to deal with
-        # All HTML/XML and plain text mime-types only, no PDF.
-        self.client_mimetypes = ['text/html','text/plain','text/xml','application/xhtml+xml','application/xml']
-        
-        # System settings
-        self.num_workers = 2
-
-    def get_real_useragent(self):
-        """ Return the effective user-agent string """
-
-        if self.flag_spoofua:
-            return self.client_spoofuseragent
-        else:
-            return self.client_useragent        
-
-    def save(self, filename):
-        """ Write the config in JSON format to a file """
-
-        open(filename, 'w').write(json.dumps(self.__dict__, indent=True, sort_keys=True) + '\n')
-
-    @classmethod
-    def fromfile(cls, filename):
-        """ Create config by loading data from a JSON file """
-
-        config = json.loads(open(filename).read())
-        cfg = cls()
-        
-        # Set value
-        cfg.__dict__ = config
-        return cfg
         
 class CrawlerUrlData(object):
     """ Class representing downloaded data for a URL """
@@ -464,6 +494,9 @@ class CrawlerScopingRules(object):
         self.url = url
         # Find the site without the scheme
         self.site = urlhelper.get_website(url)
+        # Find the 'folder' of the URL
+        # E.g: http://www.foo.com/bar/vodka/index.html => http://www.foo.com/bar/vodka/
+        self.folder = urlhelper.get_url_directory(url)
         # Root site
         self.rootsite = urlhelper.get_root_website(self.site)
 
@@ -481,6 +514,14 @@ class CrawlerScopingRules(object):
             if scope in CrawlPolicy.all_site_scopes:
                 # print 'Same site, all site scope, returning True'
                 return True
+            elif scope in CrawlPolicy.all_folder_scopes:
+                # NOTE - folder_link_scope check is not implemented
+                # Only folder scope is done. Folder scope is correct
+                # if URL is inside the root folder.
+                # E.g: http://www.foo.com/bar/vodka/images/index.html
+                # for root folder http://www.foo.com/bar/vodka/
+                if url.find(self.folder)==0:
+                    return True
         else:
             # Different site - work out root site
             # If root site is same for example images.foo.com and static.foo.com
@@ -496,7 +537,7 @@ class CrawlerScopingRules(object):
 
         # Folder scopes and external site scopes
         # to be worked out later.
-        return True
+        return False
     
             
 class CrawlerWorkerBase(threading.Thread):
@@ -507,6 +548,7 @@ class CrawlerWorkerBase(threading.Thread):
         """ Initializer - sets configuration """
 
         self.config = config
+        self.state = 0
         # Prepare config
         self.prepare_config()
         threading.Thread.__init__(self, None, None, 'CrawlerWorker-' + uuid.uuid4().hex)
@@ -594,6 +636,11 @@ class CrawlerWorkerBase(threading.Thread):
 
         raise NotImplementedError
 
+    def get_state(self):
+        """ Return the state """
+        
+        return self.state
+    
     def push(self, data):
         """ Push new data back """
 
@@ -611,14 +658,19 @@ class CrawlerWorkerBase(threading.Thread):
         """
 
         while self.work_pending() and (not self.should_stop()):
+            # State is 0 - about to get data
+            self.state = 0
             data = self.get()
-            if not data:
+            
+            if data==((None,None,None)):
                 log.info('No URLs to crawl.')
                 break
 
             # Convert the data to URLs - namely child URL and parent URL and any additional data
             content_type, url, parent_url= self.parse_queue_urls(data)
 
+            # State is 1 - got data, doing work
+            self.state = 1
             if self.allowed(url, parent_url, content_type):
                 log.info('Downloading URL',url,'...')
                 urlobj = self.download(url)
@@ -648,14 +700,18 @@ class CrawlerWorkerBase(threading.Thread):
                         if len(curl.strip())==0: continue
                         # Build full URL
                         full_curl = self.build_url(curl, url)
+                        if len(full_curl)==0: continue
+                        
                         # Insert this back to the queue
                         content_type = urlhelper.get_content_type(full_curl, headers)
                         # Skip if not allowed
                         if self.allowed(full_curl, parent_url=url, content_type=content_type):
                             newurls.append((content_type, full_curl, url))
                         else:
-                            log.info('Skipping URL',full_curl,'...')
-                        
+                            log.debug('Skipping URL',full_curl,'...')
+
+                    # State is 2, did work, pushing newd data
+                    self.state = 2
                     # Push data into the queue
                     for newurl in newurls:
                         self.push(newurl)
@@ -663,8 +719,10 @@ class CrawlerWorkerBase(threading.Thread):
                     log.debug('No data for URL or content-rules do not allow indexing',url,'...')
 
             else:
-                log.info('Skipping URL',url,'...')
+                log.debug('Skipping URL',url,'...')
 
+            # State is 3, sleeping off
+            self.state = 3
             self.sleep()
 
         log.info('Worker',self,'done.')
@@ -694,4 +752,5 @@ class CrawlerWorkerBase(threading.Thread):
         self.after_crawl()
     
 if __name__ == "__main__":
-    CrawlerConfig().save('config.json')
+    CrawlerConfig().save_default()
+    CrawlerConfig().save('config.json') 
