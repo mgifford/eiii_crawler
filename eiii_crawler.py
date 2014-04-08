@@ -2,7 +2,7 @@
 
 import crawlerbase
 from crawlerbase import CrawlerEventRegistry
-import sys
+import sys, os
 import Queue
 import requests
 import urlhelper
@@ -10,14 +10,14 @@ import robocop
 import urllib
 import urlparse
 import signal
-import bitmap
 import binascii
 import re
 import time
 import logger
-
-msword_re = re.compile(r'microsoft\s+(word|powerpoint|excel)\s*-', re.IGNORECASE)
-paren_re = r=re.compile('^\(|\)$')
+import utils
+import argparse
+import hashlib
+import zlib
 
 log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
 
@@ -25,6 +25,98 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
     """ Class representing downloaded data for a URL.
     The data is downloaded using the TingtunUtils fetcher """
 
+    def __init__(self, url, config):
+        super(self.__class__, self).__init__(url, config)
+        self.headers = {}
+        self.content = ''
+        
+    def get_url_store_paths(self):
+        """ Return a 3-tuple of paths to the URL data and header files
+        and their directory """
+
+        urlhash = hashlib.md5(self.url).hexdigest()
+        # First two bytes for folder, next two for file
+        folder, sub_folder, fname = urlhash[:2], urlhash[2:4], urlhash[4:]
+        # Folder is inside 'store' directory
+        dirpath = os.path.expanduser(os.path.join(self.config.storedir, folder, sub_folder))
+        # Data file
+        fpath = os.path.expanduser(os.path.join(dirpath, fname))
+        # Header file
+        fhdr = fpath + '.hdr'
+
+        return (fpath, fhdr, dirpath)
+        
+    def write_headers_and_data(self):
+        """ Save the headers and data for the URL to the local store """
+
+        if self.config.flag_storedata:
+            fpath, fhdr, dirpath = self.get_url_store_paths()
+            # Write data to fpath
+            try:
+                with utils.ignore(): os.makedirs(dirpath)
+                open(fpath, 'wb').write(zlib.compress(self.content))
+                open(fhdr, 'wb').write(zlib.compress(str(dict(self.headers))))
+                log.info('Wrote URL data to',fpath,'for URL',self.url)
+            except Exception, e:
+                log.error("Error in writing URL data for URL",self.url)
+                log.error("\t",str(e))
+
+    def make_head_request(self, headers):
+        """ Make a head request with header values (if-modified-since and/or etag).
+        Return True if data is up-to-date and False otherwise. """
+
+        lmt, etag = headers.get('last-modified'), headers.get('etag')
+        if lmt != None or etag != None:
+            req_header = {}
+            if lmt != None and self.config.flag_use_last_modified:
+                req_header['if-modified-since'] = lmt
+            if etag != None and self.config.flag_use_etags:
+                req_header['if-none-match'] = etag
+
+            try:
+                fhead = urlhelper.head_url(self.url, headers=req_header)
+                # Status code is 304 ?
+                if fhead.status_code == 304:
+                    return True
+            except urlhelper.FetchUrlException, e:
+                pass
+
+        # No lmt or etag or URL is not uptodate
+        return False
+        
+    def get_headers_and_data(self):
+        """ Try and retrieve data and headers from the cache. If cache is
+        up-to-date, this sets the values and returns True. If cache is out-dated,
+        returns False """
+
+        if self.config.flag_storedata:
+            fpath, fhdr, dirpath = self.get_url_store_paths()
+
+            if os.path.isfile(fpath) and os.path.isfile(fhdr):
+                try:
+                    content = zlib.decompress(open(fpath).read())
+                    headers = eval(zlib.decompress(open(fhdr).read()))
+
+                    if self.make_head_request(headers):
+                        log.info(self.url, "==> URL is up-to-date, returning data from cache")
+
+                        self.content = content
+                        self.headers = headers
+
+                        eventr = CrawlerEventRegistry.getInstance()                 
+                        # Raise the event for retrieving URL from cache
+                        eventr.publish(self, 'download_cache',
+                                       message='URL has been retrieved from cache',
+                                       code=304,
+                                       params=self.__dict__)                    
+
+                        return True
+                except Exception, e:
+                    log.error("Error in getting URL headers & data for URL",self.url)
+                    log.error("\t",str(e))
+
+        return False
+        
     def build_headers(self):
         """ Build headers for the request """
 
@@ -40,6 +132,10 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
         """ Overloaded download method """
 
         eventr = CrawlerEventRegistry.getInstance()
+
+        if self.get_headers_and_data():
+            # Obtained from cache
+            return True
         
         try:
             freq = urlhelper.get_url(self.url, headers = self.build_headers())
@@ -58,7 +154,9 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                 eventr.publish(self, 'download_error',
                                message='URL has not been downloaded successfully',
                                code=freq.status_code,
-                               params=self.__dict__)             
+                               params=self.__dict__)
+
+            self.write_headers_and_data()
         except urlhelper.FetchUrlException, e:
             log.error('Error downloading',self.url,'=>',str(e))
             # FIXME: Parse HTTP error string and find out the
@@ -68,6 +166,8 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                            is_error = True,
                            code=0,
                            params=self.__dict__)
+
+        return True
 
             
     def get_data(self):
@@ -96,7 +196,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     def get(self, timeout=30):
         """ Get the data to crawl """
 
-        data = self.manager.get(timeout=timeout)
+        data = self.manager.get()
         # Each data is a URL, so raise the event
         # 'obtained_url' here.
         self.eventr.publish(self, 'url_obtained',
@@ -155,6 +255,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     def stop(self):
         """ Forcefully stop the crawl """
 
+        log.info('Worker',self,'stopping...')
         self.stop_now = True
         
     def work_pending(self):
@@ -162,13 +263,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         # Is the queue empty ?
         log.debug('Checking work pending...',)
-        result = self.manager.is_empty()
-        if result:
-            log.debug('No.')
-        else:
-            log.debug('Yes.')
-
-        return (not result)
+        return self.manager.work_pending()
 
     def allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
         """ Is fetching of URL allowed ? """        
@@ -246,9 +341,15 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 class EIIICrawler(object):
     """ EIII Web Crawler """
 
-    def __init__(self, urls, cfgfile='config.json'):
+    def __init__(self, urls):
         # Load config from file.
-        self.config = crawlerbase.CrawlerConfig.fromfile(cfgfile)
+        cfgfile = self.load_config()
+        if cfgfile:
+            self.config = crawlerbase.CrawlerConfig.fromfile(cfgfile)
+        else:
+            # Use default config
+            print 'Using default configuration...'
+            self.config = crawlerbase.CrawlerConfig()
         self.urls = urls
         self.empty_count = 0
         # Download queue
@@ -281,7 +382,7 @@ class EIIICrawler(object):
                 
             self.sig_count += 1
 
-        if self.sig_count>2:
+        if self.sig_count>1:
             log.info('Force Quitting...')
             # Not exited in natural course, force exiting.
             sys.exit(1)
@@ -290,16 +391,14 @@ class EIIICrawler(object):
         """ Subscribe to events """
 
         self.eventr.subscribe('download_complete', self.url_download_complete)
+        self.eventr.subscribe('download_cache', self.url_download_complete)     
         self.eventr.subscribe('download_error', self.url_download_error)
         self.eventr.subscribe('abort_crawling', self.abort_crawl)
         
-    def get(self, timeout=30):
+    def get(self):
         """ Return the data for crawling """
 
-        try:
-            return self.dqueue.get(False, timeout=timeout)
-        except Queue.Empty:
-            self.empty_count += 1
+        return self.dqueue.get()
 
     def put(self, data):
         """ Push further data to be crawled """
@@ -317,8 +416,20 @@ class EIIICrawler(object):
     def is_empty(self):
         """ Is the work queue empty ? """
 
-        return self.empty_count>2
+        return self.dqueue.empty()
 
+    def workers_idle(self):
+        """ Are all workers idle waiting for data ? """
+
+        worker_states = [w.get_state() for w in self.workers]
+        log.debug('Worker states =>',worker_states)
+        return all((x==0) for x in worker_states)
+
+    def work_pending(self):
+        """ Any work pending ? """
+
+        return not (self.workers_idle() and self.is_empty())
+    
     def check_already_downloaded(self, url):
         """ Is a URL already downloaded """
 
@@ -354,6 +465,8 @@ class EIIICrawler(object):
         
         for i in range(nworkers):
             worker = EIIICrawlerQueuedWorker(self.config, self)
+            worker.setDaemon(True)
+            
             self.workers.append(worker)
             worker.start()
             # Give subsequent workers some time to start so that the other
@@ -362,17 +475,52 @@ class EIIICrawler(object):
 
         # Wait for some time
         time.sleep(10)
-        
-        for i in range(self.config.num_workers):
-            log.info('Joining worker',i+1,'...',)
-            worker.join()
-            log.info('done.')
 
+        while self.work_pending():
+            time.sleep(5)
+
+        # Push empty values
+        [w.stop() for w in self.workers]
+        
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
 
         self.stats.publish_stats()
 
+    def load_config(self):
+        """ Load crawler configuration """
+
+        fname = 'config.json'
+
+        # Use a default config object for some variables
+        cfg = crawlerbase.CrawlerConfig()
+        # Look in $HOME/.eiii/crawler folder, then
+        # in current folder for a file named config.json
+        cfgdir = os.path.expanduser(cfg.configdir)
+        storedir = os.path.expanduser(cfg.storedir)        
+        cfgfile = os.path.join(cfgdir, fname)
+        
+        if not os.path.isdir(cfgdir):
+            print 'First time configuration ...'
+            with utils.ignore():
+                print 'Config directory',cfgdir,'does not exist. creating ...'
+                os.makedirs(cfgdir)
+                # Also make store dir
+                os.makedirs(storedir)
+                print 'Making cache structure in store at',storedir,'...'
+                utils.create_cache_structure(storedir)
+                print 'Saving default configuration to',cfgfile,'...'
+                crawlerbase.CrawlerConfig().save(cfgfile)
+
+        # Look in current folder - this overrides the default config file
+        if os.path.isfile(fname):
+            print 'Using local config file...'
+            return fname
+            
+        # Try to load config from default location
+        if os.path.isfile(cfgfile):
+            print 'Config file found at',cfgfile,'...'
+            return cfgfile
 
 if __name__ == "__main__":
     crawler = EIIICrawler(sys.argv[1:])
