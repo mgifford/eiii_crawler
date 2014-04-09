@@ -34,6 +34,11 @@ class CrawlPolicy(object):
     # Crawl folder scope plus URLs linked outside folder at level 1
     folder_link_scope = 'FOLDER_LINK_SCOPE'
 
+    # Site max depth
+    # Maximum depth of a URL relative to site root
+    # E.g: http://www.foo.com/a/b/c/d/e/f/g/h/ has a depth of 8
+    site_maxdepth = 10
+    
     # A tuple of all site inclusive scopes
     all_site_scopes = (site_scope, site_full_scope, site_link_scope,
                        site_full_link_scope, site_exhaustive_scope)
@@ -45,19 +50,15 @@ class CrawlerLimits(object):
     """ Class keeping constants on maximum limits for the
     crawler on various aspects """
 
-    # Maximum number of files fetched from a single site
-    site_maxfiles = 10000
-    # Max HTML files
-    site_maxhtmlfiles = 8000
-    # Max PDF files
-    site_maxpdffiles = 1000
-    # Max other files
-    site_maxotherfiles = 1000
-    # NOTE that the sum of (site_maxhtmlfiles, site_maxpdffiles, site_maxotherfiles)
-    # SHOULD equal value of site_maxfiles.
+    # Max HTML URLs
+    site_maxhtmlurls = 8000
+    # Max PDF URLs
+    site_maxpdfurls = 1000
+    # Max other URLs
+    site_maxotherurls = 1000
+    # NOTE that the sum of (site_maxhtmlurls, site_maxpdfurls, site_maxotherurls)
+    # SHOULD equal value of site_maxurls.
     
-    # Maximum depth of a URL relative to site root
-    site_maxdepth = 20
     # Maximum number of URLs to be sampled from a site
     site_maxurls = 10000
     # Maximum concurrent connections/requests to a site
@@ -77,6 +78,8 @@ class CrawlerConfig(object):
     def __init__(self):
         # Site scope
         self.site_scope = CrawlPolicy.site_scope
+        # Site depth
+        self.site_maxdepth = CrawlPolicy.site_maxdepth
 
         # Site specific limites
         for attr in CrawlerLimits.__dict__: 
@@ -116,7 +119,15 @@ class CrawlerConfig(object):
         self.flag_ignorerobots = False
         # Obey meta robots txt ?
         self.flag_metarobots = True
-
+        # Try and process js redirects ?
+        self.flag_jsredirects = True
+        # Try and pick up additional URLs
+        self.flag_supplement_urls = True
+        # Support X-Robots-Tag ?
+        self.flag_x_robots = True
+        # Detect spurious 404s ?
+        self.flag_detect_spurious_404 = True
+        
         # Network settings - Address of network proxy including port if any
         self.network_proxy = ''
 
@@ -448,17 +459,27 @@ class CrawlerLimitRules(object):
     def __init__(self, config):
         self.config = config
         # Map the limits to content-type
-        self.limits = {'text/html': self.config.site_maxhtmlfiles,
-                       'application/pdf': self.config.site_maxpdffiles}
+        self.limits = {'text/html': self.config.site_maxhtmlurls,
+                       'application/pdf': self.config.site_maxpdfurls}
         self.url_counts = collections.defaultdict(int)
+        # Total URL (downloaded) count
+        self.num_urls = 0
+        # Total bytes downloaded
+        self.num_bytes = 0
         # Subscribe to events
         self.eventr = CrawlerEventRegistry.getInstance()
         self.eventr.subscribe('download_complete', self.check_crawler_limits)
+
+        # Do we need to apply URL limits also for retrievel from cache ?
+        # Maybe we should since that also includes a HEAD request for the URL.
+        # Anyway for the time being this is enabled.
+        self.eventr.subscribe('download_cache', self.check_crawler_limits)      
 
     def update_counts(self, ctype):
         """ Update URL count for the content-type """
 
         self.url_counts[ctype] += 1
+        self.num_urls += 1
         log.debug('===> Updating count for',ctype,' <====', self.url_counts[ctype])
         
     def check_crawler_limits(self, event):
@@ -472,6 +493,12 @@ class CrawlerLimitRules(object):
             # get content type
             ctype = urlhelper.get_content_type(url, headers)
             self.update_counts(ctype)
+
+            # Update total counts
+            self.num_urls += 1
+
+            # Update total bytes count
+            self.num_bytes += int(event.params.get('content_length', 0))
             
             # Get limit for the content-type
             url_limit = self.limits.get(ctype)
@@ -482,6 +509,23 @@ class CrawlerLimitRules(object):
                 # Send abort_crawling event
                 self.eventr.publish(self, 'abort_crawling',
                                     message='URL limit for content-type "%s" has reached' % ctype)
+
+            # Check total limit also
+            if self.num_urls>self.config.site_maxurls:
+                log.info('Total URL sample limit reached =>',self.num_urls)
+                # Send abort_crawling event
+                self.eventr.publish(self, 'abort_crawling',
+                                    message='URL sampling limit has reached',
+                                    code=self.num_urls)
+
+            # Check total bytes - hopefully we don't hit this rule for ending crawl
+            # most of the time.
+            if self.num_bytes>self.config.site_maxbytes*1024*1024:
+                log.info('Total bytes (size) limit reached =>',self.num_bytes)
+                # Send abort_crawling event
+                self.eventr.publish(self, 'abort_crawling',
+                                    message='URL bytes (size) limits reached',
+                                    code=self.num_bytes)                
         else:
             pass
     
@@ -509,19 +553,22 @@ class CrawlerScopingRules(object):
         # Get the website of the URL
         url_site = urlhelper.get_website(url)
 
+        # Boolean and of values
+        ret = True
+        
         # If both sites are same
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
-                # print 'Same site, all site scope, returning True'
-                return True
+                # print '\tSame site, all site scope, returning True',url,'=>',self.url
+                ret &= True
             elif scope in CrawlPolicy.all_folder_scopes:
                 # NOTE - folder_link_scope check is not implemented
                 # Only folder scope is done. Folder scope is correct
                 # if URL is inside the root folder.
                 # E.g: http://www.foo.com/bar/vodka/images/index.html
                 # for root folder http://www.foo.com/bar/vodka/
-                if url.find(self.folder)==0:
-                    return True
+                if url.find(self.folder) != 0:
+                    ret &= False
         else:
             # Different site - work out root site
             # If root site is same for example images.foo.com and static.foo.com
@@ -529,17 +576,24 @@ class CrawlerScopingRules(object):
             url_root_site = urlhelper.get_root_website(url_site)
             if url_root_site == self.rootsite:
                 if scope in CrawlPolicy.all_fullsite_scopes:
-                    # print 'Same root site, all full site scope, returning True'                  
-                    return True
+                    # print '\tSame root site, all full site scope, returning True',url,'=>',self.url                  
+                    ret &= True
+                else:
+                    # print '\tSame root site, but not full-site-scope, returning False',url,'=>',self.url
+                    ret &= False
             else:
-                # print 'Different root site, returning False'                                
-                return False
+                # print '\tDifferent root site, returning False',url,'=>',self.url                                
+                ret &= False
 
-        # Folder scopes and external site scopes
-        # to be worked out later.
-        return False
-    
-            
+        # Depth scope
+        url_depth = urlhelper.get_depth(url)
+        if url_depth > self.config.site_maxdepth:
+            ret &= False
+
+        # print '\tDefault value',url,'=>',self.url            
+        # default value
+        return ret
+
 class CrawlerWorkerBase(threading.Thread):
     """ Base class for EIII web crawler worker. This class does most of the
     work of crawling """
@@ -577,6 +631,11 @@ class CrawlerWorkerBase(threading.Thread):
     def build_url(self, child_url, parent_url):
         """ Build the complete URL for child URL using the parent URL """
         raise NotImplementedError
+
+    def supplement_urls(self, url):
+        """ Build any additional URLs related to the input URL """
+
+        return []
 
     def parse_queue_urls(self, data):
         """ Given the queue URL data return a 3 tuple of content-type, URL and
@@ -689,7 +748,7 @@ class CrawlerWorkerBase(threading.Thread):
                 if (url_data != None) and self.allowed(url, parent_url, url_data, content_type, headers):
                     # Can proceed further
                     # Parse the data
-                    child_urls = self.parse(url_data, url)
+                    url, child_urls = self.parse(url_data, url)
 
                     if self.flag_randomize_urls:
                         random.shuffle(child_urls)
@@ -701,12 +760,19 @@ class CrawlerWorkerBase(threading.Thread):
                         # Build full URL
                         full_curl = self.build_url(curl, url)
                         if len(full_curl)==0: continue
-                        
+
                         # Insert this back to the queue
                         content_type = urlhelper.get_content_type(full_curl, headers)
                         # Skip if not allowed
                         if self.allowed(full_curl, parent_url=url, content_type=content_type):
                             newurls.append((content_type, full_curl, url))
+
+                            # Build additional URLs if any
+                            other_urls = self.supplement_urls(full_curl)
+                            for other_url in other_urls:
+                                if self.allowed(other_url, parent_url=url, content_type='text/html'):
+                                    # Safely assume HTML for directory URLs
+                                    newurls.append(('text/html', other_url, url))                           
                         else:
                             log.debug('Skipping URL',full_curl,'...')
 
