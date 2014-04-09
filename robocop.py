@@ -9,9 +9,6 @@ ___author__ = "Anand B Pillai"
 __maintainer__ = "Anand B Pillai"
 __version__ = "0.1"
 
-# TODO: This should be done better...
-# http://nikitathespider.com/python/rerp/ Does not work...
-
 class Robocop(object):
     """ Robots.txt parser for websites """
 
