@@ -630,5 +630,7 @@ class EIIICrawler(object):
             return cfgfile
 
 if __name__ == "__main__":
-    crawler = EIIICrawler(sys.argv[1:])
+    # Run this as $ python eiii_crawler.py <url>
+    # E.g: python eiii_crawler.py http://www.tingtun.no
+    crawler = EIIICrawler(sys.argv[1:]) 
     crawler.crawl()
