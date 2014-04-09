@@ -13,8 +13,10 @@ import sgmllib
 import urlparse
 import base64
 import zlib
+import mimetypes
 import urlnorm
 import re
+import utils
 
 ___author__ = "Anand B Pillai"
 __maintainer__ = "Anand B Pillai"
@@ -26,6 +28,8 @@ anchor_re = re.compile(r'\#+')
 www_re = re.compile(r'^www(\d*)\.')
 # Regular expression for www prefixes anywhere
 www2_re = re.compile(r'www(\d*)\.')
+# Page titles
+title_re = re.compile('\<title\>(.*?)\<\/title\>',re.UNICODE)
 
 # List of TLD (top-level domain) name endings from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 # courtesy HarvestMan, stored in base64 encoded, compressed, string form
@@ -156,6 +160,52 @@ def head_url(url, headers={}):
     with method(url, *exceptions, **headers) as freq:
         return freq 
 
+def get_url_parent_directory(url):
+    """ Return the parent 'directory' of a given URL
+
+    >>> get_url_parent_directory('http://www.foo.com')
+    ''
+    >>> get_url_parent_directory('http://www.foo.com/')
+    ''
+    >>> get_url_parent_directory('http://www.foo.com/a')
+    ''
+    >>> get_url_parent_directory('http://www.foo.com/a/')
+    ''
+    >>> get_url_parent_directory('http://www.foo.com/a/b/')
+    'http://www.foo.com/a'
+    >>> get_url_parent_directory('http://www.foo.com/a/b/c')
+    'http://www.foo.com/a/b'
+    >>> get_url_parent_directory('http://www.foo.com/a/b/c/index.html')
+    'http://www.foo.com/a/b/c'
+    >>> get_url_parent_directory('http://www.foo.com/a/b/c/test.css')
+    'http://www.foo.com/a/b/c'
+
+    """
+
+    # If this is not HTML, skip it
+    urlp = urlparse.urlparse(url)
+
+    # If URL has params or query or fragment, return ''
+    if urlp.params or urlp.query or urlp.fragment:
+        return ''
+    else:
+        path = urlp.path
+        if not path: return ''
+
+        paths = [item for item in path.split('/') if item]
+        if len(paths)>=2:
+            paths = '/' + '/'.join(paths[:-1])
+            newurl = urlparse.urlunparse(urlparse.ParseResult(scheme=urlp.scheme,
+                                                              netloc=urlp.netloc,
+                                                              path=paths,
+                                                              fragment='',
+                                                              query='',
+                                                              params=''))
+
+            return newurl
+
+    return ''
+    
 def get_url_directory(url):
     """ Return the URL 'directory' of a given URL
 
@@ -212,7 +262,32 @@ def get_url_directory(url):
     except:
         return url
     
-    
+
+def get_depth(url):
+    """ Get 'depth' of a URL with respect to its root.
+
+    >>> get_depth('http://www.foo.com/')
+    0
+    >>> get_depth('http://www.foo.com/a/')
+    1
+    >>> get_depth('http://www.foo.com/a/b')
+    2
+    >>> get_depth('http://www.foo.com/a/b/f.css')
+    2
+
+    """
+
+    urlp = urlparse.urlparse(url)
+    # Omit last path if it contains a file extension
+    paths = urlp.path.split('/')
+    if '.' in paths[-1]:
+        paths.pop()
+
+    # Drop empty strings
+    paths = [p for p in paths if p]
+    # Length of path is the depth
+    return len(paths)
+
 def get_root_website(site):
     """ Get the root website. For example this returns
     foo.com if the input is images.foo.com or static.foo.com
@@ -275,38 +350,11 @@ def guess_content_type(url):
     file types. Guess from the extension if any. If no extension
     found assume text/html """
 
-    # If this is a type we don't process this will
-    # return None
-    urlp = urlparse.urlparse(url)
-    path = urlp.path
-
-    if path:
-        splitpath = urlp.path.rsplit('.', 1)
-        if len(splitpath)==2:
-            ext = splitpath[-1].lower()
-
-            # We support PDF, word and ODF
-            if ext == 'pdf':
-                return 'application/pdf'
-            elif ext in ('doc', 'rtf'):
-                return 'application/msword'
-            elif ext in ('.ppt'):
-                return 'application/vnd.ms-powerpoint'
-            elif ext in ('docx',):
-                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            elif ext in ('odt',):
-                return 'application/vnd.oasis.opendocument.text'
-            elif ext in ('odp',):
-                return 'application/vnd.oasis.opendocument.presentation'
-            elif ext in ('ods',):
-                return 'application/vnd.oasis.opendocument.spreadsheet'
-            else:
-                return 'text/html'
-        else:
-            # No extension - assume HTML
-            return 'text/html'
+    ctype, encoding = mimetypes.guess_type(url)
+    if ctype != None:
+        return ctype
     else:
-        # No path, assume HTML
+        # Default
         return 'text/html'
 
 def get_content_type(url, headers):
@@ -321,8 +369,27 @@ def get_content_type(url, headers):
         return ctype_header.split(';')[0].strip()
     except KeyError:
         return guess_content_type(url)
-        
 
+
+def check_spurious_404(headers, content, status_code=200):
+    """ Check for pages that are 404 pages wrapped
+    in 200 disguise """
+
+    # Get title
+    title = ''.join(title_re.findall(content)).lower().strip()
+    # Apply heuristics on title
+    # E.g: 404, Page not found, not found, page does not exist etc
+    if any(title.startswith(x) for x in ('page not found','not found','page does not exist',
+                                         'error 404')):
+        return 404
+
+    # Safe to assume if a page title starts with 404 it is 404 ?
+    # I hope so.
+    if title.startswith('404 ') or title.endswith(' 404'):
+        return 404
+
+    return status_code
+    
 class URLLister(sgmllib.SGMLParser):
     """ Simple HTML parser using sgmllib's SGMLParser """
 
@@ -331,6 +398,14 @@ class URLLister(sgmllib.SGMLParser):
         self.urls = []
         self.urldict = {}
         self.lasthref = ''
+        # Redirect URL if any
+        self.follow_url = ''
+        # Replaced source URL
+        self.source_url = ''
+        # Should we redirect to the follow URL ?
+        self.redirect = False
+        # Should we replace the source (parent) URL ?
+        self.base_changed = False
 
     def finish_starttag(self, tag, attrs):
         try:
@@ -365,6 +440,128 @@ class URLLister(sgmllib.SGMLParser):
         if href:
             self.urls.extend(href)
             self.lasthref = href
+
+    def start_meta(self, attrs):
+        """ Parse meta tags """
+        
+        # print 'META TAG =>',attrs
+        adict = utils.CaselessDict(attrs)
+
+        if adict.get('http-equiv','').lower() == 'refresh':
+            # Look for content key
+            content = adict.get('content','').strip()
+            # If URL is specified it woul be like
+            # <meta http-equiv="refresh" content="5; url=http://example.com/">
+            pieces = content.split(';')
+            if len(pieces)>1:
+                try:
+                    items = pieces[1].lower().strip().split('=')
+                    if items[0]=='url':
+                        # We should follow this URL and NOT parse the
+                        # current page.
+                        self.follow_url = items[1]
+                        self.redirect = True
+                except:
+                    pass
+
+    def start_link(self, attrs):
+        """ Parse 'link' tags """
+
+        adict = utils.CaselessDict(attrs)
+        # Handle 'stylesheet' links
+        if adict.get('rel','').lower()=='stylesheet':
+            css_url = adict.get('href')
+            # print 'CSS URL=>',css_url
+            self.urls.append(css_url)
+
+    def start_base(self, attrs):
+        """ Parse 'base' tags """
+
+        adict = utils.CaselessDict(attrs)
+
+        base_href = adict.get('href','')
+        if base_href:
+            # This needs to replace the source URL
+            self.source_url = base_href
+            self.base_changed = True
+
+    def start_frame(self, attrs):
+        """ Parse 'frame' tags """
+
+        adict = utils.CaselessDict(attrs)
+
+        # Add frame source URLs.
+        src_url = adict.get('src','')
+        if src_url:
+            # Note - this can be a JS URL but we
+            # add it anyway.
+            self.urls.append(src_url)
+
+    def start_area(self, attrs):
+        """ Parse 'area' tags """
+
+        adict = utils.CaselessDict(attrs)
+        # These are defines areas inside image-maps
+        url = adict.get('href','')
+        if url:
+            self.urls.append(src_url)           
+
+    # Skipped tags - embed, option, object, applet etc.
+    # Former 3 because they deal with embeddable URL like flash.
+    # latter because it typically is used to load a Java applet class.
+    
+    
+class CSSLister(object):
+    """ Class to parse stylesheets and extract URLs """
+
+    # Code courtesy HarvestMan (class: HarvestManCSSParser)
+    # UNUSED.
+    
+    # Regexp to parse stylesheet imports
+    importcss1 = re.compile(r'(\@import\s+\"?)(?!url)([\w.-:/]+)(\"?)', re.MULTILINE|re.LOCALE|re.UNICODE)
+    importcss2 = re.compile(r'(\@import\s+url\(\"?)([\w.-:/]+)(\"?\))', re.MULTILINE|re.LOCALE|re.UNICODE)
+    # Regexp to parse URLs inside CSS files
+    cssurl = re.compile(r'(url\()([^\)]+)(\))', re.LOCALE|re.UNICODE)
+
+    def __init__(self):
+        # Any imported stylesheet URLs
+        self.csslinks = []
+        # All URLs including above
+        self.links = []
+
+    def feed(self, data):
+        self._parse(data)
+        
+    def _parse(self, data):
+        """ Parse stylesheet data and extract imported css links, if any """
+
+        # Return is a list of imported css links.
+        # This subroutine uses the specification mentioned at
+        # http://www.w3.org/TR/REC-CSS2/cascade.html#at-import
+        # for doing stylesheet imports.
+
+        # This takes care of @import "style.css" and
+        # @import url("style.css") and url(...) syntax.
+        # Media types specified if any, are ignored.
+        
+        # Matches for @import "style.css"
+        l1 = self.importcss1.findall(data)
+        # Matches for @import url("style.css")
+        l2 = self.importcss2.findall(data)
+        # Matches for url(...)
+        l3 = self.cssurl.findall(data)
+        
+        for item in (l1+l2):
+            if not item: continue
+            url = item[1].replace("'",'').replace('"','')
+            self.csslinks.append(url)
+            self.links.append(url)
+            
+        for item in l3:
+            if not item: continue
+            url = item[1].replace("'",'').replace('"','')
+            if url not in self.links:
+                self.links.append(url)
 
 class URLBuilder(object):
     """ URL builder for building complete child URLs using
