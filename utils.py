@@ -4,10 +4,41 @@ import itertools
 import os
 
 from contextlib import contextmanager
-
+from types import StringTypes
 # Global logger object
 g_logger = None
 
+class CaselessDict(dict):
+    """ Dictionary with case-insensitive keys """
+    
+    def __init__(self, mapping=None):
+        if mapping:
+            if type(mapping) is dict:
+                for k,v in d.items():
+                    self.__setitem__(k, v)
+            elif type(mapping) in (list, tuple):
+                d = dict(mapping)
+                for k,v in d.items():
+                    self.__setitem__(k, v)
+                    
+        # super(CaselessDict, self).__init__(d)
+        
+    def __setitem__(self, name, value):
+
+        if type(name) in StringTypes:
+            super(CaselessDict, self).__setitem__(name.lower(), value)
+        else:
+            super(CaselessDict, self).__setitem__(name, value)
+
+    def __getitem__(self, name):
+        if type(name) in StringTypes:
+            return super(CaselessDict, self).__getitem__(name.lower())
+        else:
+            return super(CaselessDict, self).__getitem__(name)
+
+    def __copy__(self):
+        pass
+    
 class SingletonMeta(type):
     """ A type for Singleton classes """    
 
