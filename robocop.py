@@ -97,6 +97,39 @@ class Robocop(object):
         rules_c = [re.compile(i.lower()) for i in site_rules]
         self.rules[site] = rules_c
 
+    def x_robots_check(self, url, headers):
+        """ Check X-Robots-Tag header """
+
+        # Ref: https://developers.google.com/webmasters/control-crawl-index/docs/robots_meta_tag
+        index, follow = True, True
+        
+        # X-robots ?
+        x_robots = headers.get('x-robots-tag','').lower().strip()
+        if x_robots:
+            # Exclude any user-agent string
+            pieces = x_robots.split(':')
+            if len(pieces)==2:
+                ua, x_robots = pieces
+                # If ua is specified, no chance it is applicable to us
+                # since we are not in the wild yet.
+                return (True, True)
+
+            if x_robots == 'none':
+                # Cannot index or follow
+                return (False, False)
+
+            # If there is a user-agent specified 
+            items = sorted(x_robots.split(','))
+
+            if 'noindex' in items:
+                # Don't index this URL
+                index = False
+
+            if 'nofollow' in items:
+                follow = False
+
+        return (index, follow)
+
     def check_meta(self, url, content=None):
         """ Check META robots tags and return a 2-tuple of
         booleans (can_index, can_follow) for the URL """
