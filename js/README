@@ -1,0 +1,10 @@
+This folder contains a very basic Javascript extraction parser
+(extracts JS script sections embedded inline in HTML) and a 
+simple Javascript processer which can process basic JS actions
+that affect the Document DOM and location. These can be used by
+a crawler to process JS in webpages to perform operations such
+as JS based redirection of a web-page etc.
+
+The code in this folder has been completely derived from the
+HarvestMan web-crawler project. The module comments have been 
+trimmed but core comments have been retained.
