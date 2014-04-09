@@ -18,6 +18,7 @@ import utils
 import argparse
 import hashlib
 import zlib
+import js.jsparser as jsparser
 
 log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
 
@@ -133,6 +134,8 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
 
         eventr = CrawlerEventRegistry.getInstance()
 
+        index, follow = True, True
+        
         if self.get_headers_and_data():
             # Obtained from cache
             return True
@@ -143,14 +146,34 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
             self.content = freq.content
             self.headers = freq.headers
 
+            # Add content-length also for downloaded content
+            self.content_length = max(len(self.content),
+                                      self.headers.get('content-length',0))
+            
             # requests does not raise an exception for 404 URLs instead
             # it is wrapped into the status code
-            if freq.status_code == 200:
+
+            # Accept all 2xx status codes for time being
+            # No special processing for other status codes
+            # apart from 200.
+
+            # NOTE: requests library handles 301, 302 redirections
+            # very well so we dont need to worry about those codes.
+            
+            # Detect pages that give 2xx code WRONGLY when actual
+            # code is 404.
+            status_code = freq.status_code
+            if self.config.flag_detect_spurious_404:
+                status_code = urlhelper.check_spurious_404(self.headers, self.content, status_code)
+            
+            if status_code in range(200, 300):
+                
                 eventr.publish(self, 'download_complete',
                                message='URL has been downloaded successfully',
                                code=200,
                                params=self.__dict__)
             else:
+                log.error("Error downloading URL =>",self.url,"status code is ",freq.status_code)
                 eventr.publish(self, 'download_error',
                                message='URL has not been downloaded successfully',
                                code=freq.status_code,
@@ -227,10 +250,47 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         builder = urlhelper.URLBuilder(url, parent_url)
         return builder.build()
-    
+
+    def supplement_urls(self, url):
+        """ Build any additional URLs related to the input URL """
+
+        # Get parent directory URLs - for example,
+        # http://www.foo.com/bar/vodka/ for
+        # http://www.foo.com/bar/vodka/beer.html
+        # NOTE that this might cause scope issues if
+        # crawl is in folder scope.
+
+        if self.config.flag_supplement_urls:
+            dir_url = urlhelper.get_url_parent_directory(url)
+            if dir_url:
+                return [dir_url]
+
+        return []
+        
     def parse(self, data, url):
         """ Parse the URL data and return an iterator over child URLs """
 
+        urls, redirect = [], False
+        
+        # First parse with JS parser
+        if self.config.flag_jsredirects:
+            try:
+                jsp = jsparser.JSParser()
+                jsp.parse(data)
+                # Check if location changed
+                if jsp.location_changed:
+                    urls.append(jsp.getLocation().href)
+                    redirect = True
+            except jsparser.JSParserException, e:
+                log.error("JS Parser exception => ", e)
+            
+
+        # If JS redirect don't bother to parse with
+        # HTML parser
+        if redirect:
+            log.info("Javascript redirection to =>",urls[0])
+            return (url, urls)
+        
         parser = urlhelper.URLLister()
 
         try:
@@ -244,8 +304,19 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         except sgmllib.SGMLParseError, e:
             log.error("Error parsing data for URL =>",url)
 
-        urls = list(set(parser.urls))
-        return urls
+        # Do we have a redirect ?
+        if parser.redirect:
+            # Then only the follow URL
+            urls = [parser.follow_url]
+            log.info("Page redirected to =>",urls[0])                        
+        else:
+            urls = list(set(parser.urls))
+
+        # Has the base URL changed ?
+        if parser.base_changed:
+            url = parser.source_url
+            
+        return (url, urls)
 
     def should_stop(self):
         """ Should stop now ? """
@@ -284,6 +355,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
         """ Is fetching of URL allowed ? - Actual Implementation """                
 
+        # print 'Checking allowd for URL',url
         # Skip mime-types we don't want to deal with based on URL extensions
         guess_ctype = urlhelper.guess_content_type(url)
         if guess_ctype not in self.config.client_mimetypes:
@@ -298,16 +370,8 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         
         if (content != None) or len(headers):
             # Do content or header checks
+            # print 'Returning from content rules',url
             return self.check_content_rules(url, parent_url, content, content_type, headers)
-        
-        # Blanket True as of now
-        # Check robots.txt
-        if not self.flag_ignorerobots:
-            self.robots_p.parse_site(url)
-            # NOTE: Don't check meta NOW since content of URL has not been downloaded yet.
-            if not self.robots_p.can_fetch(url, content=content, meta=False):
-                log.debug('Robots.txt rules disallows URL =>',url)
-                return False
 
         # Scoping rules
         if parent_url != None:
@@ -317,7 +381,16 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             if not scoper.allowed(url):
                 log.debug('Scoping rules does not allow URL=>',url)
                 return False
-            
+        
+        # Check robots.txt
+        if not self.flag_ignorerobots:
+            self.robots_p.parse_site(url)
+            # NOTE: Don't check meta NOW since content of URL has not been downloaded yet.
+            if not self.robots_p.can_fetch(url, content=content, meta=False):
+                log.debug('Robots.txt rules disallows URL =>',url)
+                return False
+
+        # print 'Returning default allowd =>',url
         return True
 
     def check_content_rules(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
@@ -335,6 +408,12 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             if not follow:
                 return False
 
+        if self.flag_x_robots:
+            index, follow = self.robots_p.x_robots_check(url, headers=headers)
+            # Don't bother too much with NO index, but bother with NOFOLLOW
+            if not follow:
+                return False
+            
         # Not doing any other content rules now
         return True
         
@@ -370,7 +449,9 @@ class EIIICrawler(object):
         # Signal count
         self.sig_count = 0      
         signal.signal(signal.SIGINT, self.sighandler)
-        signal.signal(signal.SIGTERM, self.sighandler)              
+        signal.signal(signal.SIGTERM, self.sighandler)
+        # Check IDNA encoding for the URLs and encode if necessary.
+        self.check_idna_domains()
 
     def sighandler(self, signum, stack):
         """ Signal handler """
@@ -394,6 +475,32 @@ class EIIICrawler(object):
         self.eventr.subscribe('download_cache', self.url_download_complete)     
         self.eventr.subscribe('download_error', self.url_download_error)
         self.eventr.subscribe('abort_crawling', self.abort_crawl)
+
+    def check_idna_domains(self):
+        """ Check if the URL domains are IDNA neutral, if not
+        make them ascii safe by IDNA encoding """
+
+        for i in range(len(self.urls)):
+            url = self.urls[i]
+            
+            # Get server
+            urlp = urlparse.urlparse(url)
+            server = urlp.netloc
+            try:
+                server.encode('ascii')
+            except UnicodeDecodeError, e:
+                print 'IDNA encoding URL',url,'...',             
+                # Problem ! do idna
+                try:
+                    server_idna = server.encode('idna')
+                except TypeError:
+                    # Original string is not unicode
+                    server_idna = server.decode('utf-8').encode('idna')                 
+                # Replace
+                urlp = urlp._replace(netloc=server_idna)
+                url_idna = urlparse.urlunparse(urlp)
+                print 'new URL is',url_idna,'...'
+                self.urls[i] = url_idna
         
     def get(self):
         """ Return the data for crawling """
