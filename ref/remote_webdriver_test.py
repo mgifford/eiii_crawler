@@ -1,6 +1,9 @@
 """ Example code on how to get CSS values of a webpage
 element using a remote selenium session """
 
+# Requirement: python selenium
+# $ sudo pip install selenium
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
@@ -28,8 +31,8 @@ def do_test():
         if item.text == 'Search':
             # This is the element we want
             # Get CSS value of font-weight and color
-            print 'CSS font-weight =>',item.value_of_css_property('font-weight') # Prints 700 which means bold
-            print 'CSS color =>', convert_to_hex(item.value_of_css_property('color'))
+            print '\tCSS font-weight =>',item.value_of_css_property('font-weight') # Prints 700 which means bold
+            print '\tCSS color =>', convert_to_hex(item.value_of_css_property('color'))
 
     # Don't forget to do this otherwise the remote browser
     # window remains open and slowly eats memory of the server!
