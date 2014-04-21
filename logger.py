@@ -16,7 +16,9 @@ import utils
 # List of current loggers
 __loggers__ = {}
 
-        
+# A custom level between debug and info
+logging.EXTRA = 15
+
 class LoggerWrapper(object):
     """ Wrapper class on logging object which provides
     convenience functions for logging at different levels """
@@ -27,8 +29,8 @@ class LoggerWrapper(object):
         # source of the caller stack frame
         self._sdebug = False
         # Overridden functions
-        self._supported = ('info','warning','error','critical','debug')
-        # Preceding and trailing single quptes
+        self._supported = ('info','warning','error','critical','debug', 'extra')
+        # Preceding and trailing single quotes
         self.squote_re = re.compile("^'|^u'|'$")
         # Create function wrappers for these
         for name in self._supported:
@@ -108,9 +110,17 @@ class LoggerWrapper(object):
         # Remove .py from the filename
         with utils.ignore():
             filename = filename[:filename.rindex('.')]
-            
-        logfunc = getattr(self._log, levelname)
-        return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function})
+
+        try:
+            logfunc = getattr(self._log, levelname)
+            return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function})         
+        except AttributeError:
+            logfunc = getattr(self._log, 'info')
+            level = eval('logging.' + levelname.upper())
+
+            # Custom levels are < INFO
+            if (self._log.level <= level):
+                return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function})
 
     def logsimple(self, msg, *args):
         """ Send a log line to the log file with no formatting """
