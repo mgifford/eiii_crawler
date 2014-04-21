@@ -18,6 +18,7 @@ import utils
 import argparse
 import hashlib
 import zlib
+import collections
 import js.jsparser as jsparser
 
 log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
@@ -30,10 +31,12 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
     """ Class representing downloaded data for a URL.
     The data is downloaded using the TingtunUtils fetcher """
 
-    def __init__(self, url, config):
-        super(self.__class__, self).__init__(url, config)
+    def __init__(self, url, parent_url, config):
+        super(self.__class__, self).__init__(url, parent_url, config)
         self.headers = {}
         self.content = ''
+        self.content_length = 0
+        self.content_type = 'text/html'
         
     def get_url_store_paths(self):
         """ Return a 3-tuple of paths to the URL data and header files
@@ -133,7 +136,7 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
 
         return headers
 
-    def download(self, crawler):
+    def download(self, crawler, parent_url=None):
         """ Overloaded download method """
 
         eventr = CrawlerEventRegistry.getInstance()
@@ -150,10 +153,16 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
             self.content = freq.content
             self.headers = freq.headers
 
+            # Is the URL modified ? if so set it 
+            if self.url != freq.url:
+                self.url = freq.url
+                log.extra("URL updated to",self.url)
+            
             # Add content-length also for downloaded content
             self.content_length = max(len(self.content),
                                       self.headers.get('content-length',0))
-            
+
+            self.content_type =  urlhelper.get_content_type(self.url, self.headers)
             # requests does not raise an exception for 404 URLs instead
             # it is wrapped into the status code
 
@@ -171,7 +180,6 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                 status_code = urlhelper.check_spurious_404(self.headers, self.content, status_code)
             
             if status_code in range(200, 300):
-                
                 eventr.publish(self, 'download_complete',
                                message='URL has been downloaded successfully',
                                code=200,
@@ -204,6 +212,13 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
     def get_headers(self):
         """ Return the headers """
         return self.headers
+
+    def get_url(self):
+        """ Return the downloaded URL. This is same as the
+        passed URL if there is no modification (such as
+        forwarding) """
+
+        return self.url 
     
 class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     """ EIII Crawler worker using a shared FIFO queue as
@@ -218,7 +233,10 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         self.eventr = CrawlerEventRegistry.getInstance()
         super(self.__class__,  self).__init__(config)
 
-    # END: Notification methods
+    def prepare_config(self):
+        """ Prepare configuration """
+
+        pass
     
     def get(self, timeout=30):
         """ Get the data to crawl """
@@ -243,11 +261,11 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         # pushed exactly match this structure
         return data
 
-    def get_url_data_instance(self, url):
+    def get_url_data_instance(self, url, parent_url=None):
         """ Make an instance of the URL data class
         which fetches the URL """
 
-        return EIIICrawlerUrlData(url, self.config)
+        return EIIICrawlerUrlData(url, parent_url, self.config)
 
     def build_url(self, url, parent_url):
         """ Build the complete URL for child URL using the parent URL """
@@ -359,6 +377,13 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
         """ Is fetching of URL allowed ? - Actual Implementation """                
 
+
+        # Is already downloaded ? Then skip right away
+        # NOTE - Do this only for child URLs!
+        if (parent_url != None) and self.manager.check_already_downloaded(url):
+            log.extra(url,'=> already downloaded')
+            return False
+
         # print 'Checking allowd for URL',url
         # Skip mime-types we don't want to deal with based on URL extensions
         guess_ctype = urlhelper.guess_content_type(url)
@@ -366,12 +391,18 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             log.debug('Skipping URL',url,'as content-type',guess_ctype,'is not valid.')
             return False
         
-        # Is already downloaded ? Then skip right away
-        # NOTE - Do this only for child URLs!
-        if (parent_url != None) and self.manager.check_already_downloaded(url):
-            log.debug(url,'=> already downloaded')
+        # If URL include rules are given - the scenario is most likely
+        # if these are filtered by some of the other rules - so we should
+        # apply them first.
+        if any([re.match(rule, url) for rule in self.config.url_include_rules]):
+            log.extra('Allowing URL',url,'due to specific inclusion rule.')         
+            return True
+
+        # Apply exclude rules next
+        if any([re.match(rule, url) for rule in self.config.url_exclude_rules]):
+            log.extra('Disallowing URL',url,'due to specific exclusion rule.')                      
             return False
-        
+                
         if (content != None) or len(headers):
             # Do content or header checks
             # print 'Returning from content rules',url
@@ -391,7 +422,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             self.robots_p.parse_site(url)
             # NOTE: Don't check meta NOW since content of URL has not been downloaded yet.
             if not self.robots_p.can_fetch(url, content=content, meta=False):
-                log.debug('Robots.txt rules disallows URL =>',url)
+                log.extra('Robots.txt rules disallows URL =>',url)
                 return False
 
         # print 'Returning default allowd =>',url
@@ -433,6 +464,10 @@ class EIIICrawler(object):
             # Use default config
             print 'Using default configuration...'
             self.config = crawlerbase.CrawlerConfig()
+
+        # Prepare it
+        self.prepare_config()
+        # Prepare config
         self.urls = urls
         self.empty_count = 0
         # Download queue
@@ -451,12 +486,35 @@ class EIIICrawler(object):
         self.workers = []
         # Install signal handlers
         # Signal count
-        self.sig_count = 0      
+        self.sig_count = 0
+        # Indicates RED status - set by an event
+        # or exception indicating to stop crawl
+        # this cant be overridden
+        self.red_flag = False
+
+        # URL graph
+        self.url_graph = collections.defaultdict(set)
         signal.signal(signal.SIGINT, self.sighandler)
         signal.signal(signal.SIGTERM, self.sighandler)
         # Check IDNA encoding for the URLs and encode if necessary.
         self.check_idna_domains()
 
+    def prepare_config(self):
+        """ Prepare steps if any for config object """
+
+        plus_rules, minus_rules = [], []
+        # Convert URL filter to separate include and exclude ones
+        with utils.ignored(AttributeError,):
+            for rule_type, rule in self.config.url_filter:
+                if rule_type == '+':
+                    plus_rules.append(rule)
+                else:
+                    minus_rules.append(rule)
+        
+                
+        self.config.url_exclude_rules = minus_rules
+        self.config.url_include_rules = plus_rules
+            
     def sighandler(self, signum, stack):
         """ Signal handler """
 
@@ -523,6 +581,9 @@ class EIIICrawler(object):
         log.info('Aborting the crawl.')
         for worker in self.workers:
             worker.stop()
+
+        # Set red flag
+        self.red_flag = True
         
     def is_empty(self):
         """ Is the work queue empty ? """
@@ -539,7 +600,7 @@ class EIIICrawler(object):
     def work_pending(self):
         """ Any work pending ? """
 
-        return not (self.workers_idle() and self.is_empty())
+        return (not self.red_flag) and not (self.workers_idle() and self.is_empty())
     
     def check_already_downloaded(self, url):
         """ Is a URL already downloaded """
@@ -551,8 +612,15 @@ class EIIICrawler(object):
 
         # Mark in bitmap
         url = event.params.get('url')
+        parent_url = event.params.get('parent_url')
+        content_type = event.params.get('content_type','text/html')
+        
         log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
+
+        # Build a URL graph
+        if parent_url:
+            self.url_graph[parent_url].add((url, content_type))
 
     def url_download_error(self, event):
         """ Event callback for notifying download for a URL in error """
@@ -583,7 +651,10 @@ class EIIICrawler(object):
             # Give subsequent workers some time to start so that the other
             # workers fill in some data.
             time.sleep(10*(nworkers - i))           
-
+        
+    def wait(self):
+        """ Wait for crawl to finish """
+        
         # Wait for some time
         time.sleep(10)
 
@@ -596,6 +667,7 @@ class EIIICrawler(object):
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
 
+        # print self.url_graph
         self.stats.publish_stats()
 
     def load_config(self, fname='config.json'):
@@ -650,7 +722,7 @@ def parse_options():
         sys.exit(0)
                         
     # Set log level
-    if args.loglevel.lower() in ('info','warn','error','debug','critical'):
+    if args.loglevel.lower() in ('info','warn','error','debug','critical','extra'):
         log.setLevel(args.loglevel)
     else:
         print 'Invalid log level',args.loglevel
@@ -658,7 +730,8 @@ def parse_options():
 
     crawler = EIIICrawler(args.urls, args.config)
     crawler.crawl()
-        
+    crawler.wait()
+    
 if __name__ == "__main__":
     # Run this as $ python eiii_crawler.py <url>
     # E.g: python eiii_crawler.py -l debug -c myconfig.json http://www.tingtun.no
