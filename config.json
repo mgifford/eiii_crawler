@@ -1,8 +1,12 @@
 {
- "client_accept": "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 
+ "byte_limits": {
+  "application/pdf": 200, 
+  "text/html": 500
+ }, 
+ "client_accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 
  "client_accept_encoding": "gzip, deflate", 
  "client_accept_language": "en-US, en;q=0.5", 
- "client_connection": "Connection: keep-alive", 
+ "client_connection": "keep-alive", 
  "client_mimetypes": [
   "text/html", 
   "text/plain", 
@@ -37,13 +41,14 @@
  "num_workers": 2, 
  "site_maxbytes": 500, 
  "site_maxdepth": 10, 
- "site_maxfilesize": 20, 
- "site_maxhtmlurls": 8000, 
- "site_maxotherurls": 1000, 
- "site_maxpdfurls": 1000, 
  "site_maxrequests": 20, 
- "site_maxurls": 10000, 
+ "site_maxurlsize": 20, 
  "site_scope": "SITE_SCOPE", 
  "storedir": "~/.eiii/crawler/store", 
- "time_sleeptime": 1.0
+ "time_sleeptime": 1.0, 
+ "url_filter": [],
+ "url_limits": {
+  "application/pdf": 1000, 
+  "text/html": 6000
+ }
 }
