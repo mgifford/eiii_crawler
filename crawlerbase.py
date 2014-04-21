@@ -50,24 +50,26 @@ class CrawlerLimits(object):
     """ Class keeping constants on maximum limits for the
     crawler on various aspects """
 
-    # Max HTML URLs
-    site_maxhtmlurls = 8000
-    # Max PDF URLs
-    site_maxpdfurls = 1000
-    # Max other URLs
-    site_maxotherurls = 1000
-    # NOTE that the sum of (site_maxhtmlurls, site_maxpdfurls, site_maxotherurls)
-    # SHOULD equal value of site_maxurls.
-    
-    # Maximum number of URLs to be sampled from a site
-    site_maxurls = 10000
+    # Map the limits to content-type
+    url_limits = {
+        'text/html': 8000,
+        'application/xhtml+xml':8000,
+        'application/xml': 8000,
+        'application/pdf': 1000,
+        }
+
+    byte_limits = {
+        'text/html': 500,
+        'application/xhtml':500,
+        'application/xml': 500,     
+        'application/pdf': 200,
+        }
     # Maximum concurrent connections/requests to a site
     site_maxrequests = 20
     # Maximum bytes downloaded from a site in MB
     site_maxbytes = 500
-    # Maximum size of single file from a site in MB
-    site_maxfilesize = 20
-    # Flags
+    # Maximum size of single URL from a site in MB
+    site_maxurlsize = 20
 
 class CrawlerConfig(object):
     """ Configuration for the Crawler """
@@ -138,16 +140,17 @@ class CrawlerConfig(object):
         # Other headers to send
 
         # Copied from Firefox standard headers.
-        self.client_accept = 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        self.client_accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         # requests library does automatic gzip decoding, so this is OK.     
         self.client_accept_encoding = 'gzip, deflate'
         self.client_accept_language = 'en-US, en;q=0.5'
-        self.client_connection = 'Connection: keep-alive'
+        self.client_connection = 'keep-alive'
         self.client_standard_headers = ['Accept','Accept-Encoding','Accept-Language','Connection']
 
         # Mime-types which we want to deal with
         # All HTML/XML and plain text mime-types only, no PDF, no shit.
-        self.client_mimetypes = ['text/html','text/plain','text/xml','application/xhtml+xml','application/xml']
+        self.client_mimetypes = ['text/html','text/plain','text/xml',
+                                 'application/xhtml+xml','application/xml']
         
         # System settings
         self.num_workers = 2
@@ -156,6 +159,11 @@ class CrawlerConfig(object):
         # Store directory for file metadata, defaults to ~/.eiii/crawler/store folder
         self.storedir = os.path.join(self.configdir, 'store')
 
+        # Additional filtering rules if any in the form of a list like
+        # [('+', include_rule_regex), ('-', exclude_rule_regex)] tried
+        # in that order.
+        self.url_filter =  []
+        
     def get_real_useragent(self):
         """ Return the effective user-agent string """
 
@@ -407,7 +415,19 @@ class CrawlerStats(object):
 
         self.end_timestamp = datetime.datetime.now()
         self.crawl_time = self.end_timestamp - self.start_timestamp
-        
+
+    def get_crawl_url_rate(self):
+        """ Return crawling rate in terms of # URLs/sec """
+
+        d = datetime.datetime.now()
+        delta = (d - self.start_timestamp).total_seconds()
+        return 1.0*(self.num_urls_downloaded + self.num_urls_cache)/delta
+
+    def get_num_urls(self):
+        """ Get URLs crawled so far """
+
+        return self.num_urls_downloaded + self.num_urls_cache
+    
     def publish_stats(self):
         """ Publish crawl stats """
 
@@ -424,8 +444,9 @@ class CrawlerStats(object):
 class CrawlerUrlData(object):
     """ Class representing downloaded data for a URL """
 
-    def __init__(self, url, config):
+    def __init__(self, url, parent_url, config):
         self.url = url
+        self.parent_url = parent_url
         # Useful stuff
         self.useragent = config.get_real_useragent()
         self.config = config
@@ -447,6 +468,13 @@ class CrawlerUrlData(object):
 
         return ''
 
+    def get_url(self):
+        """ Return the downloaded URL. This is same as the
+        passed URL if there is no modification (such as
+        forwarding) """
+
+        return self.url
+
     def build_headers(self):
         """ Build headers for the request """
 
@@ -459,9 +487,12 @@ class CrawlerLimitRules(object):
     def __init__(self, config):
         self.config = config
         # Map the limits to content-type
-        self.limits = {'text/html': self.config.site_maxhtmlurls,
-                       'application/pdf': self.config.site_maxpdfurls}
+        self.url_limits = self.config.url_limits
+        self.byte_limits = self.config.byte_limits
+        
         self.url_counts = collections.defaultdict(int)
+        self.byte_counts = collections.defaultdict(int)
+        
         # Total URL (downloaded) count
         self.num_urls = 0
         # Total bytes downloaded
@@ -475,11 +506,15 @@ class CrawlerLimitRules(object):
         # Anyway for the time being this is enabled.
         self.eventr.subscribe('download_cache', self.check_crawler_limits)      
 
-    def update_counts(self, ctype):
+    def update_counts(self, ctype, bytes=0):
         """ Update URL count for the content-type """
 
         self.url_counts[ctype] += 1
+        self.byte_counts[ctype] += bytes
+
+        self.num_bytes += bytes
         self.num_urls += 1
+        
         log.debug('===> Updating count for',ctype,' <====', self.url_counts[ctype])
         
     def check_crawler_limits(self, event):
@@ -492,16 +527,10 @@ class CrawlerLimitRules(object):
             headers = event.params.get('headers', {})
             # get content type
             ctype = urlhelper.get_content_type(url, headers)
-            self.update_counts(ctype)
+            self.update_counts(ctype, int(event.params.get('content_length', 0)))
 
-            # Update total counts
-            self.num_urls += 1
-
-            # Update total bytes count
-            self.num_bytes += int(event.params.get('content_length', 0))
-            
             # Get limit for the content-type
-            url_limit = self.limits.get(ctype)
+            url_limit = self.url_limits.get(ctype)
 
             log.debug('Limits: ===>',url_limit,self.url_counts.get(ctype, 0),'<========')
             if url_limit and self.url_counts.get(ctype, 0)>url_limit:
@@ -510,22 +539,14 @@ class CrawlerLimitRules(object):
                 self.eventr.publish(self, 'abort_crawling',
                                     message='URL limit for content-type "%s" has reached' % ctype)
 
-            # Check total limit also
-            if self.num_urls>self.config.site_maxurls:
-                log.info('Total URL sample limit reached =>',self.num_urls)
+            # Get limit for the content-type
+            byte_limit = self.byte_limits.get(ctype)
+            
+            if byte_limit and self.byte_counts.get(ctype, 0)>byte_limit*1024*1024:
+                log.info('Byte limit for content-type',ctype,'reached.')
                 # Send abort_crawling event
                 self.eventr.publish(self, 'abort_crawling',
-                                    message='URL sampling limit has reached',
-                                    code=self.num_urls)
-
-            # Check total bytes - hopefully we don't hit this rule for ending crawl
-            # most of the time.
-            if self.num_bytes>self.config.site_maxbytes*1024*1024:
-                log.info('Total bytes (size) limit reached =>',self.num_bytes)
-                # Send abort_crawling event
-                self.eventr.publish(self, 'abort_crawling',
-                                    message='URL bytes (size) limits reached',
-                                    code=self.num_bytes)                
+                                    message='Byte limit for content-type "%s" has reached' % ctype)
         else:
             pass
     
@@ -652,20 +673,20 @@ class CrawlerWorkerBase(threading.Thread):
         # Parsing of robots.txt is implicit in this method
         raise NotImplementedError
 
-    def get_url_data_instance(self, url):
+    def get_url_data_instance(self, url, parent_url=None):
         """ Make an instance of the URL data class
         which fetches the URL """
 
         return CrawlerUrlData(url, self.config)
     
-    def download(self, url):
+    def download(self, url, parent_url=None):
         """ Download a URL and return an object which
         represents both its content and the headers. The
         headers are indicated by the 'headers' attribute
         and content by the 'content' attribute of the
         returned object. Returns error code if failed """
 
-        urlobj = self.get_url_data_instance(url)
+        urlobj = self.get_url_data_instance(url, parent_url)
         urlobj.download(self)
 
         return urlobj
@@ -732,12 +753,17 @@ class CrawlerWorkerBase(threading.Thread):
             self.state = 1
             if self.allowed(url, parent_url, content_type):
                 log.info('Downloading URL',url,'...')
-                urlobj = self.download(url)
+                urlobj = self.download(url, parent_url)
                 
                 # Data is obtained using the method urlobj.get_data()
                 # Headers is obtained using the method urlobj.get_headers()
                 url_data = urlobj.get_data()
                 headers = urlobj.get_headers()
+
+                # Modified URL if any - this can happen if URL is forwarded
+                # etc. Child URLs would need to be constructed against the
+                # updated URL not the old one. E.g: https://docs.python.org/library/
+                url = urlobj.get_url()
 
                 # Make another call to allowed this time with the content and headers - it
                 # is up to the child class on how to implement this - for example
@@ -790,6 +816,9 @@ class CrawlerWorkerBase(threading.Thread):
             # State is 3, sleeping off
             self.state = 3
             self.sleep()
+
+        # Put state to zero when exiting
+        self.state = 0
 
         log.info('Worker',self,'done.')
 
