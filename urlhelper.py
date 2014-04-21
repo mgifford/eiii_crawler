@@ -75,7 +75,13 @@ def fetch(url, *exceptions, **headers):
     
     try:
         # Don't bother verifying SSL certificates for HTTPS urls.
-        yield requests.get(url, headers=headers, verify=False)
+        # If a proxy is specified, set it.
+        proxy = headers.get('proxy')
+        if proxy:
+            proxies = {'http' : proxy, 'https' : proxy}
+            yield requests.get(url, headers=headers, proxies=proxies, verify=False)
+        else:
+            yield requests.get(url, headers=headers, verify=False)          
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
         raise FetchUrlException(e)
@@ -110,7 +116,7 @@ def fetch_ftp(url, *exception, **headers):
     except Exception, e:
         raise   
     
-def fetch_url(url, headers={}):
+def fetch_url(url, headers={}, proxy=''):
     """ Download a URL and return a two tuple of its content and headers """
 
     exceptions = [requests.exceptions.RequestException,
@@ -123,13 +129,16 @@ def fetch_url(url, headers={}):
         method = fetch_ftp
     else:
         method = fetch
-        
+
+    # If proxy is set, set it in header
+    if proxy: headers['proxy'] = proxy
+    
     with method(url, *exceptions, **headers) as freq:
         return (freq.content, dict(freq.headers))
 
     return (None, None)
 
-def get_url(url, headers={}):
+def get_url(url, headers={}, proxy=''):
     """ Download a URL and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
@@ -142,7 +151,10 @@ def get_url(url, headers={}):
         method = fetch_ftp
     else:
         method = fetch
-        
+
+    # If proxy is set, set it in header
+    if proxy: headers['proxy'] = proxy
+    
     with method(url, *exceptions, **headers) as freq:
         return freq
 
