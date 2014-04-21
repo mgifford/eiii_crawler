@@ -225,3 +225,54 @@ def create_cache_structure(root='.'):
             os.makedirs(folder)
 
     print "done."
+
+def convert_config(crawler_rules):
+    """ Convert config rules from Checker's format
+    to the format understood by EIII crawler.
+
+    # NOTE: This doctest fails. This is just for reference.
+    
+    >>> cfg = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 6000)],
+    ...        'scoping-rules': [('+', '^https?://utt\\.tingtun\\.no')], 'min-crawl-delay': 2,
+    ...        'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
+    ...        'seeds': ['http://www.tingtun.no', 'http://utt.tingtun.no'], 'obey-robotstxt': 'false'}
+    >>> convert_config(cfg)
+    {'url_limits': {'application/xml': 6000, 'text/html': 6000, 'application/xhtml+xml': 6000},
+     'byte_limits': {'application/xml': 500, 'text/html': 500, 'application/xhtml+xml': 500},
+     'url_filter': [('+', '^https?://utt\\.tingtun\\.no')], 'time_sleeptime': 2, 'flag_ignorerobots': True,
+     'urls': ['http://www.tingtun.no', 'http://utt.tingtun.no']} 
+    """
+
+    config_dict = {}
+    # Some values are directly mapped - only name change
+    mapping_keys = {'seeds': 'urls',
+                    'scoping-rules': 'url_filter',
+                    'min-crawl-delay': 'time_sleeptime',
+                    }
+
+    other_keys = {'max-pages': 'url_limits',
+                  'size-limits': 'byte_limits'}
+    
+    for key, new_key in mapping_keys.items():
+        config_dict[new_key] = crawler_rules[key]
+
+    for key, new_key in other_keys.items():
+        val = crawler_rules[key]
+
+        limit_dict = {}
+        for entry in val:
+            mime_types = entry[0]
+            limit = entry[1]
+
+            for mime_type in mime_types:
+                limit_dict[mime_type] = int(limit)
+
+        config_dict[new_key] = limit_dict
+        
+    config_dict['flag_ignorerobots'] = (crawler_rules['obey-robotstxt'].lower() == 'false')
+
+    return config_dict
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=True)
