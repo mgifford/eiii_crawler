@@ -31,9 +31,13 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             print 'No URLs given!'
             sys.exit(1)
 
-        crawler = EIIICrawler(urls, cfgfile='')
+        # Set log level
+        log.setLevel(crawler_rules.get('loglevel','info'))
+        print config_dict
+        # sys.exit(0)
+        
+        crawler = EIIICrawler(urls, cfgfile='',fromdict=config_dict)
         # Update config with the configuration values
-        crawler.config.__dict__.update(config_dict)
         crawler.config.save('crawl.json')
 
         crawler.crawl()
@@ -133,10 +137,11 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
           
 if __name__ == "__main__":
-    crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 6000)],
+    crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 50)],
                      'scoping-rules': [('+', '^https?://utt\\.tingtun\\.no')], 'min-crawl-delay': 2,
                      'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
-                     'seeds': ['http://www.tingtun.no'], 'obey-robotstxt': 'false'}
+                     'seeds': ['http://docs.python.org/library/'], 'obey-robotstxt': 'false',
+                     'loglevel': 'debug'}
 
     port=8910
     print 'Starting crawler server on port',port,'...'
