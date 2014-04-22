@@ -32,7 +32,8 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
     The data is downloaded using the TingtunUtils fetcher """
 
     def __init__(self, url, parent_url, config):
-        super(self.__class__, self).__init__(url, parent_url, config)
+        super(EIIICrawlerUrlData, self).__init__(url, parent_url, config)
+        self.orig_url = self.url
         self.headers = {}
         self.content = ''
         self.content_length = 0
@@ -42,7 +43,8 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
         """ Return a 3-tuple of paths to the URL data and header files
         and their directory """
 
-        urlhash = hashlib.md5(self.url).hexdigest()
+        # Let us write against original URL
+        urlhash = hashlib.md5(self.orig_url).hexdigest()
         # First two bytes for folder, next two for file
         folder, sub_folder, fname = urlhash[:2], urlhash[2:4], urlhash[4:]
         # Folder is inside 'store' directory
@@ -66,6 +68,7 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                 open(fhdr, 'wb').write(zlib.compress(str(dict(self.headers))))
                 log.info('Wrote URL data to',fpath,'for URL',self.url)
             except Exception, e:
+                raise
                 log.error("Error in writing URL data for URL",self.url)
                 log.error("\t",str(e))
 
@@ -231,7 +234,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         self.robots_p = robocop.Robocop(useragent=config.get_real_useragent())
         # Event registry
         self.eventr = CrawlerEventRegistry.getInstance()
-        super(self.__class__,  self).__init__(config)
+        super(EIIICrawlerQueuedWorker,  self).__init__(config)
 
     def prepare_config(self):
         """ Prepare configuration """
@@ -624,12 +627,17 @@ class EIIICrawler(object):
 
         # Mark in bitmap
         url = event.params.get('url')
+        # Also make entry for original URL
+        orig_url = event.params.get('orig_url')
         parent_url = event.params.get('parent_url')
         content_type = event.params.get('content_type','text/html')
         
         log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
-
+        if url != orig_url:
+            log.debug('Making entry for URL',orig_url,'in bitmap...')           
+            self.url_bitmap[orig_url] = 1
+            
         # Build a URL graph
         if parent_url:
             self.url_graph[parent_url].add((url, content_type))
@@ -641,7 +649,12 @@ class EIIICrawler(object):
         url = event.params.get('url')       
         log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
-        
+
+    def make_worker(self):
+        """ Make a worker instance """
+
+        return EIIICrawlerQueuedWorker(self.config, self)
+    
     def crawl(self):
         """ Do the actual crawling """
 
@@ -660,7 +673,7 @@ class EIIICrawler(object):
         nworkers = self.config.num_workers
         
         for i in range(nworkers):
-            worker = EIIICrawlerQueuedWorker(self.config, self)
+            worker = self.make_worker()
             worker.setDaemon(True)
             
             self.workers.append(worker)
@@ -687,6 +700,10 @@ class EIIICrawler(object):
         # print self.url_graph
         self.stats.publish_stats()
 
+    def quit(self):
+        """ Clean-up and exit """
+        pass
+        
     def load_config(self, fname='config.json'):
         """ Load crawler configuration """
 
@@ -760,6 +777,7 @@ class EIIICrawler(object):
         crawler = cls(args.urls, args.config, args=args)
         crawler.crawl()
         crawler.wait()
+        crawler.quit()
 
 if __name__ == "__main__":
     # Run this as $ python eiii_crawler.py <url>
