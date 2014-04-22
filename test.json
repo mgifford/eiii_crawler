@@ -38,7 +38,7 @@
  "flag_use_etags": true, 
  "flag_use_last_modified": true, 
  "flag_x_robots": true, 
- "network_proxy": "", 
+ "network_proxy": "127.0.0.1:8123", 
  "num_workers": 2, 
  "site_maxbytes": 500, 
  "site_maxdepth": 10, 
