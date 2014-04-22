@@ -56,6 +56,70 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # print self.url_graph
         stats.publish_stats()      
 
+        # Get the graph
+        url_graph = crawler.get_url_graph()
+        # Keys => URLs, values => list of child URL tuples
+        # (url, content_type)
+        # print url_graph
+        # print url_graph.keys()
+        return self.make_directed_graph(url_graph)
+                
+    def make_directed_graph(self, url_graph):
+        """ Convert the URL graph data structure obtained
+        from crawler into a directed graph
+
+        Example:
+        
+        [ ("text/html", "http://tingtun.no/", [0,1,2])
+        , ("text/html", "http://tingtun.no/search", [0,1,2])
+        , ("text/html", "http://tingtun.no/research", [0,1,2,3])
+        , ("application/pdf", "http://tingtun.no/research/some.pdf", [])
+        ]
+
+        """
+
+        url_set = set()
+        url_ctype = {}
+        
+        # Add all to the set
+        for url_key, url_values in url_graph.items():
+            url_set.add(url_key)
+            # Keys are always HTML since they are parents
+            url_ctype[url_key] = 'text/html'
+
+            # print url_values
+            for url, ctype in url_values:
+                # print 'URL =>',url,ctype
+                url_set.add(url)
+                url_ctype[url] = ctype
+
+        # Make a list out of it
+        url_list = sorted(list(url_set))
+        # print url_list
+        
+        url_dgraph = []
+
+        for url in url_list:
+            ctype = url_ctype[url]
+            child_index = []
+            
+            # Do I have children ?
+            if url in url_graph:
+                # Find indices of children, since we are
+                # going through the same list, index will
+                # be shared across both lists.
+                child_urls = map(lambda x: x[0], url_graph[url])
+                for child_url in child_urls:
+                    child_index.append(url_list.index(child_url))
+            else:
+                # No child URLs
+                pass
+
+            url_dgraph.append((ctype, url, child_index))
+
+        print 'URL directed graph=>',url_dgraph
+        return url_dgraph
+        
     def load(self, ctl):
         """
         Returns a number. If it's above 100, it's overloaded. The
