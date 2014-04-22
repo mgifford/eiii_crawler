@@ -10,8 +10,9 @@ import argparse
 import logger
 import utils
 from selenium import webdriver
+from selenium.webdriver.common.proxy import *
 
-log = logger.getMultiLogger('eiii_selenium_crawler','crawl.log','crawl.err',console=True)
+log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
 
 __version__ = '1.0a'
 __author__ = 'Anand B Pillai'
@@ -22,7 +23,7 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
     The data is downloaded using selenium web driver """
 
     def __init__(self, url, parent_url, config, driver):
-        super(self.__class__, self).__init__(url, parent_url, config)
+        super(EIIISeleniumCrawlerUrlData, self).__init__(url, parent_url, config)
         self.driver = driver
         
     def download(self, crawler, parent_url=None):
@@ -31,7 +32,8 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
         eventr = CrawlerEventRegistry.getInstance()
 
         index, follow = True, True
-        
+
+        # Doesn't seem to work for Selenium crawler
         if self.get_headers_and_data():
             # Obtained from cache
             return True
@@ -40,7 +42,8 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
             # freq = urlhelper.get_url(self.url, headers = self.build_headers())
             self.driver.get(self.url)
             
-            self.content = self.driver.page_source
+            self.content = self.driver.page_source.encode('ascii','xmlcharrefreplace')
+            # Encode it 
             self.headers = {}
 
             # Page title
@@ -50,8 +53,8 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
             urlhelper.check_page_error(title, self.content)
             
             # Is the URL modified ? if so set it 
-            if self.url != driver.current_url:
-                self.url = driver.current_url
+            if self.url != self.driver.current_url:
+                self.url = self.driver.current_url
                 log.extra("URL updated to",self.url)
             
             # Add content-length also for downloaded content
@@ -94,13 +97,13 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
         return True
 
             
-class EIIISeleniumCrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
+class EIIISeleniumCrawlerQueuedWorker(eiii_crawler.EIIICrawlerQueuedWorker):
     """ EIII Crawler worker using a shared FIFO queue as
     the data structure that is used to share data """
     
     def __init__(self, config, manager):
         self.driver = manager.get_web_driver()
-        super(self.__class__, self).__init__(config, manager)
+        super(EIIISeleniumCrawlerQueuedWorker, self).__init__(config, manager)
 
     def get_url_data_instance(self, url, parent_url=None):
         """ Make an instance of the URL data class
@@ -138,34 +141,94 @@ class EIIISeleniumCrawler(eiii_crawler.EIIICrawler):
     """ EIII Web Crawler using Selenium web driver """
 
     def __init__(self, urls, cfgfile='config.json', fromdict={}, args=None):
-        super(self.__class__, self).__init__(urls, cfgfile, fromdict)
+        super(EIIISeleniumCrawler, self).__init__(urls, cfgfile, fromdict)
         # Web driver
+        self.remote_driver = False      
         self.driver = self.make_web_driver(args)
+        # With selenium we can have only 1 worker
+        self.config.num_workers = 1
         # Driver mappings
 
+    def get_web_driver(self):
+        """ Return the web-driver instance """
+
+        return self.driver
+    
+    def make_worker(self):
+        """ Make a worker instance """
+
+        return EIIISeleniumCrawlerQueuedWorker(self.config, self)
+    
+    def make_web_driver_with_proxy(self, args):
+        """ Return the selenium web-driver instance that
+        supports an (open) network proxy server """
+
+        myProxy = self.config.network_proxy
+        
+        proxy = Proxy({
+            'proxyType': ProxyType.MANUAL,
+            'httpProxy': myProxy,
+            'ftpProxy': myProxy,
+            'sslProxy': myProxy,
+            'noProxy': '' # set this value as desired
+            })
+
+        log.info('Using network proxy',myProxy,'...')
+        # If remote driver specified, use it
+        if args.remote:
+            self.remote_driver = True
+            log.info('Using remote driver at',args.remote)
+            # for remote
+            caps = webdriver.DesiredCapabilities.FIREFOX.copy()
+            proxy.add_to_capabilities(caps)
+            driver = webdriver.Remote("http://%s/wd/hub" % args.remote,
+                                      desired_capabilities=caps)
+            
+        else:
+            driver_name = args.driver
+            log.info('Selected driver',driver_name)
+            if driver_name != 'phantomjs':
+                driver = getattr(webdriver, driver_name[0].upper() + driver_name[1:])(proxy=proxy)
+            else:
+                # Cannot use proxy 
+                driver = getattr(webdriver, 'PhantomJS')()                              
+
+        return driver
+        
     def make_web_driver(self, args):
         """ Return the selenium web-driver instance """
+
+        if self.config.network_proxy:
+            return self.make_web_driver_with_proxy(args)
 
         if args:
             # If remote driver specified, use it
             if args.remote:
-                print 'Using remote driver at',args.remote
+                self.remote_driver = True               
+                log.info('Using remote driver at',args.remote)
                 driver = webdriver.Remote("http://%s/wd/hub" % args.remote,
                                           webdriver.DesiredCapabilities.FIREFOX.copy())
             else:
                 driver_name = args.driver
-                print 'Selected driver',driver_name
+                log.info('Selected driver',driver_name)
                 if driver_name != 'phantomjs':
                     driver = getattr(webdriver, driver_name[0].upper() + driver_name[1:])()
                 else:
                     driver = getattr(webdriver, 'PhantomJS')()              
         else:
             driver = webdriver.Firefox()
-            
+
         return driver
 
-    def __del__(self):
-        self.driver.close()
+    def quit(self):
+        print 'Quitting...'
+        # If remote, close
+        # If local, quit
+        if self.remote_driver:
+            self.driver.close()
+        else:
+            self.driver.close()         
+            self.driver.quit()          
         
     @classmethod
     def parse_options(cls):
