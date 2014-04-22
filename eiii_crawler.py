@@ -455,7 +455,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 class EIIICrawler(object):
     """ EIII Web Crawler """
 
-    def __init__(self, urls, cfgfile='config.json', fromdict={}):
+    def __init__(self, urls, cfgfile='config.json', fromdict={}, args=None):
         # Load config from file.
         cfgfile = self.load_config(fname=cfgfile)
         if cfgfile:
@@ -480,8 +480,11 @@ class EIIICrawler(object):
         self.url_bitmap = {}
         # Crawl stats
         self.stats = crawlerbase.CrawlerStats()
+        self.stats.reset()
+        
         # Crawl limits enforcement
         self.limit_checker = crawlerbase.CrawlerLimitRules(self.config)
+        print 'Limit checker =>',self.limit_checker
         # Event registry
         self.eventr = CrawlerEventRegistry.getInstance()
         self.subscribe_events()
@@ -641,6 +644,11 @@ class EIIICrawler(object):
         
     def crawl(self):
         """ Do the actual crawling """
+
+        # Demarcating text
+        log.logsimple('>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<')
+        log.logsimple('>>>>>>>> STARTING CRAWL <<<<<<<<')
+        log.logsimple('>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<')
         
         # Push the URLs to queue
         for url in self.urls:
@@ -712,36 +720,48 @@ class EIIICrawler(object):
             print 'Config file found at',cfgfile,'...'
             return cfgfile
 
-def parse_options():
-    """ Parse command line options """
+    @classmethod
+    def parse_options(cls):
+        """ Parse command line options """
 
-    if len(sys.argv)<2:
-        sys.argv.append('-h')
-        
-    parser = argparse.ArgumentParser(prog='eiii_webcrawler',description='Web-crawler for the EIII project - http://eiii.eu')
-    parser.add_argument('-v','--version',help='Print version and exit',action='store_true')
-    parser.add_argument('-l','--loglevel',help='Set the log level',default='info',metavar='LOGLEVEL')
-    parser.add_argument('-c','--config',help='Use the given configuration file',metavar='CONFIG',
-                        default='config.json')
-    parser.add_argument('urls', nargs='+', help='URLs to crawl')
+        if len(sys.argv)<2:
+            sys.argv.append('-h')
 
-    args = parser.parse_args()
-    if args.version:
-        print 'EIII web-crawler: Version',__version__
-        sys.exit(0)
-                        
-    # Set log level
-    if args.loglevel.lower() in ('info','warn','error','debug','critical','extra'):
-        log.setLevel(args.loglevel)
-    else:
-        print 'Invalid log level',args.loglevel
-        sys.exit(1)
+        parser = argparse.ArgumentParser(prog='eiii_webcrawler',description='Web-crawler for the EIII project - http://eiii.eu')
+        parser.add_argument('-v','--version',help='Print version and exit',action='store_true')
+        parser.add_argument('-l','--loglevel',help='Set the log level',default='info',metavar='LOGLEVEL')
+        parser.add_argument('-c','--config',help='Use the given configuration file',metavar='CONFIG',
+                            default='config.json')
+        parser.add_argument('urls', nargs='*', help='URLs to crawl')
 
-    crawler = EIIICrawler(args.urls, args.config)
-    crawler.crawl()
-    crawler.wait()
-    
+        args = parser.parse_args()
+        if args.version:
+            print 'EIII web-crawler: Version',__version__
+            sys.exit(0)
+
+        if len(args.urls)==0:
+            print 'No URLs given, nothing to do'
+            sys.exit(0)
+            
+        # Set log level
+        if args.loglevel.lower() in ('info','warn','error','debug','critical','extra'):
+            log.setLevel(args.loglevel)
+        else:
+            print 'Invalid log level',args.loglevel
+            sys.exit(1)
+
+        return args
+
+    @classmethod
+    def main(cls):
+        """ Main routine """
+
+        args = cls.parse_options()
+        crawler = cls(args.urls, args.config, args=args)
+        crawler.crawl()
+        crawler.wait()
+
 if __name__ == "__main__":
     # Run this as $ python eiii_crawler.py <url>
     # E.g: python eiii_crawler.py -l debug -c myconfig.json http://www.tingtun.no
-    parse_options()
+    EIIICrawler.main()
