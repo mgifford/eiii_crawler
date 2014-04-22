@@ -148,9 +148,10 @@ class CrawlerConfig(object):
         self.client_standard_headers = ['Accept','Accept-Encoding','Accept-Language','Connection']
 
         # Mime-types which we want to deal with
-        # All HTML/XML and plain text mime-types only, no PDF, no shit.
+        # All HTML/XML and plain text mime-types only + PDF
         self.client_mimetypes = ['text/html','text/plain','text/xml',
-                                 'application/xhtml+xml','application/xml']
+                                 'application/xhtml+xml','application/xml',
+                                 'application/pdf']
         
         # System settings
         self.num_workers = 2
@@ -333,34 +334,8 @@ class CrawlerStats(object):
     # This class is a Singleton
     __metaclass__ = utils.SingletonMeta
     
-    # Stats kept
-    # URLs
-    # Number of total URLs crawled (not saved)
-    num_urls = 0
-    # Number of total URLs downloaded
-    num_urls_downloaded = 0
-    # Number of URLs skipped (due to rules etc)
-    num_urls_skipped = 0
-    # Number of URLs with error
-    num_urls_error = 0
-    # Number of urls not found (404 error)
-    num_urls_notfound = 0
-    # Number of URLs retrieved from cache
-    num_urls_cache = 0
-
-    # Time
-    # Start time-stamp
-    start_timestamp = ''
-    # End time-stamp
-    end_timestamp = ''
-    # Time taken for total crawl
-    crawl_time = 0
-    # Time taken for download
-    download_time = 0
-    # Total sleep time
-    sleep_time = 0
-
     def __init__(self):
+        self.reset()
         # Subscribe to events
         eventr = CrawlerEventRegistry.getInstance()
         eventr.subscribe('download_complete', self.update_total_urls_downloaded)
@@ -372,6 +347,34 @@ class CrawlerStats(object):
         eventr.subscribe('crawl_ended', self.mark_end_time)                     
         pass
 
+    def reset(self):
+        """ Reset the stats """
+
+        # Number of total URLs crawled
+        self.num_urls = 0
+        # Number of total URLs downloaded
+        self.num_urls_downloaded = 0
+        # Number of URLs skipped (due to rules etc)
+        self.num_urls_skipped = 0
+        # Number of URLs with error
+        self.num_urls_error = 0
+        # Number of urls not found (404 error)
+        self.num_urls_notfound = 0
+        # Number of URLs retrieved from cache
+        self.num_urls_cache = 0
+
+        # Time
+        # Start time-stamp
+        self.start_timestamp = ''
+        # End time-stamp
+        self.end_timestamp = ''
+        # Time taken for total crawl
+        self.crawl_time = 0
+        # Time taken for download
+        self.download_time = 0
+        # Total sleep time
+        self.sleep_time = 0
+        
     def update_total_urls(self, event):
         """ Update total number of URLs """
 
