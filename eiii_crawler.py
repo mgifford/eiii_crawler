@@ -455,7 +455,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 class EIIICrawler(object):
     """ EIII Web Crawler """
 
-    def __init__(self, urls, cfgfile='config.json'):
+    def __init__(self, urls, cfgfile='config.json', fromdict={}):
         # Load config from file.
         cfgfile = self.load_config(fname=cfgfile)
         if cfgfile:
@@ -465,6 +465,9 @@ class EIIICrawler(object):
             print 'Using default configuration...'
             self.config = crawlerbase.CrawlerConfig()
 
+        # Update fromdict if any
+        if fromdict:
+            self.config.__dict__.update(fromdict)
         # Prepare it
         self.prepare_config()
         # Prepare config
