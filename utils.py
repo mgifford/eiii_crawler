@@ -248,13 +248,15 @@ def convert_config(crawler_rules):
     mapping_keys = {'seeds': 'urls',
                     'scoping-rules': 'url_filter',
                     'min-crawl-delay': 'time_sleeptime',
+                    'loglevel': 'loglevel'
                     }
 
     other_keys = {'max-pages': 'url_limits',
                   'size-limits': 'byte_limits'}
     
     for key, new_key in mapping_keys.items():
-        config_dict[new_key] = crawler_rules[key]
+        if key in crawler_rules:
+            config_dict[new_key] = crawler_rules[key]
 
     for key, new_key in other_keys.items():
         val = crawler_rules[key]
