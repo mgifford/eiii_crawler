@@ -499,6 +499,12 @@ class EIIICrawler(object):
         # Check IDNA encoding for the URLs and encode if necessary.
         self.check_idna_domains()
 
+    def get_url_graph(self):
+        """ Return the URL graph showing the tree of
+        URLs crawled """
+
+        return self.url_graph
+    
     def prepare_config(self):
         """ Prepare steps if any for config object """
 
