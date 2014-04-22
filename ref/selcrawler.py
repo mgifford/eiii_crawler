@@ -2,6 +2,9 @@
 
 Prototypical selenium based web crawler
 
+NOTE: This is only for reference. A full-fledged selenium
+based web-crawler is available in the parent folder.
+
 """
 
 from selenium import webdriver
