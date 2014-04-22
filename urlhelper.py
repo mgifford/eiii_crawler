@@ -401,6 +401,32 @@ def check_spurious_404(headers, content, status_code=200):
         return 404
 
     return status_code
+
+def check_spurious_404_title(title, status_code=200):
+    """ Check for pages that are 404 pages wrapped
+    in 200 disguise with the title given """
+
+    # Apply heuristics on title
+    # E.g: 404, Page not found, not found, page does not exist etc
+    if any(title.startswith(x) for x in ('page not found','not found','page does not exist',
+                                         'error 404')):
+        return 404
+
+    # Safe to assume if a page title starts with 404 it is 404 ?
+    # I hope so.
+    if title.startswith('404 ') or title.endswith(' 404'):
+        return 404
+
+    return status_code
+
+def check_page_error(title, content):
+    """ Check if page is loaded with error using the title
+    and content """
+
+    # Used by selenium crawler
+    if title=='Problem loading page':
+        # Error in connection
+        raise FetchUrlException, title
     
 class URLLister(sgmllib.SGMLParser):
     """ Simple HTML parser using sgmllib's SGMLParser """
