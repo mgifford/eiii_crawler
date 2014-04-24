@@ -1,0 +1,4 @@
+*.pyc
+*.err
+*.log
+crawl.json
