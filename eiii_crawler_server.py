@@ -22,6 +22,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         """ Accepts a crawler control object, dictionary of
         crawler rules and start crawling """
 
+        if ctl:
+            ctl.setStatus("Starting crawl ...")
         print 'Starting crawl ...'
         # Map crawler rules into internal Rules.
         config_dict = utils.convert_config(crawler_rules)
@@ -50,7 +52,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         while crawler.work_pending():
             time.sleep(5)
             # Update status
-            if ctl: ctl.setStatus(str(stats.get_num_urls()),
+            if ctl: ctl.setStatus(str(stats.get_num_urls()) + ", " +
                                   str(stats.get_crawl_url_rate()))
                 
 

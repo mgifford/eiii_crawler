@@ -271,7 +271,7 @@ def convert_config(crawler_rules):
 
         config_dict[new_key] = limit_dict
         
-    config_dict['flag_ignorerobots'] = (crawler_rules['obey-robotstxt'].lower() == 'false')
+    config_dict['flag_ignorerobots'] = not crawler_rules['obey-robotstxt']
 
     return config_dict
 
