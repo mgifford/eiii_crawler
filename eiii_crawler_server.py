@@ -9,8 +9,15 @@ from crawlerbase import CrawlerStats
 class EIIICrawlerServer(SimpleTTRPCServer):
     """ EIII crawler server obeying the tt-rpc protocol """
 
-    _logger = log
-    
+    class _LoggerWrapper(object):
+        def __getattr__(self, name):
+            f = getattr(log, name)
+            def wrapper(s, *args):
+                return f(s % args)
+            return wrapper
+
+    _logger = _LoggerWrapper()
+
     def _ping(self, what):
         """ Private methods are not exposed. """
         return what
