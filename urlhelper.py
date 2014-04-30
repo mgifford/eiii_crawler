@@ -380,6 +380,12 @@ def get_content_type(url, headers):
         # want the former part.
         return ctype_header.split(';')[0].strip()
     except KeyError:
+        p = urlparse.urlparse(url)
+        # If no path, append '/' at end otherwise
+        # guess_content_type reports junk results
+        if p.path=='':
+            url = url + '/'
+            
         return guess_content_type(url)
 
 
