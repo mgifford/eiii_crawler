@@ -503,8 +503,12 @@ class EIIICrawler(object):
 
         # URL graph
         self.url_graph = collections.defaultdict(set)
-        signal.signal(signal.SIGINT, self.sighandler)
-        signal.signal(signal.SIGTERM, self.sighandler)
+        try:
+            signal.signal(signal.SIGINT, self.sighandler)
+            signal.signal(signal.SIGTERM, self.sighandler)
+        except ValueError:
+            # "signal only works in main thread"
+            pass
         # Check IDNA encoding for the URLs and encode if necessary.
         self.check_idna_domains()
 

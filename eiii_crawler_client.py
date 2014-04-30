@@ -6,7 +6,7 @@ from ttrpc.client import *
 crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 50)],
                  'scoping-rules': [('+', '^https?://utt\\.tingtun\\.no')], 'min-crawl-delay': 2,
                  'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
-                 'seeds': ['http://docs.python.org/library/'], 'obey-robotstxt': 'false',
+                 'seeds': ['http://docs.python.org/library/'], 'obey-robotstxt': False,
                  'loglevel': 'debug'}
 
 # Wait for 3 hours for crawl to end.
