@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import zlib
 import collections
+import sgmllib
 import js.jsparser as jsparser
 
 log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
@@ -100,7 +101,7 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
         up-to-date, this sets the values and returns True. If cache is out-dated,
         returns False """
 
-        if self.config.flag_storedata:
+        if self.config.flag_usecache:
             fpath, fhdr, dirpath = self.get_url_store_paths()
 
             if os.path.isfile(fpath) and os.path.isfile(fhdr):
