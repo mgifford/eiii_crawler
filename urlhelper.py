@@ -548,7 +548,7 @@ class URLLister(sgmllib.SGMLParser):
         # These are defines areas inside image-maps
         url = adict.get('href','')
         if url:
-            self.urls.append(src_url)           
+            self.urls.append(url)           
 
     # Skipped tags - embed, option, object, applet etc.
     # Former 3 because they deal with embeddable URL like flash.
