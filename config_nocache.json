@@ -1,6 +1,8 @@
 {
  "byte_limits": {
   "application/pdf": 200, 
+  "application/xhtml": 500, 
+  "application/xml": 500, 
   "text/html": 500
  }, 
  "client_accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 
@@ -12,7 +14,8 @@
   "text/plain", 
   "text/xml", 
   "application/xhtml+xml", 
-  "application/xml"
+  "application/xml", 
+  "application/pdf"
  ], 
  "client_spoofuseragent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0", 
  "client_standard_headers": [
@@ -32,10 +35,11 @@
  "flag_randomize_sleep": true, 
  "flag_randomize_urls": false, 
  "flag_spoofua": true, 
- "flag_storedata": false, 
+ "flag_storedata": true, 
  "flag_supplement_urls": true, 
  "flag_use_etags": true, 
  "flag_use_last_modified": true, 
+ "flag_usecache": false, 
  "flag_x_robots": true, 
  "network_proxy": "", 
  "num_workers": 2, 
@@ -46,9 +50,11 @@
  "site_scope": "SITE_SCOPE", 
  "storedir": "~/.eiii/crawler/store", 
  "time_sleeptime": 1.0, 
- "url_filter": [],
+ "url_filter": [], 
  "url_limits": {
   "application/pdf": 1000, 
-  "text/html": 6000
+  "application/xhtml+xml": 8000, 
+  "application/xml": 8000, 
+  "text/html": 8000
  }
 }
