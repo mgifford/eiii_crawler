@@ -105,6 +105,8 @@ class CrawlerConfig(object):
         # used to avoid network fetchers for URLs which
         # are not modified w.r.t timestamps or Etags.
         self.flag_storedata = True
+        # Umbrella config for disabling both below
+        self.flag_usecache = True
         # Enable HTTP 304 caching using last-modified ?
         self.flag_use_last_modified = True
         # Enable HTTP 304 caching using etag ?
