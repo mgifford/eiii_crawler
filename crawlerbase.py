@@ -161,7 +161,8 @@ class CrawlerConfig(object):
         self.configdir = '~/.eiii/crawler'      
         # Store directory for file metadata, defaults to ~/.eiii/crawler/store folder
         self.storedir = os.path.join(self.configdir, 'store')
-
+        # Stats folder
+        self.statsdir = os.path.join(self.configdir, 'stats')
         # Additional filtering rules if any in the form of a list like
         # [('+', include_rule_regex), ('-', exclude_rule_regex)] tried
         # in that order.
@@ -315,7 +316,7 @@ class CrawlerEventRegistry(object):
         """ Notify all subscribers subscribed to an event """
         
         # Find subscribers
-        log.debug('Notifying all subscribers...',event)
+        # log.debug('Notifying all subscribers...',event)
 
         count = 0
         for sub in self.subscribers.get(event.event_name, []):
@@ -387,13 +388,13 @@ class CrawlerStats(object):
         """ Update total number of URLs retrieved from cache """
 
         self.num_urls_cache += 1
-        log.debug('===> Number of URLs from cache <===',self.num_urls_cache)
+        # log.debug('===> Number of URLs from cache <===',self.num_urls_cache)
         
     def update_total_urls_downloaded(self, event):
         """ Update total number of URLs downloaded """
 
         self.num_urls_downloaded += 1
-        log.debug('===> Number of URLs downloaded <===',self.num_urls_downloaded)
+        # log.debug('===> Number of URLs downloaded <===',self.num_urls_downloaded)
 
     def update_total_urls_skipped(self, event):
         """ Update total number of URLs skipped """
@@ -776,7 +777,8 @@ class CrawlerWorkerBase(threading.Thread):
                 # In this case the allowed is more applicable to child URLs - for example
                 # a META robots NOFOLLOW is parsed at this point.
 
-                if (url_data != None) and self.allowed(url, parent_url, url_data, content_type, headers):
+                if (url_data != None) and self.allowed(url, parent_url, url_data, content_type, headers, parse=True):
+
                     # Can proceed further
                     # Parse the data
                     url, child_urls = self.parse(url_data, url)
@@ -796,6 +798,7 @@ class CrawlerWorkerBase(threading.Thread):
                         content_type = urlhelper.get_content_type(full_curl, headers)
                         # Skip if not allowed
                         if self.allowed(full_curl, parent_url=url, content_type=content_type):
+                            # log.info(url," => Adding URL",full_curl,"...")
                             newurls.append((content_type, full_curl, url))
 
                             # Build additional URLs if any
@@ -811,9 +814,15 @@ class CrawlerWorkerBase(threading.Thread):
                     self.state = 2
                     # Push data into the queue
                     for newurl in newurls:
+                        log.debug("Pushing",newurl,"...")
                         self.push(newurl)
+                        log.debug("done.")
+                        # self.push(newurl)
                 else:
-                    log.debug('No data for URL or content-rules do not allow indexing',url,'...')
+                    if url_data == None:
+                        log.info("URL data is null for", url)
+                    else:
+                        log.info("URL is disallowed for", url)
 
             else:
                 log.debug('Skipping URL',url,'...')
