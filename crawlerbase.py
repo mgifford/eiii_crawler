@@ -814,15 +814,15 @@ class CrawlerWorkerBase(threading.Thread):
                     self.state = 2
                     # Push data into the queue
                     for newurl in newurls:
-                        log.debug("Pushing",newurl,"...")
+                        # log.debug("Pushing",newurl,"...")
                         self.push(newurl)
-                        log.debug("done.")
+                        # log.debug("done.")
                         # self.push(newurl)
                 else:
                     if url_data == None:
-                        log.info("URL data is null for", url)
+                        log.debug("URL data is null for", url)
                     else:
-                        log.info("URL is disallowed for", url)
+                        log.debug("URL is disallowed for", url)
 
             else:
                 log.debug('Skipping URL',url,'...')
