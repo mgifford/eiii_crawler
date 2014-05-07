@@ -44,7 +44,9 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         log.setLevel(crawler_rules.get('loglevel','info'))
         print config_dict
         # sys.exit(0)
-        
+
+        # Set task id
+        config_dict['task_id'] = ctl.id_
         crawler = EIIICrawler(urls, cfgfile='',fromdict=config_dict)
         # Update config with the configuration values
         crawler.config.save('crawl.json')
@@ -54,7 +56,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # Wait for some time
         time.sleep(10)
 
-        stats = CrawlerStats()
+        stats = crawler.stats
         
         while crawler.work_pending():
             time.sleep(5)
@@ -68,14 +70,17 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         # print self.url_graph
         stats.publish_stats()      
-
+        # Get stats object as a JSON dump
+        stats_json = stats.get_json()
+        
         # Get the graph
         url_graph = crawler.get_url_graph()
         # Keys => URLs, values => list of child URL tuples
         # (url, content_type)
         # print url_graph
         # print url_graph.keys()
-        return self.make_directed_graph(url_graph)
+        return { 'result': self.make_directed_graph(url_graph),
+                 'stats': stats_json }
                 
     def make_directed_graph(self, url_graph):
         """ Convert the URL graph data structure obtained
