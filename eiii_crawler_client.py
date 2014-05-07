@@ -6,7 +6,7 @@ from ttrpc.client import *
 crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 50)],
                  'scoping-rules': [('+', '^https?://utt\\.tingtun\\.no')], 'min-crawl-delay': 2,
                  'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
-                 'seeds': ['http://docs.python.org/library/'], 'obey-robotstxt': False,
+                 'seeds': ['http://tingtun.no'], 'obey-robotstxt': False,
                  'loglevel': 'debug'}
 
 # Wait for 3 hours for crawl to end.
@@ -15,7 +15,9 @@ proxy = TTRPCProxy('tcp://localhost:8910', retries=1,
 
 # print dir(proxy.poller)
 crawl_graph = proxy.crawl(crawler_rules)
-print 'Crawl graph=>',crawl_graph
+print 'Crawl graph=>',crawl_graph['result']
+print
+print 'Crawl stats=>',crawl_graph['stats']
 
 # print proxy.load()
 
