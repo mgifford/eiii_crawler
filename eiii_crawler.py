@@ -518,6 +518,7 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
 
         try:
             open(statspath,'w').write(encoder.encode(statsdict))
+            log.info("Stats written to",statspath)
         except Exception, e:
             log.error("Error writing stats JSON", str(e))           
         
