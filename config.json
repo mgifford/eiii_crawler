@@ -48,6 +48,7 @@
  "site_maxrequests": 20, 
  "site_maxurlsize": 20, 
  "site_scope": "SITE_SCOPE", 
+ "statsdir": "~/.eiii/crawler/stats", 
  "storedir": "~/.eiii/crawler/store", 
  "time_sleeptime": 1.0, 
  "url_filter": [], 
