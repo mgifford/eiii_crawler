@@ -2,6 +2,8 @@ import inspect
 import requests
 import itertools
 import os
+import json
+import datetime
 
 from contextlib import contextmanager
 from types import StringTypes
@@ -54,6 +56,15 @@ class SingletonMeta(type):
     def getInstance(cls, *args, **kwargs):
         """ Return an instance """
         return cls(*args, **kwargs)
+
+class MyEncoder(json.JSONEncoder):
+ 
+    def default(self, obj):
+        if any(isinstance(obj, x) for x in (datetime.datetime, datetime.date, datetime.timedelta)):
+            return str(obj)
+
+        # print 'OBJ=>',obj
+        return json.JSONEncoder.default(self, obj)
     
 def getPreviousFrame(n=2):
     """ Get the stack frame at levels 'n' above
