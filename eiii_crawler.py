@@ -475,6 +475,9 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
     def __init__(self, config):
         super(EIIICrawlerStats, self).__init__()
         self.config = config
+
+    def reset(self):
+        super(EIIICrawlerStats, self).reset()
         # URLs downloaded 
         self.urls_d = set()
         # URLs filtered
@@ -501,6 +504,16 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         super(EIIICrawlerStats, self).update_total_urls(event)
         self.urls_a.add(event.params.get('url'))
 
+    def get_json(self):
+        """ Get stats JSON """
+
+        statsdict = self.__dict__.copy()
+        # delete copy
+        del statsdict['config']
+        encoder = utils.MyEncoder()
+
+        return encoder.encode(statsdict)
+    
     def publish_stats(self):
         """ Publish stats """
         
@@ -511,13 +524,8 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         # Write stats.json
         statspath = os.path.expanduser(os.path.join(self.config.statsdir, self.config.task_id + '.json'))
 
-        statsdict = self.__dict__.copy()
-        # delete copy
-        del statsdict['config']
-        encoder = utils.MyEncoder()
-
         try:
-            open(statspath,'w').write(encoder.encode(statsdict))
+            open(statspath,'w').write(self.get_json())
             log.info("Stats written to",statspath)
         except Exception, e:
             log.error("Error writing stats JSON", str(e))           
