@@ -20,6 +20,9 @@ import hashlib
 import zlib
 import collections
 import sgmllib
+import uuid
+import sqlite3
+import json
 import js.jsparser as jsparser
 
 log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
@@ -246,10 +249,6 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         """ Get the data to crawl """
 
         data = self.manager.get()
-        # Each data is a URL, so raise the event
-        # 'obtained_url' here.
-        self.eventr.publish(self, 'url_obtained',
-                            params=locals())
         return data
 
     def push(self, data):
@@ -271,11 +270,24 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         return EIIICrawlerUrlData(url, parent_url, self.config)
 
-    def build_url(self, url, parent_url):
+    def build_url(self, child_url, parent_url):
         """ Build the complete URL for child URL using the parent URL """
 
-        builder = urlhelper.URLBuilder(url, parent_url)
-        return builder.build()
+        builder = urlhelper.URLBuilder(child_url, parent_url)
+        url = builder.build()
+
+        if (url != None) and len(url)>0:
+            # Each data is a URL, so raise the event
+            # 'obtained_url' here - we may not make use of
+            # all these URLs of course
+            try:
+                self.eventr.publish(self, 'url_obtained',
+                                    params=locals())
+            except ValueError:
+                pass
+
+        return url
+        
 
     def supplement_urls(self, url):
         """ Build any additional URLs related to the input URL """
@@ -320,7 +332,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         parser = urlhelper.URLLister()
 
         try:
-            log.debug("Parsing URL",url)
+            log.info("Parsing URL", url)
             parser.feed(data)
             parser.close()
 
@@ -362,14 +374,16 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         log.debug('Checking work pending...',)
         return self.manager.work_pending()
 
-    def allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
-        """ Is fetching of URL allowed ? """        
+    def allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={},
+                parse=False):
+        """ Is fetching or parsing of URL allowed ? """        
 
         # NOTE: This is a wrapper over the actual function _allowed which does all
         # the work. This is to allow publication of events after capturing the return
         # value of the method.
         result = self._allowed(url, parent_url=parent_url, content=content,
-                               content_type=content_type, headers=headers)
+                               content_type=content_type, headers=headers,
+                               parse=parse)
 
         if not result:
             # Filtered
@@ -378,13 +392,12 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         return result
         
-    def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}):
+    def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}, parse=False):
         """ Is fetching of URL allowed ? - Actual Implementation """                
-
 
         # Is already downloaded ? Then skip right away
         # NOTE - Do this only for child URLs!
-        if (parent_url != None) and self.manager.check_already_downloaded(url):
+        if (parent_url != None) and (not parse) and self.manager.check_already_downloaded(url):
             log.extra(url,'=> already downloaded')
             return False
 
@@ -455,6 +468,72 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             
         # Not doing any other content rules now
         return True
+
+class EIIICrawlerStats(crawlerbase.CrawlerStats):
+    """ EIII crawler stats class """
+
+    def __init__(self, config):
+        super(EIIICrawlerStats, self).__init__()
+        self.config = config
+        # URLs downloaded 
+        self.urls_d = set()
+        # URLs filtered
+        self.urls_f = set()
+        # All URLs
+        self.urls_a = set()
+        
+    def update_total_urls_downloaded(self, event):
+        """ Update total number of URLs downloaded """
+
+        super(EIIICrawlerStats, self).update_total_urls_downloaded(event)
+        self.urls_d.add(event.params.get('url'))
+
+    def update_total_urls_skipped(self, event):
+        """ Update total number of URLs skipped """     
+
+        super(EIIICrawlerStats, self).update_total_urls_skipped(event)
+        self.urls_f.add(event.params.get('url'))
+
+    def update_total_urls(self, event):
+        """ Update total number of URLs """
+
+        # NOTE: This also includes duplicates, URLs with errors - everything.
+        super(EIIICrawlerStats, self).update_total_urls(event)
+        self.urls_a.add(event.params.get('url'))
+
+    def publish_stats(self):
+        """ Publish stats """
+        
+        super(EIIICrawlerStats, self).publish_stats()
+        # Filtered - downloaded
+        urls_af = list(self.urls_f - self.urls_d)
+        self.urls_f, self.urls_d, self.urls_a = map(list, (urls_af, self.urls_d, self.urls_a))
+        # Write stats.json
+        statspath = os.path.expanduser(os.path.join(self.config.statsdir, self.config.task_id + '.json'))
+
+        statsdict = self.__dict__.copy()
+        # delete copy
+        del statsdict['config']
+        encoder = utils.MyEncoder()
+
+        try:
+            open(statspath,'w').write(encoder.encode(statsdict))
+        except Exception, e:
+            log.error("Error writing stats JSON", str(e))           
+        
+        try:
+            dbpath = os.path.expanduser(os.path.join(self.config.configdir, 'config.db'))
+            conn = sqlite3.connect(dbpath)
+            c = conn.cursor()
+            
+            url_string = ','.join(self.config.urls)
+            task_id = self.config.task_id
+            
+            c.execute("""INSERT INTO crawls (crawl_id, urls, statspath)
+            VALUES ('%(task_id)s', '%(url_string)s', '%(statspath)s')""" % locals())
+            conn.commit()
+        except sqlite3.Error, e:
+            log.error("Error writing to crawls db", str(e))
         
 class EIIICrawler(object):
     """ EIII Web Crawler """
@@ -472,10 +551,19 @@ class EIIICrawler(object):
         # Update fromdict if any
         if fromdict:
             self.config.__dict__.update(fromdict)
+
+        # Task id
+        task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
+        # Insert task id
+        self.config.task_id = task_id
+        log.info("Crawl task ID is: ",task_id)
+        
         # Prepare it
         self.prepare_config()
         # Prepare config
         self.urls = urls
+        # Add to config
+        self.config.urls = urls
         self.empty_count = 0
         # Download queue
         self.dqueue = Queue.Queue()
@@ -483,12 +571,12 @@ class EIIICrawler(object):
         # downloaded URLs
         self.url_bitmap = {}
         # Crawl stats
-        self.stats = crawlerbase.CrawlerStats()
+        self.stats = EIIICrawlerStats(self.config)
         self.stats.reset()
         
         # Crawl limits enforcement
         self.limit_checker = crawlerbase.CrawlerLimitRules(self.config)
-        print 'Limit checker =>',self.limit_checker
+        # print 'Limit checker =>',self.limit_checker
         # Event registry
         self.eventr = CrawlerEventRegistry.getInstance()
         self.subscribe_events()
@@ -616,7 +704,8 @@ class EIIICrawler(object):
         worker_states = [w.get_state() for w in self.workers]
         log.debug('Worker states =>',worker_states)
         return all((x==0) for x in worker_states)
-
+        # return False
+        
     def work_pending(self):
         """ Any work pending ? """
 
@@ -637,10 +726,10 @@ class EIIICrawler(object):
         parent_url = event.params.get('parent_url')
         content_type = event.params.get('content_type','text/html')
         
-        log.debug('Making entry for URL',url,'in bitmap...')
+        # log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
         if url != orig_url:
-            log.debug('Making entry for URL',orig_url,'in bitmap...')           
+            # log.debug('Making entry for URL',orig_url,'in bitmap...')           
             self.url_bitmap[orig_url] = 1
             
         # Build a URL graph
@@ -652,7 +741,7 @@ class EIIICrawler(object):
 
         # Mark in bitmap
         url = event.params.get('url')       
-        log.debug('Making entry for URL',url,'in bitmap...')
+        # log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
 
     def make_worker(self):
@@ -708,6 +797,20 @@ class EIIICrawler(object):
     def quit(self):
         """ Clean-up and exit """
         pass
+
+    def _create_config_db(self, dbpath):
+        """ Create configuration database when run for the first time """
+
+        conn = sqlite3.connect(dbpath)
+        c = conn.cursor()
+        # Create tables
+        c.execute("""CREATE TABLE crawls
+                   (crawl_id varchar(34) NOT NULL primary key,
+                    urls varchar(4096) NOT NULL,
+                    statspath varchar(128),
+                    timestamp datetime default CURRENT_TIMESTAMP) """)
+        conn.commit()
+        
         
     def load_config(self, fname='config.json'):
         """ Load crawler configuration """
@@ -717,7 +820,9 @@ class EIIICrawler(object):
         # Look in $HOME/.eiii/crawler folder, then
         # in current folder for a file named config.json
         cfgdir = os.path.expanduser(cfg.configdir)
-        storedir = os.path.expanduser(cfg.storedir)        
+        dbpath = os.path.join(cfgdir, 'config.db')
+        storedir = os.path.expanduser(cfg.storedir)
+        statsdir = os.path.expanduser(cfg.statsdir)             
         cfgfile = os.path.join(cfgdir, fname)
         
         if not os.path.isdir(cfgdir):
@@ -727,10 +832,13 @@ class EIIICrawler(object):
                 os.makedirs(cfgdir)
                 # Also make store dir
                 os.makedirs(storedir)
+                os.makedirs(statsdir)
                 print 'Making cache structure in store at',storedir,'...'
                 utils.create_cache_structure(storedir)
                 print 'Saving default configuration to',cfgfile,'...'
                 crawlerbase.CrawlerConfig().save(cfgfile)
+                # Create database
+                self._create_config_db(dbpath)
 
         # Look in current folder - this overrides the default config file
         if os.path.isfile(fname):
