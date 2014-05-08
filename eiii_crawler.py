@@ -504,15 +504,19 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         super(EIIICrawlerStats, self).update_total_urls(event)
         self.urls_a.add(event.params.get('url'))
 
-    def get_json(self):
-        """ Get stats JSON """
-
+    def get_stats_dict(self):
+        """ Get stats dictionary. """
         statsdict = self.__dict__.copy()
         # delete copy
         del statsdict['config']
+        return statsdict
+
+    def get_json(self):
+        """ Get stats JSON """
+
         encoder = utils.MyEncoder()
 
-        return encoder.encode(statsdict)
+        return encoder.encode(self.get_stats_dict())
     
     def publish_stats(self):
         """ Publish stats """

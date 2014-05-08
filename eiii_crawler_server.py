@@ -1,5 +1,6 @@
-from ttrpc.server import SimpleTTRPCServer
+from ttrpc.server import SimpleTTRPCServer, UserError
 import time
+import datetime
 import logger
 import utils
 import sys
@@ -18,12 +19,14 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
-    def _ping(self, what):
-        """ Private methods are not exposed. """
-        return what
+    def _packer_default(self, obj):
+        strtypes = (datetime.datetime, datetime.date, datetime.timedelta)
+        if any(isinstance(obj, x) for x in strtypes):
+            return str(obj)
+        return obj
 
     def ping(self, ctl):
-        return self._ping("pong")
+        return "pong"
 
     def crawl(self, ctl, crawler_rules):
         """ Accepts a crawler control object, dictionary of
@@ -38,7 +41,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         if urls==None:
             print 'No URLs given!'
-            sys.exit(1)
+            raise UserError(0, "No URLs given!")
 
         # Set log level
         log.setLevel(crawler_rules.get('loglevel','info'))
@@ -70,8 +73,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         # print self.url_graph
         stats.publish_stats()      
-        # Get stats object as a JSON dump
-        stats_json = stats.get_json()
+        # Get stats object
+        stats_dict = stats.get_stats_dict()
         
         # Get the graph
         url_graph = crawler.get_url_graph()
@@ -80,7 +83,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # print url_graph
         # print url_graph.keys()
         return { 'result': self.make_directed_graph(url_graph),
-                 'stats': stats_json }
+                 'stats': stats_dict }
                 
     def make_directed_graph(self, url_graph):
         """ Convert the URL graph data structure obtained
