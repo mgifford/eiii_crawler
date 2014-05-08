@@ -18,7 +18,7 @@ def convert_to_hex(rgba_color):
                               rgba[:3]))
 
 def do_test():
-    driver = webdriver.Remote("http://tt5.s.tingtun.no:8910/wd/hub",
+    driver = webdriver.Remote("http://tt2.s.tingtun.no:8910/wd/hub",
                               webdriver.DesiredCapabilities.FIREFOX.copy())
 
     driver.get("http://www.tingtun.no")
