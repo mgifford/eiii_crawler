@@ -1,4 +1,4 @@
-from ttrpc.server import SimpleTTRPCServer
+from ttrpc.server import SimpleTTRPCServer, UserError
 import time
 import datetime
 import logger
