@@ -191,33 +191,31 @@ def get_url_parent_directory(url):
     'http://www.foo.com/a/b/c'
     >>> get_url_parent_directory('http://www.foo.com/a/b/c/test.css')
     'http://www.foo.com/a/b/c'
-
+    >>> get_url_parent_directory('http://faq.tingtun.no/faq_search/index.php?query=rss&search=%26%23160%3B%26%23160%3B%26%23160%3BS%26%23248%3Bk%26%23160%3B%26%23160%3B%26%23160%3B&site=ec.europa.eu')
+    'http://faq.tingtun.no/faq_search'
     """
 
     # If this is not HTML, skip it
     urlp = urlparse.urlparse(url)
 
     # If URL has params or query or fragment, return ''
-    if urlp.params or urlp.query or urlp.fragment:
-        return ''
-    else:
-        path = urlp.path
-        if not path: return ''
+    path = urlp.path
+    if not path: return ''
+    
+    paths = [item for item in path.split('/') if item]
+    if len(paths)>=2:
+        paths = '/' + '/'.join(paths[:-1])
+        newurl = urlparse.urlunparse(urlparse.ParseResult(scheme=urlp.scheme,
+                                                          netloc=urlp.netloc,
+                                                          path=paths,
+                                                          fragment='',
+                                                          query='',
+                                                          params=''))
 
-        paths = [item for item in path.split('/') if item]
-        if len(paths)>=2:
-            paths = '/' + '/'.join(paths[:-1])
-            newurl = urlparse.urlunparse(urlparse.ParseResult(scheme=urlp.scheme,
-                                                              netloc=urlp.netloc,
-                                                              path=paths,
-                                                              fragment='',
-                                                              query='',
-                                                              params=''))
-
-            return newurl
+        return newurl
 
     return ''
-    
+
 def get_url_directory(url):
     """ Return the URL 'directory' of a given URL
 
@@ -233,7 +231,8 @@ def get_url_directory(url):
     'http://www.python.org/doc/'
     >>> get_url_directory('http://docs.python.org/doc/index.html')
     'http://docs.python.org/doc/'
-
+    >>> get_url_directory('http://faq.tingtun.no/faq_search/index.php?query=rss&search=%26%23160%3B%26%23160%3B%26%23160%3BS%26%23248%3Bk%26%23160%3B%26%23160%3B%26%23160%3B&site=ec.europa.eu')
+    'http://faq.tingtun.no/faq_search/'
     """
 
     # If the site does not have a path e.g: http://www.python.org
@@ -255,8 +254,13 @@ def get_url_directory(url):
         if paths[-1].find('.') == -1:
             # Append '/' at end if not found
             if url[-1] != '/': url += '/'
-            # Can return full URL again
-            return url
+            # Can return full URL again - Sans any query fragments
+            urlp=urlp._replace(query='',params='',fragment='')
+            # Add / at end if not found
+            if urlp.path[-1] != '/':
+                urlp = urlp._replace(path=urlp.path + '/')
+                
+            return urlparse.urlunparse(urlp)
         else:
             # URL like http://www.python.org/doc/index.html
             # Return All minus the last path i.e
@@ -264,6 +268,7 @@ def get_url_directory(url):
             paths.pop()
             urlpath = '/'.join(paths)
 
+            urlp=urlp._replace(query='',params='',fragment='')
             urlp = urlp._replace(path=urlpath)
             newurl = urlparse.urlunparse(urlp)
 
@@ -274,7 +279,6 @@ def get_url_directory(url):
     except:
         return url
     
-
 def get_depth(url):
     """ Get 'depth' of a URL with respect to its root.
 
