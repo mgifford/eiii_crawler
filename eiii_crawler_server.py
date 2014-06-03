@@ -83,7 +83,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # print url_graph
         # print url_graph.keys()
         return { 'result': self.make_directed_graph(url_graph),
-                 'stats': stats_dict }
+                 'stats': stats_dict,
+                 '__type__': "crawler-result"}
                 
     def make_directed_graph(self, url_graph):
         """ Convert the URL graph data structure obtained
