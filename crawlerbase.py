@@ -14,7 +14,7 @@ import json
 import logger
 import os
 
-log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
+log = logger.getLogger('eiii_crawler','crawl.log',console=True)
 
 class CrawlPolicy(object):
     """ Crawl policy w.r.t site root and folders """
@@ -693,6 +693,8 @@ class CrawlerWorkerBase(threading.Thread):
         returned object. Returns error code if failed """
 
         urlobj = self.get_url_data_instance(url, parent_url)
+        # Double-dispatch pattern - this is so amazingly useful!
+        # Gives you effect of mulitple inheritance with objects.
         urlobj.download(self)
 
         return urlobj
@@ -777,7 +779,8 @@ class CrawlerWorkerBase(threading.Thread):
                 # In this case the allowed is more applicable to child URLs - for example
                 # a META robots NOFOLLOW is parsed at this point.
 
-                if (url_data != None) and self.allowed(url, parent_url, url_data, content_type, headers, parse=True):
+                if (urlobj.status) and (url_data != None) and \
+                       self.allowed(url, parent_url, url_data, content_type, headers, parse=True):
 
                     # Can proceed further
                     # Parse the data
@@ -787,6 +790,7 @@ class CrawlerWorkerBase(threading.Thread):
                         random.shuffle(child_urls)
                         
                     newurls = []
+                    
                     for curl in child_urls:
                         # Skip empty strings
                         if len(curl.strip())==0: continue
@@ -810,11 +814,13 @@ class CrawlerWorkerBase(threading.Thread):
                         else:
                             log.debug('Skipping URL',full_curl,'...')
 
-                    # State is 2, did work, pushing newd data
+                    # State is 2, did work, pushing new data
                     self.state = 2
+                    newurls = list(set(newurls))
+                    
                     # Push data into the queue
                     for newurl in newurls:
-                        # log.debug("Pushing",newurl,"...")
+                        log.debug("\tPushing =>",newurl,"...")
                         self.push(newurl)
                         # log.debug("done.")
                         # self.push(newurl)
