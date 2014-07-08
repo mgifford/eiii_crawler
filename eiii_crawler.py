@@ -23,9 +23,10 @@ import sgmllib
 import uuid
 import sqlite3
 import json
+import pprint
 import js.jsparser as jsparser
 
-log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
+log = logger.getLogger('eiii_crawler','crawl.log',console=True)
 
 __version__ = '1.0a'
 __author__ = 'Anand B Pillai'
@@ -41,6 +42,10 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
         self.headers = {}
         self.content = ''
         self.content_length = 0
+        # Download status
+        # True -> Success
+        # False -> Failed
+        self.status = False
         self.content_type = 'text/html'
         
     def get_url_store_paths(self):
@@ -68,11 +73,14 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
             # Write data to fpath
             try:
                 with utils.ignore(): os.makedirs(dirpath)
-                open(fpath, 'wb').write(zlib.compress(self.content))
-                open(fhdr, 'wb').write(zlib.compress(str(dict(self.headers))))
-                log.info('Wrote URL data to',fpath,'for URL',self.url)
+                if self.content:
+                    open(fpath, 'wb').write(zlib.compress(self.content))
+                    log.info('Wrote URL content to',fpath,'for URL',self.url)
+                if self.headers:
+                    open(fhdr, 'wb').write(zlib.compress(str(dict(self.headers))))
+                    log.info('Wrote URL headers to',fhdr,'for URL',self.url)                    
             except Exception, e:
-                raise
+                # raise
                 log.error("Error in writing URL data for URL",self.url)
                 log.error("\t",str(e))
 
@@ -151,11 +159,14 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
         index, follow = True, True
         
         if self.get_headers_and_data():
+            self.status = True          
             # Obtained from cache
             return True
         
         try:
+            log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers())
+            log.debug("Downloaded URL",self.url,"...")          
 
             self.content = freq.content
             self.headers = freq.headers
@@ -187,12 +198,13 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                 status_code = urlhelper.check_spurious_404(self.headers, self.content, status_code)
             
             if status_code in range(200, 300):
+                self.status = True
                 eventr.publish(self, 'download_complete',
                                message='URL has been downloaded successfully',
                                code=200,
                                params=self.__dict__)
             else:
-                log.error("Error downloading URL =>",self.url,"status code is ",freq.status_code)
+                log.error("Error downloading URL =>",self.url,"status code is ", status_code)
                 eventr.publish(self, 'download_error',
                                message='URL has not been downloaded successfully',
                                code=freq.status_code,
@@ -249,6 +261,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         """ Get the data to crawl """
 
         data = self.manager.get()
+        log.debug("\tGot data =>", data)
         return data
 
     def push(self, data):
@@ -317,8 +330,11 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
                 jsp.parse(data)
                 # Check if location changed
                 if jsp.location_changed:
-                    urls.append(jsp.getLocation().href)
+                    jsurl = jsp.getLocation().href
+                    urls.append(jsurl)
+                    log.info("Javascript redirection to =>", jsurl)
                     redirect = True
+                    
             except jsparser.JSParserException, e:
                 log.error("JS Parser exception => ", e)
             
@@ -326,7 +342,6 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         # If JS redirect don't bother to parse with
         # HTML parser
         if redirect:
-            log.info("Javascript redirection to =>",urls[0])
             return (url, urls)
         
         parser = urlhelper.URLLister()
@@ -398,7 +413,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         # Is already downloaded ? Then skip right away
         # NOTE - Do this only for child URLs!
         if (parent_url != None) and (not parse) and self.manager.check_already_downloaded(url):
-            log.extra(url,'=> already downloaded')
+            log.debug(url,'=> already downloaded')
             return False
 
         # print 'Checking allowd for URL',url
@@ -484,6 +499,8 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         self.urls_f = set()
         # All URLs
         self.urls_a = set()
+        # URLs with error
+        self.urls_e = set()
         
     def update_total_urls_downloaded(self, event):
         """ Update total number of URLs downloaded """
@@ -504,9 +521,31 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         super(EIIICrawlerStats, self).update_total_urls(event)
         self.urls_a.add(event.params.get('url'))
 
+    def update_total_urls_error(self, event):
+        """ Update total number of URLs that failed to download with error """
+
+        super(EIIICrawlerStats, self).update_total_urls_error(event)
+        # The error URLs entry is a tuple of (url, parent_url)
+        self.urls_e.add((event.params.get('url'),
+                         event.params.get('parent_url')))
+            
     def get_stats_dict(self):
         """ Get stats dictionary. """
         statsdict = self.__dict__.copy()
+
+        # statsdict['urls_af'] = list(self.urls_f - self.urls_d)
+
+        mapping = {'urls_a': 'urls_all',
+                   'urls_f': 'urls_filtered',
+                   'urls_d': 'urls_downloaded',
+                   'urls_e': 'urls_error'}
+
+        # Convert sets to list
+        for key in ('urls_f','urls_e','urls_d','urls_a'):
+            statsdict[mapping.get(key)] = list(statsdict[key])
+            # Drop original key
+            del statsdict[key]
+
         # delete copy
         del statsdict['config']
         return statsdict
@@ -515,7 +554,7 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         """ Get stats JSON """
 
         encoder = utils.MyEncoder()
-
+        # This is a string - eval it and convert to JSON object
         return encoder.encode(self.get_stats_dict())
     
     def publish_stats(self):
@@ -523,13 +562,14 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         
         super(EIIICrawlerStats, self).publish_stats()
         # Filtered - downloaded
-        urls_af = list(self.urls_f - self.urls_d)
-        self.urls_f, self.urls_d, self.urls_a = map(list, (urls_af, self.urls_d, self.urls_a))
+        # urls_af = list(self.urls_f - self.urls_d)
+        # self.urls_f, self.urls_d, self.urls_a = map(list, (urls_af, self.urls_d, self.urls_a))
         # Write stats.json
         statspath = os.path.expanduser(os.path.join(self.config.statsdir, self.config.task_id + '.json'))
 
         try:
-            open(statspath,'w').write(self.get_json())
+            # import pdb; pdb.set_trace()
+            pprint.pprint(eval(self.get_json()), open(statspath,'w'), indent=2)
             log.info("Stats written to",statspath)
         except Exception, e:
             log.error("Error writing stats JSON", str(e))           
@@ -567,6 +607,10 @@ class EIIICrawler(object):
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
+        # Add another crawl log file to the logger
+        task_logfile = 'crawl_' + task_id + '.log'
+        log.addLogFile(task_logfile)
+        
         # Insert task id
         self.config.task_id = task_id
         log.info("Crawl task ID is: ",task_id)
@@ -640,11 +684,14 @@ class EIIICrawler(object):
         """ Signal handler """
 
         if signum in (signal.SIGINT, signal.SIGTERM,):
-            log.info('Got signal, stopping...')
+            log.info('You interrupted me ! Stopping my work and cleaning up...')
             for worker in self.workers:
                 worker.stop()
                 
             self.sig_count += 1
+
+        # Set red flag
+        self.red_flag = True
 
         if self.sig_count>1:
             log.info('Force Quitting...')
@@ -709,6 +756,8 @@ class EIIICrawler(object):
     def is_empty(self):
         """ Is the work queue empty ? """
 
+        dsz = self.dqueue.qsize()
+        log.debug('\tQUEUE SIZE =>', dsz)
         return self.dqueue.empty()
 
     def workers_idle(self):
@@ -753,9 +802,15 @@ class EIIICrawler(object):
         """ Event callback for notifying download for a URL in error """
 
         # Mark in bitmap
-        url = event.params.get('url')       
+        url = event.params.get('url')
+        orig_url = event.params.get('orig_url')
+        
         # log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
+
+        if url != orig_url:
+            # log.debug('Making entry for URL',orig_url,'in bitmap...')           
+            self.url_bitmap[orig_url] = 1       
 
     def make_worker(self):
         """ Make a worker instance """
@@ -766,6 +821,7 @@ class EIIICrawler(object):
         """ Do the actual crawling """
 
         # Demarcating text
+        log.logsimple('\n')
         log.logsimple('>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<')
         log.logsimple('>>>>>>>> STARTING CRAWL <<<<<<<<')
         log.logsimple('>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<')
