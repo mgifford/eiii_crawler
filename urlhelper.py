@@ -30,6 +30,10 @@ www_re = re.compile(r'^www(\d*)\.')
 www2_re = re.compile(r'www(\d*)\.')
 # Page titles
 title_re = re.compile('\<title\>(.*?)\<\/title\>',re.UNICODE)
+# Match HTML entities of the form &#xyz; 
+entity_re = re.compile(r'\&#[a-zA-Z0-9]+\;')
+# Match quoted entities of the form %0D
+quoted_re=re.compile('\%\d[a-zA-Z]')
 
 # List of TLD (top-level domain) name endings from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 # courtesy HarvestMan, stored in base64 encoded, compressed, string form
@@ -689,10 +693,34 @@ class URLBuilder(object):
         if not url:
             return ''
 
-        # Plain anchor URLs
+        # Plain anchor URLs or other types of 'junk' URLs
         if any([url.startswith(item) for item in ('#','mailto:','javascript:','tel:')]):
             return ''
 
+        # If the URL consists of HTML entities, then convert them to their proper form.
+        # E.g: &#xD;&#xA;/English/News/Global/pages/Singapore-smog-eases-as-Indonesian-planes-water-bomb-fires.aspx
+        # from http://www.moe.gov.qa/English/SitePages/Default.aspx
+        if entity_re.search(url):
+            url = utils.unescape(url)
+
+        if quoted_re.search(url):
+            url = urllib.unquote(url)
+
+        # Do same for parent URL
+        if entity_re.search(parent_url):
+            parent_url = utils.unescape(parent_url)
+
+        if quoted_re.search(parent_url):
+            parent_url = urllib.unquote(parent_url)
+            
+        # Strip again as unescape or unquote could have introduced newline characters.
+        url = url.strip()
+        if not url:
+            return ''
+        
+        parent_url = parent_url.strip()
+        
+        # If the URL has many quoted characters, unquote it.
         # Seriously I am surprised we don't handle anchor links properly yet.
         if '#' in url:
             items = anchor_re.split(url)
