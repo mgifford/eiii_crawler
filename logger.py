@@ -38,12 +38,16 @@ class LoggerWrapper(object):
             func = functools.partial(self._dolog, name)
             setattr(self, name, func)
 
+        # Standard formatter
+        self.stdformat = logging.Formatter('%(asctime)s [%(sourcename)s/%(function)s]:%(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        
         self.__console = False
-        # Prepare console logging handlers
-        self._prepareConsoleHandlers()
         # Add console logging if specified
         if console:
+            # Prepare console logging handlers
+            self._prepareConsoleHandlers()
             self._addConsoleHandlers()
+            
         self.__console = console
 
     def myrepr(self, string):
@@ -70,7 +74,7 @@ class LoggerWrapper(object):
         # If already set, do nothing
         if self.__console:
             return False
-        
+
         self._log.addHandler(self.shout)
         self._log.addHandler(self.sherr)
 
@@ -176,7 +180,16 @@ class LoggerWrapper(object):
             self._removeConsoleHandlers()
 
         self.__console = val
-    
+
+    def addLogFile(self, logfile):
+        """ Add a log file to the logger """
+
+        fh = logging.FileHandler(logfile)
+        fh.setFormatter(self.stdformat)
+        # add handler to logger object
+        self._log.addHandler(fh)
+ 
+        
 class ErrorFilter(object):
     """ Logging filter class that filters out all
     log records at levels < ERROR """
@@ -206,16 +219,10 @@ def getLogger(app, logfile, level=logging.INFO, console=False):
         level = eval('logging.' + level.upper())
         
     log.setLevel(level)
-    fh = logging.FileHandler(logfile)
- 
-    formatter = logging.Formatter('%(asctime)s [%(sourcename)s/%(function)s]:%(levelname)-8s - %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    fh.setFormatter(formatter)
- 
-    # add handler to logger object
-    log.addHandler(fh)
+
     logobject = LoggerWrapper(log, console=console)
-    
+    logobject.addLogFile(logfile)
+
     # Make entry for the logging object in the logger dictionary
     __loggers__[key] = logobject
 
@@ -270,6 +277,6 @@ def getMultiLogger(app, logfile, errlogfile, level=logging.INFO, console=False):
     __loggers__[key] = logobject
 
     return logobject
-    
+
 if __name__ == "__main__":
     pass
