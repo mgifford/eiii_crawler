@@ -1,3 +1,5 @@
+# -- coding: utf-8
+
 """ Implementation of EIII crawler """
 
 import crawlerbase
@@ -23,10 +25,14 @@ import sgmllib
 import uuid
 import sqlite3
 import json
-import pprint
+import cPickle
+import socket
 import js.jsparser as jsparser
 
 log = logger.getLogger('eiii_crawler','crawl.log',console=True)
+
+# Default timeout set to 15s
+socket.setdefaulttimeout(15)
 
 __version__ = '1.0a'
 __author__ = 'Anand B Pillai'
@@ -264,10 +270,10 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         log.debug("\tGot data =>", data)
         return data
 
-    def push(self, data):
+    def push(self, data, key=None):
         """ Push new data to crawl """
 
-        return self.manager.put(data)
+        return self.manager.put(data, key)
     
     def parse_queue_urls(self, data):
         """ Parse the URL data from the queue and return a 3-tuple
@@ -410,6 +416,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
     def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}, parse=False):
         """ Is fetching of URL allowed ? - Actual Implementation """                
 
+        # import pdb; pdb.set_trace()
         # Is already downloaded ? Then skip right away
         # NOTE - Do this only for child URLs!
         if (parent_url != None) and (not parse) and self.manager.check_already_downloaded(url):
@@ -434,11 +441,6 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         if any([re.match(rule, url) for rule in self.config.url_exclude_rules]):
             log.extra('Disallowing URL',url,'due to specific exclusion rule.')                      
             return False
-                
-        if (content != None) or len(headers):
-            # Do content or header checks
-            # print 'Returning from content rules',url
-            return self.check_content_rules(url, parent_url, content, content_type, headers)
 
         # Scoping rules
         if parent_url != None:
@@ -448,7 +450,12 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
             if not scoper.allowed(url):
                 log.debug('Scoping rules does not allow URL=>',url)
                 return False
-        
+                        
+        if (content != None) or len(headers):
+            # Do content or header checks
+            # print 'Returning from content rules',url
+            return self.check_content_rules(url, parent_url, content, content_type, headers)
+
         # Check robots.txt
         if not self.flag_ignorerobots:
             self.robots_p.parse_site(url)
@@ -540,12 +547,21 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
                    'urls_d': 'urls_downloaded',
                    'urls_e': 'urls_error'}
 
+        # print 'URLS_E=>',statsdict['urls_e']
         # Convert sets to list
         for key in ('urls_f','urls_e','urls_d','urls_a'):
-            statsdict[mapping.get(key)] = list(statsdict[key])
+            # Make all URL data safe
+            entries = list(statsdict[key])
+            if key == 'urls_e':
+                entries_safe = [map(lambda x: utils.safedata(x), item) for item in entries]
+            else:
+                entries_safe = map(utils.safedata, entries)
+            
+            statsdict[mapping.get(key)] = entries_safe
             # Drop original key
             del statsdict[key]
 
+        
         # delete copy
         del statsdict['config']
         return statsdict
@@ -554,8 +570,15 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
         """ Get stats JSON """
 
         encoder = utils.MyEncoder()
+        # Indent by 4 spaces
+        encoder.indent = 4
+
+        sdict = self.get_stats_dict()
+        # Pickle it
+        cPickle.dump(sdict, open('stats.dump','wb'))
+        
         # This is a string - eval it and convert to JSON object
-        return encoder.encode(self.get_stats_dict())
+        return encoder.encode(sdict)
     
     def publish_stats(self):
         """ Publish stats """
@@ -569,7 +592,8 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
 
         try:
             # import pdb; pdb.set_trace()
-            pprint.pprint(eval(self.get_json()), open(statspath,'w'), indent=2)
+            json_data = self.get_json()
+            open(statspath,'w').write(json_data)
             log.info("Stats written to",statspath)
         except Exception, e:
             log.error("Error writing stats JSON", str(e))           
@@ -624,9 +648,10 @@ class EIIICrawler(object):
         self.empty_count = 0
         # Download queue
         self.dqueue = Queue.Queue()
-        # Bitmap instance for keeping record of
-        # downloaded URLs
+        # Keeping track of URLs downloaded (downloaded or errored)
         self.url_bitmap = {}
+        # Keeping track of URLs put in download queue
+        self.url_keys = {None: 1}
         # Crawl stats
         self.stats = EIIICrawlerStats(self.config)
         self.stats.reset()
@@ -737,10 +762,19 @@ class EIIICrawler(object):
 
         return self.dqueue.get()
 
-    def put(self, data):
+    def put(self, data, key=None):
         """ Push further data to be crawled """
 
-        self.dqueue.put(data)
+        # optional key is used to figure out if the data
+        # has already been pushed - Implementation upto
+        # this class.
+        if key not in self.url_keys:
+            self.dqueue.put(data)
+            self.url_keys[key] = 1
+
+            return True
+
+        return False
 
     def abort_crawl(self, *args):
         """ Stop/abort the crawl """
