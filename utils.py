@@ -1,3 +1,5 @@
+# -- coding: utf-8
+
 import inspect
 import requests
 import itertools
@@ -10,6 +12,32 @@ from contextlib import contextmanager
 from types import StringTypes
 # Global logger object
 g_logger = None
+
+def safedata(data):
+    """ Make data DB safe """
+
+    if data == None:
+        return
+
+    try:
+        #for i,j in special_chars_encoding:
+        #    data = data.replace(i, j)
+            
+        data = data.replace('ø','&#248;').replace('æ','&#230;').replace('Å','&#197;').replace('Æ','&#198;').replace('Ø','&#216;').replace('å','&#229;').replace('§','&#167;').replace('°','&#176;').replace('ö', '&#246;').replace('Ö','&#214;').replace('\xc3\xa6','&#230;').replace('\xc3\x98','&#248;').replace('&nbsp;',' ').replace('^m','').replace('|',' ').replace('{',' ').replace('}', ' ').replace('\xc2\xa0',' ').replace('\305','&#197;').replace('\306','&#198').replace('\344','&#228;').replace('Ã','&#195;').replace('\xc3\x83', '&#195;')
+        
+        # Additional replacements for unicode \ encodings
+        
+        data = data.replace('\330','&#216;').replace('\346','&#230;').replace('\247','&#167;').replace('\260','&#176;').replace('\2013','')
+
+        if type(data) is not unicode:
+            return unicode(data).encode('ascii','xmlcharrefreplace')
+        else:
+            return data.encode('ascii','xmlcharrefreplace')
+    except UnicodeDecodeError:
+        if type(data) is not unicode:
+            return unicode(data, errors='ignore').encode('ascii','xmlcharrefreplace')
+        else:
+            return data.encode('ascii','xmlcharrefreplace')
 
 ## F-bot's unescape function to get HTML entity chars back
 # from escaped text.
