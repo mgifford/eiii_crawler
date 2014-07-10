@@ -270,10 +270,10 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         log.debug("\tGot data =>", data)
         return data
 
-    def push(self, data, key=None):
+    def push(self, content_type, url, parent_url=None, key=None):
         """ Push new data to crawl """
 
-        return self.manager.put(data, key)
+        return self.manager.put(content_type, url, parent_url, key)
     
     def parse_queue_urls(self, data):
         """ Parse the URL data from the queue and return a 3-tuple
@@ -396,7 +396,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         return self.manager.work_pending()
 
     def allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={},
-                parse=False):
+                parse=False, download=False):
         """ Is fetching or parsing of URL allowed ? """        
 
         # NOTE: This is a wrapper over the actual function _allowed which does all
@@ -404,7 +404,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         # value of the method.
         result = self._allowed(url, parent_url=parent_url, content=content,
                                content_type=content_type, headers=headers,
-                               parse=parse)
+                               parse=parse, download=download)
 
         if not result:
             # Filtered
@@ -413,7 +413,8 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         return result
         
-    def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={}, parse=False):
+    def _allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={},
+                 parse=False, download=False):
         """ Is fetching of URL allowed ? - Actual Implementation """                
 
         # import pdb; pdb.set_trace()
@@ -425,9 +426,22 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         # print 'Checking allowd for URL',url
         # Skip mime-types we don't want to deal with based on URL extensions
-        guess_ctype = urlhelper.guess_content_type(url)
-        if guess_ctype not in self.config.client_mimetypes:
-            log.debug('Skipping URL',url,'as content-type',guess_ctype,'is not valid.')
+        content_type = urlhelper.guess_content_type(url)
+
+        if content_type not in self.config.client_mimetypes:
+            log.debug('Skipping URL',url,'as content-type',content_type,'is not valid.')
+            return False
+
+        # Part of client mime-types, check if part of fake mime-types
+        elif content_type in self.config.client_fake_mimetypes and download:
+            log.debug('Skipping URL',url,'as',content_type,'is part of fake mime-types (no download)')
+            # Simulate download event for this URL so it gets added to URL graph
+            # Publish fake download complete event          
+            self.eventr.publish(self, 'download_complete_fake',
+                                message='URL has been downloaded fakily',
+                                code=200,
+                                params=locals())            
+            
             return False
         
         # If URL include rules are given - the scenario is most likely
@@ -445,7 +459,8 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
         # Scoping rules
         if parent_url != None:
             scoper = crawlerbase.CrawlerScopingRules(self.config, parent_url)
-
+            # import pdb; pdb.set_trace()
+            
             # Proceed further - do site scoping rules
             if not scoper.allowed(url):
                 log.debug('Scoping rules does not allow URL=>',url)
@@ -645,6 +660,18 @@ class EIIICrawler(object):
         self.urls = urls
         # Add to config
         self.config.urls = urls
+        # If a param is passed then override it
+        if args.param:
+            try:
+                param, value = args.param.split('=')
+                paramtyp = type(getattr(self.config, param))
+                log.info("Overriding value of",param,"to",value,"...")
+                setattr(self.config, param, paramtyp(value))
+                print param,'=>',getattr(self.config, param)
+            except ValueError:
+                pass
+
+        # Set any override param if specified
         self.empty_count = 0
         # Download queue
         self.dqueue = Queue.Queue()
@@ -727,6 +754,8 @@ class EIIICrawler(object):
         """ Subscribe to events """
 
         self.eventr.subscribe('download_complete', self.url_download_complete)
+        self.eventr.subscribe('download_complete_fake', self.url_download_complete)     
+        # self.eventr.subscribe('url_pushed', self.url_pushed_callback)       
         self.eventr.subscribe('download_cache', self.url_download_complete)     
         self.eventr.subscribe('download_error', self.url_download_error)
         self.eventr.subscribe('abort_crawling', self.abort_crawl)
@@ -762,16 +791,21 @@ class EIIICrawler(object):
 
         return self.dqueue.get()
 
-    def put(self, data, key=None):
+    def put(self, content_type, url, parent_url=None, key=None):
         """ Push further data to be crawled """
 
         # optional key is used to figure out if the data
         # has already been pushed - Implementation upto
         # this class.
         if key not in self.url_keys:
+            data = (content_type, url, parent_url)
             self.dqueue.put(data)
             self.url_keys[key] = 1
 
+            self.eventr.publish(self, 'url_pushed',
+                                message='URL has been pushed to the queue',
+                                params=locals())
+            # Raise event
             return True
 
         return False
@@ -824,14 +858,14 @@ class EIIICrawler(object):
         
         # log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
-        if url != orig_url:
+        if (orig_url != None) and (url != orig_url):
             # log.debug('Making entry for URL',orig_url,'in bitmap...')           
             self.url_bitmap[orig_url] = 1
-            
-        # Build a URL graph
-        if parent_url:
-            self.url_graph[parent_url].add((url, content_type))
 
+        if parent_url:
+            log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
+            self.url_graph[parent_url].add((url, content_type))
+                        
     def url_download_error(self, event):
         """ Event callback for notifying download for a URL in error """
 
@@ -894,7 +928,7 @@ class EIIICrawler(object):
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
 
-        # print self.url_graph
+        print self.url_graph
         self.stats.publish_stats()
 
     def quit(self):
@@ -965,9 +999,12 @@ class EIIICrawler(object):
         parser.add_argument('-l','--loglevel',help='Set the log level',default='info',metavar='LOGLEVEL')
         parser.add_argument('-c','--config',help='Use the given configuration file',metavar='CONFIG',
                             default='config.json')
+        parser.add_argument('-p','--param',help='Override the value of a config param on the command-line',
+                            metavar='PARAM')
         parser.add_argument('urls', nargs='*', help='URLs to crawl')
 
         args = parser.parse_args()
+        
         if args.version:
             print 'EIII web-crawler: Version',__version__
             sys.exit(0)
