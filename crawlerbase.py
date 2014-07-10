@@ -156,6 +156,20 @@ class CrawlerConfig(object):
         self.client_mimetypes = ['text/html','text/plain','text/xml',
                                  'application/xhtml+xml','application/xml',
                                  'application/pdf']
+
+        # Mime-types we want to deal with (get URLs) but don't want to
+        # download - if a mime-type is added here its URLs will be processed
+        # till the point of download and will also appear in the URL graph
+        # but download will be skipped. For example this could be used to
+        # get large sized URLs like PDF documents into the URL graph without
+        # actually downloading them.
+
+        # Any URL with a mime-type here will be skipped for download.
+
+        # NOTE: DON'T ADD HTML mime-types here as this means crawl will be
+        # incomplete or mostly won't proceed at all!
+        
+        self.client_fake_mimetypes = ['application/pdf']
         
         # System settings
         self.num_workers = 2
@@ -279,9 +293,11 @@ class CrawlerEventRegistry(object):
     __metaclass__ = utils.SingletonMeta
     # Dictionary of allowed event names and descriptions
     __events__ = {'download_complete': 'Published when a URL is downloaded successfully',
+                  'download_complete_fake': 'Published when download of a URL is simulated',                  
                   'download_error': 'Published when a URL fails to download',
                   'download_cache': 'Retrieved a URL from the cache',
                   'url_obtained': 'Published when a URL is obtained from the pipeline for processing',
+                  'url_pushed': 'Published when a new URL is pushed to the pipeline for processing',
                   'url_parsed': "Published after a URL's data has been parsed for new (child) URLs",
                   'url_filtered': "Published when a URL has been filtered after applying a rule",
                   'crawl_started': "Published when the crawl is started, no events can be published before this event",
@@ -731,7 +747,7 @@ class CrawlerWorkerBase(threading.Thread):
         
         return self.state
     
-    def push(self, data, key=None):
+    def push(self, content_type, url, parent_url, key=None):
         """ Push new data back """
 
         raise NotImplementedError
@@ -761,7 +777,7 @@ class CrawlerWorkerBase(threading.Thread):
 
             # State is 1 - got data, doing work
             self.state = 1
-            if self.allowed(url, parent_url, content_type):
+            if self.allowed(url, parent_url, content_type, download=True):
                 log.info('Downloading URL',url,'...')
                 urlobj = self.download(url, parent_url)
                 
@@ -823,10 +839,8 @@ class CrawlerWorkerBase(threading.Thread):
                     # Push data into the queue
                     for ctype, curl, purl in newurls:
                         # Key is the child URL itself
-                        if self.push((ctype, curl, purl), curl):
+                        if self.push(ctype, curl, purl, curl):
                             log.debug("\tPushed new URL =>",curl,"...")
-                        # log.debug("done.")
-                        # self.push(newurl)
                 else:
                     if url_data == None:
                         log.debug("URL data is null =>", url)
