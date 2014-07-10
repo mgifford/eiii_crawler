@@ -1,3 +1,5 @@
+# -- coding: utf-8
+
 """ Base classes for EIII web crawler defining the Crawling API and
 the crawling workflow """
 
@@ -729,7 +731,7 @@ class CrawlerWorkerBase(threading.Thread):
         
         return self.state
     
-    def push(self, data):
+    def push(self, data, key=None):
         """ Push new data back """
 
         raise NotImplementedError
@@ -819,16 +821,17 @@ class CrawlerWorkerBase(threading.Thread):
                     newurls = list(set(newurls))
                     
                     # Push data into the queue
-                    for newurl in newurls:
-                        log.debug("\tPushing =>",newurl,"...")
-                        self.push(newurl)
+                    for ctype, curl, purl in newurls:
+                        # Key is the child URL itself
+                        if self.push((ctype, curl, purl), curl):
+                            log.debug("\tPushed new URL =>",curl,"...")
                         # log.debug("done.")
                         # self.push(newurl)
                 else:
                     if url_data == None:
-                        log.debug("URL data is null for", url)
+                        log.debug("URL data is null =>", url)
                     else:
-                        log.debug("URL is disallowed for", url)
+                        log.debug("URL is disallowed =>", url)
 
             else:
                 log.debug('Skipping URL',url,'...')
@@ -848,7 +851,7 @@ class CrawlerWorkerBase(threading.Thread):
         # Sleep
         if self.flag_randomize_sleep:
             # Randomize 50% on both sides
-            time.sleep(random.uniform(self.time_sleeptime*0.5, self.time_sleeptime*1.5))
+            time.sleep(random.uniform(self.time_sleeptime, self.time_sleeptime*2))
         else:
             time.sleep(self.time_sleeptime)
 
