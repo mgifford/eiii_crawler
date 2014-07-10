@@ -9,6 +9,9 @@
  "client_accept_encoding": "gzip, deflate", 
  "client_accept_language": "en-US, en;q=0.5", 
  "client_connection": "keep-alive", 
+ "client_fake_mimetypes": [
+  "application/pdf"
+ ], 
  "client_mimetypes": [
   "text/html", 
   "text/plain", 
