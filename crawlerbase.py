@@ -82,6 +82,8 @@ class CrawlerConfig(object):
     def __init__(self):
         # Site scope
         self.site_scope = CrawlPolicy.site_scope
+        # Enable dynamic folder scoping by default
+        self.disable_dynamic_scope = False
         # Site depth
         self.site_maxdepth = CrawlPolicy.site_maxdepth
 
@@ -182,7 +184,30 @@ class CrawlerConfig(object):
         # Additional filtering rules if any in the form of a list like
         # [('+', include_rule_regex), ('-', exclude_rule_regex)] tried
         # in that order.
-        self.url_filter =  []
+
+        # Standard exclude filters
+        # 1. */wp-content/*, */wp-includes/*
+        # 2. */plugins/*
+        # 3. */themes/*
+        # 4. */_layouts/*
+        # 5. */styles/*
+        # 6. */_sources/*
+        # 7. */static/*
+        # 8. */_static/*
+        # 9.  */js/*
+        # 10. */stylesheets/*
+        self.url_filter =  [('-',  '.*\/wp-content\/.*'),
+                            ('-',  '.*\/wp-includes\/.*'),                          
+                            ('-', '.*\/plugins\/.*'),
+                            ('-', '.*\/themes\/.*'),
+                            ('-', '.*\/_layouts\/.*'),
+                            ('-', '.*\/styles\/.*'),
+                            ('-', '.*\/_sources\/.*'),
+                            ('-', '.*\/_static\/.*'),
+                            ('-', '.*\/static\/.*'),
+                            ('-', '.*\/js\/.*'),
+                            ('-', '.*\/stylesheets\/.*')]    
+        
         
     def get_real_useragent(self):
         """ Return the effective user-agent string """
@@ -585,7 +610,7 @@ class CrawlerScopingRules(object):
         self.site = urlhelper.get_website(url)
         # Find the 'folder' of the URL
         # E.g: http://www.foo.com/bar/vodka/index.html => http://www.foo.com/bar/vodka/
-        self.folder = urlhelper.get_url_directory(url)
+        self.folder = utils.safedata(urlhelper.get_url_directory(url))
         # Root site
         self.rootsite = urlhelper.get_root_website(self.site)
 
@@ -612,8 +637,19 @@ class CrawlerScopingRules(object):
                 # if URL is inside the root folder.
                 # E.g: http://www.foo.com/bar/vodka/images/index.html
                 # for root folder http://www.foo.com/bar/vodka/
-                if url.find(self.folder) != 0:
-                    ret &= False
+                # print 'URL =>',url
+                # print 'FOLDER =>',self.folder
+                ret1 = (url.find(self.folder) != -1)
+                # Check if both URL and folder has a common prefix
+                prefix2 = urlparse.urlparse(os.path.commonprefix((url, self.folder))).path
+                prefix1 = urlparse.urlparse(self.folder).path
+                # prefix1 and prefix2 shouldn't vary by more than one extra path
+                # E.g: /en/locations/qatar/Pages/ vs /en/locations/qatar/
+                pieces2, pieces1 = map(lambda x: x.strip('/').split('/'), (prefix2, prefix1))
+                ret2 = abs(len(pieces1) - len(pieces2))<=1
+                # print 'PIECES BOOLEAN =>',ret2
+                # Either ret1 or ret2
+                ret &= (ret1 or ret2)
         else:
             # Different site - work out root site
             # If root site is same for example images.foo.com and static.foo.com
