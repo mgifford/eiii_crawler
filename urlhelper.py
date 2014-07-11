@@ -329,11 +329,14 @@ def get_root_website(site):
             if item.lower() in __tlds__:
                 idx += 1
 
-        return '.'.join(dotstrings[idx::-1])
+        # Lowercase! E.g: http://www.gig.com.qa/                
+        return '.'.join(dotstrings[idx::-1]).lower()
     else:
         # The server is of the form foo.com or just "foo"
         # so return it straight away
-        return site
+
+        # Lowercase! E.g: http://www.gig.com.qa/                        
+        return site.lower()
     
     
 def get_website(url, scheme=False):
@@ -349,10 +352,13 @@ def get_website(url, scheme=False):
 
     if scheme:
         # => http://www.foo.com
-        return urlp.scheme + '://' + urlp.netloc
+        website = urlp.scheme + '://' + urlp.netloc
+        # Lower-case!
+        return website.lower()
     else:
         # => www.foo.com
-        return urlp.netloc
+        # Lowercase !
+        return urlp.netloc.lower()
 
 def get_full_url(url):
     """ Prefix HTTP scheme in front of URL
