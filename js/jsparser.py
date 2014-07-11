@@ -170,7 +170,7 @@ class JSParser(object):
    # or location.replace("<url>") or location.assign("<url>")
    jsredirect1 = re.compile(r'((window\.|this\.)?location\.(replace|assign))(\(.*\))', re.IGNORECASE)
    # Form => window.location.href="<url>" or location.href="<url>"
-   jsredirect2 = re.compile(r'((window\.|this\.)?location(\.href)?\s*\=\s*)(.*)', re.IGNORECASE)
+   jsredirect2 = re.compile(r'((window\.|this\.)location(\.href)?\s*\=\s*)(.*)', re.IGNORECASE)
    
    quotechars = re.compile(r'[\'\"]*')
    newlineplusre = re.compile(r'\n\s*\+')
@@ -320,6 +320,7 @@ class JSParser(object):
          m1 = self.jsredirect1.search(line)
          if m1:
             tokens = self.jsredirect1.findall(line)
+            print 'TOKENS=>',tokens
             if tokens:
                 urltoken = tokens[0][-1]
                 # Strip of trailing and leading parents
@@ -333,6 +334,8 @@ class JSParser(object):
             m2 = self.jsredirect2.search(line)
             if m2:
                tokens = self.jsredirect2.findall(line)
+               print 'TOKENS=>',tokens
+               
                urltoken = tokens[0][-1]
                # Strip of trailing and leading parents
                url = urltoken.replace('(','').replace(')','').strip()
@@ -544,6 +547,9 @@ def localtests():
     assert(P.location_changed==True)
     assert(P.getLocation().href=="sopron/main.php")    
 
+    P.parse(open('samples/www_thegroup_com_qa.html').read())
+    assert(P.location_changed==False)
+    
     print 'All local tests passed.'
 
 def webtests():
@@ -565,7 +571,7 @@ def experiments():
    
 if __name__ == "__main__":
    localtests()
-   webtests()
+   # webtests()
    # experiments()
    
    
