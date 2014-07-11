@@ -952,7 +952,7 @@ class EIIICrawler(object):
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
 
-        print self.url_graph
+        # print self.url_graph
         self.stats.publish_stats()
 
     def quit(self):
