@@ -3,7 +3,7 @@
 """ Implementation of EIII crawler """
 
 import crawlerbase
-from crawlerbase import CrawlerEventRegistry
+from crawlerbase import CrawlerEventRegistry, CrawlPolicy
 import sys, os
 import Queue
 import requests
@@ -642,7 +642,10 @@ class EIIICrawler(object):
 
         # Update fromdict if any
         if fromdict:
+            # For URL filter, append!
+            urlfilter = self.config.url_filter
             self.config.__dict__.update(fromdict)
+            self.config.urlfilter += urlfilter
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
@@ -660,6 +663,7 @@ class EIIICrawler(object):
         self.urls = urls
         # Add to config
         self.config.urls = urls
+
         # If a param is passed then override it
         if args.param:
             try:
@@ -709,7 +713,27 @@ class EIIICrawler(object):
             pass
         # Check IDNA encoding for the URLs and encode if necessary.
         self.check_idna_domains()
+        if not self.config.disable_dynamic_scope:
+            self.set_dynamic_scope()
 
+    def set_dynamic_scope(self):
+        """ Do self-adjusting of scope w.r.t the URL given
+        If the URL is like http://foo.com use SITE_SCOPE (default)
+        But if it is http://foo.com/bar/soap/ then use FOLDER_SCOPE
+        """
+        
+        for url in self.config.urls:
+            urlp = urlparse.urlparse(url)
+            # Check urlpath after replacing trailing '/' if any
+            path = urlp.path.rstrip('/').strip()
+
+            if len(path)>0:
+                # URL with a folder like http://foo.com/bar/soap
+                # Use folder-scope for full crawl
+                utils.info("URL",url,"has non-zero path length. Setting dynamic folder scope for crawling...")
+                self.config.site_scope = CrawlPolicy.folder_scope
+                break
+        
     def get_url_graph(self):
         """ Return the URL graph showing the tree of
         URLs crawled """
