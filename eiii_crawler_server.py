@@ -45,7 +45,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         # Set log level
         log.setLevel(crawler_rules.get('loglevel','info'))
-        print config_dict
+        # print config_dict
         # sys.exit(0)
 
         # Set task id
@@ -78,6 +78,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         
         # Get the graph
         url_graph = crawler.get_url_graph()
+        # crawler.quit()
+        
         # Keys => URLs, values => list of child URL tuples
         # (url, content_type)
         # print url_graph
