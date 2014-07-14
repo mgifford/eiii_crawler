@@ -13,6 +13,21 @@ from types import StringTypes
 # Global logger object
 g_logger = None
 
+__logprefix__ = 'logs'
+
+def get_crawl_log():
+    """ Get the crawl log file """
+
+    # Make directory
+    if not os.path.isdir(__logprefix__):
+        try:
+            os.makedirs(__logprefix__)
+        except OSError, e:
+            print e
+            return ''
+
+    return os.path.join(__logprefix__, 'crawl.log')
+    
 def safedata(data):
     """ Make data DB safe """
 
@@ -345,7 +360,14 @@ def convert_config(crawler_rules):
         
     config_dict['flag_ignorerobots'] = not crawler_rules['obey-robotstxt']
 
+    try:
+        config_dict['url_filter'] = list(config_dict['url_filter'])
+    except KeyError:
+        pass
+
     return config_dict
+
+   
 
 if __name__ == "__main__":
     import doctest
