@@ -15,6 +15,7 @@ import signal
 import binascii
 import re
 import time
+import datetime
 import logger
 import utils
 import argparse
@@ -29,7 +30,7 @@ import cPickle
 import socket
 import js.jsparser as jsparser
 
-log = logger.getLogger('eiii_crawler','crawl.log',console=True)
+log = logger.getLogger('eiii_crawler',utils.get_crawl_log() ,console=True)
 
 # Default timeout set to 15s
 socket.setdefaulttimeout(15)
@@ -553,9 +554,8 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
             
     def get_stats_dict(self):
         """ Get stats dictionary. """
-        statsdict = self.__dict__.copy()
 
-        # statsdict['urls_af'] = list(self.urls_f - self.urls_d)
+        statsdict = self.__dict__.copy()
 
         mapping = {'urls_a': 'urls_all',
                    'urls_f': 'urls_filtered',
@@ -576,9 +576,13 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
             # Drop original key
             del statsdict[key]
 
-        
         # delete copy
         del statsdict['config']
+
+        for key,val in statsdict.items():
+            if type(val) is datetime.datetime:
+                statsdict[key] = str(val)
+            
         return statsdict
 
     def get_json(self):
@@ -643,14 +647,15 @@ class EIIICrawler(object):
         # Update fromdict if any
         if fromdict:
             # For URL filter, append!
-            urlfilter = self.config.url_filter
+            urlfilter = list(self.config.url_filter)
             self.config.__dict__.update(fromdict)
-            self.config.urlfilter += urlfilter
+            print 'URL FILTER=>',self.config.url_filter
+            self.config.url_filter += urlfilter
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
         # Add another crawl log file to the logger
-        task_logfile = 'crawl_' + task_id + '.log'
+        task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
         log.addLogFile(task_logfile)
         
         # Insert task id
@@ -664,8 +669,9 @@ class EIIICrawler(object):
         # Add to config
         self.config.urls = urls
 
+        # print 'ARGS=>',args
         # If a param is passed then override it
-        if args.param:
+        if args and args.param:
             try:
                 param, value = args.param.split('=')
                 paramtyp = type(getattr(self.config, param))
@@ -948,6 +954,7 @@ class EIIICrawler(object):
 
         # Push empty values
         [w.stop() for w in self.workers]
+        [w.join() for w in self.workers]
         
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
@@ -957,7 +964,9 @@ class EIIICrawler(object):
 
     def quit(self):
         """ Clean-up and exit """
-        pass
+
+        log.info("Quitting.")
+        sys.exit(0)
 
     def _create_config_db(self, dbpath):
         """ Create configuration database when run for the first time """
