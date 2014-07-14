@@ -16,7 +16,7 @@ import json
 import logger
 import os
 
-log = logger.getLogger('eiii_crawler','crawl.log',console=True)
+log = logger.getLogger('eiii_crawler',utils.get_crawl_log() ,console=True)
 
 class CrawlPolicy(object):
     """ Crawl policy w.r.t site root and folders """
@@ -457,13 +457,13 @@ class CrawlerStats(object):
     def mark_start_time(self, event):
         """ Mark starting time of crawl """
 
-        self.start_timestamp = datetime.datetime.now()
+        self.start_timestamp = datetime.datetime.now().replace(microsecond=0)
 
     def mark_end_time(self, event):
         """ Mark end time of crawl """
 
-        self.end_timestamp = datetime.datetime.now()
-        self.crawl_time = self.end_timestamp - self.start_timestamp
+        self.end_timestamp = datetime.datetime.now().replace(microsecond=0)
+        self.crawl_time = str(self.end_timestamp - self.start_timestamp)
 
     def get_crawl_url_rate(self):
         """ Return crawling rate in terms of # URLs/sec """
@@ -486,7 +486,7 @@ class CrawlerStats(object):
         log.info("Total URLs from Cache =>",self.num_urls_cache)        
         log.info("Total 404 URLs =>",self.num_urls_notfound)
         log.info("Total URLs skipped =>",self.num_urls_skipped)
-        log.info("Crawl start time =>",self.start_timestamp)
+        log.info("Crawl start time =>", self.start_timestamp)
         log.info("Crawl end time =>",self.end_timestamp)
         log.info("Time taken for crawl =>",str(self.crawl_time))
         
@@ -583,7 +583,7 @@ class CrawlerLimitRules(object):
 
             log.debug('Limits: ===>',url_limit,self.url_counts.get(ctype, 0),'<========')
             if url_limit and self.url_counts.get(ctype, 0)>url_limit:
-                log.info('URL limit for content-type',ctype,'reached.')
+                log.info('URL limit =>',url_limit,'<= for content-type',ctype,'reached.')
                 # Send abort_crawling event
                 self.eventr.publish(self, 'abort_crawling',
                                     message='URL limit for content-type "%s" has reached' % ctype)
