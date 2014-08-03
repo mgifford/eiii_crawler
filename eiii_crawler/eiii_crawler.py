@@ -427,7 +427,7 @@ class EIIICrawlerQueuedWorker(crawlerbase.CrawlerWorkerBase):
 
         # print 'Checking allowd for URL',url
         # Skip mime-types we don't want to deal with based on URL extensions
-        content_type = urlhelper.guess_content_type(url)
+        content_type = urlhelper.get_content_type(url, headers)
 
         if content_type not in self.config.client_mimetypes:
             log.debug('Skipping URL',url,'as content-type',content_type,'is not valid.')
@@ -954,7 +954,7 @@ class EIIICrawler(object):
 
         # Push empty values
         [w.stop() for w in self.workers]
-        [w.join() for w in self.workers]
+        # [w.join() for w in self.workers]
         
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
