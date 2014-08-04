@@ -28,6 +28,7 @@ import sqlite3
 import json
 import cPickle
 import socket
+
 import js.jsparser as jsparser
 
 log = logger.getLogger('eiii_crawler',utils.get_crawl_log() ,console=True)
@@ -138,6 +139,7 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                         eventr.publish(self, 'download_cache',
                                        message='URL has been retrieved from cache',
                                        code=304,
+                                       event_key=self.url,                                     
                                        params=self.__dict__)                    
 
                         return True
@@ -209,6 +211,7 @@ class EIIICrawlerUrlData(crawlerbase.CrawlerUrlData):
                 eventr.publish(self, 'download_complete',
                                message='URL has been downloaded successfully',
                                code=200,
+                               event_key=self.url,
                                params=self.__dict__)
             else:
                 log.error("Error downloading URL =>",self.url,"status code is ", status_code)
@@ -634,7 +637,7 @@ class EIIICrawlerStats(crawlerbase.CrawlerStats):
 class EIIICrawler(object):
     """ EIII Web Crawler """
 
-    def __init__(self, urls, cfgfile='config.json', fromdict={}, args=None):
+    def __init__(self, urls=[], cfgfile='config.json', fromdict={}, args=None):
         # Load config from file.
         cfgfile = self.load_config(fname=cfgfile)
         if cfgfile:
@@ -649,8 +652,10 @@ class EIIICrawler(object):
             # For URL filter, append!
             urlfilter = list(self.config.url_filter)
             self.config.__dict__.update(fromdict)
-            print 'URL FILTER=>',self.config.url_filter
             self.config.url_filter += urlfilter
+            # Remove duplicates
+            self.config.url_filter = list(set([tuple(x) for x in self.config.url_filter]))
+            print 'URL FILTER=>',self.config.url_filter         
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
@@ -681,6 +686,22 @@ class EIIICrawler(object):
             except ValueError:
                 pass
 
+        # Crawl stats
+        self.stats = EIIICrawlerStats(self.config)
+        # Crawl limits enforcement
+        self.limit_checker = crawlerbase.CrawlerLimitRules(self.config)
+        
+        # print 'Limit checker =>',self.limit_checker
+        # Event registry
+        self.eventr = CrawlerEventRegistry.getInstance()
+        self.subscribe_events()
+
+        self.reset()
+
+    def reset(self):
+        """ Reset previous crawling state if any """
+
+        log.info('===>RESETTING CRAWLER STATE<===')
         # Set any override param if specified
         self.empty_count = 0
         # Download queue
@@ -689,16 +710,6 @@ class EIIICrawler(object):
         self.url_bitmap = {}
         # Keeping track of URLs put in download queue
         self.url_keys = {None: 1}
-        # Crawl stats
-        self.stats = EIIICrawlerStats(self.config)
-        self.stats.reset()
-        
-        # Crawl limits enforcement
-        self.limit_checker = crawlerbase.CrawlerLimitRules(self.config)
-        # print 'Limit checker =>',self.limit_checker
-        # Event registry
-        self.eventr = CrawlerEventRegistry.getInstance()
-        self.subscribe_events()
         # Workers
         self.workers = []
         # Install signal handlers
@@ -709,6 +720,10 @@ class EIIICrawler(object):
         # this cant be overridden
         self.red_flag = False
 
+        self.stats.reset()
+        self.limit_checker.reset()
+        self.eventr.reset()
+        
         # URL graph
         self.url_graph = collections.defaultdict(set)
         try:
@@ -721,7 +736,7 @@ class EIIICrawler(object):
         self.check_idna_domains()
         if not self.config.disable_dynamic_scope:
             self.set_dynamic_scope()
-
+            
     def set_dynamic_scope(self):
         """ Do self-adjusting of scope w.r.t the URL given
         If the URL is like http://foo.com use SITE_SCOPE (default)
@@ -869,6 +884,10 @@ class EIIICrawler(object):
     def work_pending(self):
         """ Any work pending ? """
 
+        # print '====> RED FLAG:',self.red_flag
+        # print '====> WORKERS IDLE:',self.workers_idle()
+        # print '====> EMPTY:',self.is_empty()
+        
         return (not self.red_flag) and not (self.workers_idle() and self.is_empty())
     
     def check_already_downloaded(self, url):
@@ -914,10 +933,42 @@ class EIIICrawler(object):
         """ Make a worker instance """
 
         return EIIICrawlerQueuedWorker(self.config, self)
-    
+
+    def crawl_using(self, urls, fromdict):
+        """ Crawl using the given URLs and config dictionary """
+        
+        if fromdict:
+            # For URL filter, append!
+            urlfilter = list(self.config.url_filter)
+            self.config.__dict__.update(fromdict)
+            self.config.url_filter += urlfilter
+            print 'URL FILTER=>',self.config.url_filter
+
+        # Task id
+        task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
+        # Add another crawl log file to the logger
+        task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
+        log.addLogFile(task_logfile)
+        
+        # Insert task id
+        self.config.task_id = task_id
+        log.info("Crawl task ID is: ",task_id)
+        
+        # Prepare it
+        self.prepare_config()
+        # Prepare config
+        self.urls = urls
+        # Add to config
+        self.config.urls = urls
+        self.config.save('crawl.json')
+        
+        self.crawl()
+                    
     def crawl(self):
         """ Do the actual crawling """
 
+        # Reset
+        self.reset()
         # Demarcating text
         log.logsimple('\n')
         log.logsimple('>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<')
@@ -941,8 +992,8 @@ class EIIICrawler(object):
             worker.start()
             # Give subsequent workers some time to start so that the other
             # workers fill in some data.
-            time.sleep(10*(nworkers - i))           
-        
+            time.sleep(10*(nworkers - i))
+
     def wait(self):
         """ Wait for crawl to finish """
         
