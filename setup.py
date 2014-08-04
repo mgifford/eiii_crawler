@@ -17,5 +17,5 @@ setup(name = "eiii-crawler",
       license = "BSD3",
       long_description = """""",
       packages = ['eiii_crawler','js'],
-      scripts = ['eiii_crawler/eiii_crawler_server.py']
+      scripts = ['eiii_crawler/eiii_crawler_server.py', 'eiii_crawler/eiii_crawler_server']
       )
