@@ -252,7 +252,7 @@ class CrawlerEvent(object):
     """ Class describing a crawler event raised by publishers
     during crawler workflow """
 
-    def __init__(self, publisher, event_name, source=None, message=None,
+    def __init__(self, publisher, event_name, event_key=None, source=None, message=None,
                  message_type='str',code=0, is_error=False, is_critical=False, 
                  callback=None,params={}):
         # Object that publishes the event. This should
@@ -337,8 +337,14 @@ class CrawlerEventRegistry(object):
         # A key is mapped to a list of subscribers where each
         # entry in the list is the subscriber method (method
         # object, not name)
-        self.subscribers = collections.defaultdict(list)
+        self.subscribers = collections.defaultdict(set)
+        # Dictionary of events published mapped by unique key
+        self.unique_events = {}
 
+    def reset(self):
+        """ Reset state """
+        self.unique_events = {}
+        
     def publish(self, publisher, event_name, **kwargs):
         """ API called by the event publisher to announce an event.
         The required arguments for creating the Event object should
@@ -349,6 +355,20 @@ class CrawlerEventRegistry(object):
         if event_name not in self.__events__:
             log.info('Unrecognized event =>',event_name)
             return False
+
+        event_key = kwargs.get('event_key')
+        # print 'EVENT KEY=>',event_key,event_name
+        
+        # If key is given and event already published, don't publish anymore.
+        if event_key != None:
+            # Create unique key => (event_key, event_name)
+            key = (event_key, event_name)
+            if key in self.unique_events:
+                log.info("Not publishing event =>", key)
+                return False
+            else:
+                # Add it
+                self.unique_events[key] = 1
             
         # Create event object
         event = CrawlerEvent(publisher, event_name, **kwargs)
@@ -361,8 +381,11 @@ class CrawlerEventRegistry(object):
         # Find subscribers
         # log.debug('Notifying all subscribers...',event)
 
+        # print self.subscribers
+        
         count = 0
         for sub in self.subscribers.get(event.event_name, []):
+            # log.info("Calling subscribers for =>",event.event_name, '=>', sub)
             sub(event)
             count += 1
 
@@ -371,7 +394,7 @@ class CrawlerEventRegistry(object):
     def subscribe(self, event_name, method):
         """ Subscribe to an event with the given method """
 
-        self.subscribers[event_name].append(method)
+        self.subscribers[event_name].add(method)
 
 class CrawlerStats(object):
     """ Class keeping crawler statistics such as total URLs downloaded,
@@ -533,20 +556,12 @@ class CrawlerLimitRules(object):
     """ Class implementing crawler limiting rules with respect
     to maximum limits set if any """
 
+    # This class is a Singleton
+    __metaclass__ = utils.SingletonMeta
+
     def __init__(self, config):
         self.config = config
-        # Map the limits to content-type
-        self.url_limits = self.config.url_limits
-        self.byte_limits = self.config.byte_limits
-        
-        self.url_counts = collections.defaultdict(int)
-        self.byte_counts = collections.defaultdict(int)
-        
-        # Total URL (downloaded) count
-        self.num_urls = 0
-        # Total bytes downloaded
-        self.num_bytes = 0
-        # Subscribe to events
+        # Subscribe to events       
         self.eventr = CrawlerEventRegistry.getInstance()
         self.eventr.subscribe('download_complete', self.check_crawler_limits)
 
@@ -554,7 +569,23 @@ class CrawlerLimitRules(object):
         # Maybe we should since that also includes a HEAD request for the URL.
         # Anyway for the time being this is enabled.
         self.eventr.subscribe('download_cache', self.check_crawler_limits)      
+        self.reset()
 
+    def reset(self):
+        """ Reset the state """
+
+        # Map the limits to content-type
+        self.url_limits = self.config.url_limits
+        self.byte_limits = self.config.byte_limits
+
+        self.url_counts = collections.defaultdict(int)
+        self.byte_counts = collections.defaultdict(int)
+        
+        # Total URL (downloaded) count
+        self.num_urls = 0
+        # Total bytes downloaded
+        self.num_bytes = 0
+        
     def update_counts(self, ctype, bytes=0):
         """ Update URL count for the content-type """
 
@@ -570,8 +601,9 @@ class CrawlerLimitRules(object):
         """ Check whether enough URLs have been downloaded """
         
         # Get URL
-        log.debug('Checking crawler limits')
+        log.debug('Checking crawler limits', threading.currentThread())
         url = event.params.get('url')
+        
         if url:
             headers = event.params.get('headers', {})
             # get content type
@@ -581,7 +613,7 @@ class CrawlerLimitRules(object):
             # Get limit for the content-type
             url_limit = self.url_limits.get(ctype)
 
-            log.debug('Limits: ===>',url_limit,self.url_counts.get(ctype, 0),'<========')
+            log.debug('Limits: ===>',url_limit,self.url_counts.get(ctype, 0),url,'<========')
             if url_limit and self.url_counts.get(ctype, 0)>url_limit:
                 log.info('URL limit =>',url_limit,'<= for content-type',ctype,'reached.')
                 # Send abort_crawling event
