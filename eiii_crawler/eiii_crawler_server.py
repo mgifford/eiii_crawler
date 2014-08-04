@@ -1,10 +1,12 @@
 from ttrpc.server import SimpleTTRPCServer, UserError
 import time
 import datetime
-from eiii_crawler import logger, utils
 import sys
-from eiii_crawler.eiii_crawler import EIIICrawler, log
-from eiii_crawler.crawlerbase import CrawlerStats
+import gc
+
+import logger, utils
+from eiii_crawler import EIIICrawler, log
+from crawlerbase import CrawlerStats
 
 class EIIICrawlerServer(SimpleTTRPCServer):
     """ EIII crawler server obeying the tt-rpc protocol """
@@ -18,6 +20,10 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
+    def __init__(self):
+        self.crawler = EIIICrawler()
+        SimpleTTRPCServer.__init__(self)
+        
     def _packer_default(self, obj):
         strtypes = (datetime.datetime, datetime.date, datetime.timedelta)
         if any(isinstance(obj, x) for x in strtypes):
@@ -49,25 +55,21 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         # Set task id
         config_dict['task_id'] = ctl.id_
-        crawler = EIIICrawler(urls, cfgfile='',fromdict=config_dict)
-        # Update config with the configuration values
-        crawler.config.save('crawl.json')
-
-        crawler.crawl()
+        self.crawler.crawl_using(urls, fromdict=config_dict)
         
         # Wait for some time
         time.sleep(10)
 
-        stats = crawler.stats
+        stats = self.crawler.stats
         
-        while crawler.work_pending():
+        while self.crawler.work_pending():
             time.sleep(5)
             # Update status
             if ctl: ctl.setStatus(str(stats.get_num_urls()) + ", " +
                                   str(stats.get_crawl_url_rate()))
                 
 
-        crawler.eventr.publish(self, 'crawl_ended')        
+        self.crawler.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
 
         # print self.url_graph
@@ -76,13 +78,12 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         stats_dict = stats.get_stats_dict()
         
         # Get the graph
-        url_graph = crawler.get_url_graph()
-        # crawler.quit()
+        url_graph = self.crawler.get_url_graph()
+
+        # Force gc collection
+        gc.set_debug(gc.DEBUG_STATS|gc.DEBUG_COLLECTABLE|gc.DEBUG_UNCOLLECTABLE)
+        gc.collect()
         
-        # Keys => URLs, values => list of child URL tuples
-        # (url, content_type)
-        # print url_graph
-        # print url_graph.keys()
         return { 'result': self.make_directed_graph(url_graph),
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
