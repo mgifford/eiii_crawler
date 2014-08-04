@@ -1,12 +1,14 @@
+#!/usr/bin/env python
+
 from ttrpc.server import SimpleTTRPCServer, UserError
 import time
 import datetime
 import sys
 import gc
 
-import logger, utils
-from eiii_crawler import EIIICrawler, log
-from crawlerbase import CrawlerStats
+from eiii_crawler.eiii_crawler import logger, utils
+from eiii_crawler.eiii_crawler import EIIICrawler, log
+from eiii_crawler.crawlerbase import CrawlerStats
 
 class EIIICrawlerServer(SimpleTTRPCServer):
     """ EIII crawler server obeying the tt-rpc protocol """
