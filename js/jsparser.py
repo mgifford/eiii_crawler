@@ -182,6 +182,8 @@ class JSParser(object):
       self.resetDOM()
       self.statements = []
       self.js = []
+      self.location_changed = False
+      self.dom_changed = False
       pass
 
    def resetDOM(self):
