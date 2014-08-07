@@ -700,7 +700,7 @@ class URLBuilder(object):
             return ''
 
         # Plain anchor URLs or other types of 'junk' URLs
-        if any([url.startswith(item) for item in ('#','mailto:','javascript:','tel:')]):
+        if any([url.startswith(item) for item in ('#','mailto:','javascript:','tel:', 'file:')]):
             return ''
 
         # If the URL consists of HTML entities, then convert them to their proper form.
