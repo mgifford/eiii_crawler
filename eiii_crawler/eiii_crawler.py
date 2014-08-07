@@ -454,7 +454,7 @@ class EIIICrawler(object):
             # Remove duplicates
             lfilter = list(set([tuple(x) for x in self.config.url_filter]))
             self.config.url_filter = lfilter
-            print 'URL FILTER=>',self.config.url_filter         
+            log.extra('URL FILTER=>',self.config.url_filter)
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
@@ -748,7 +748,7 @@ class EIIICrawler(object):
             self.config.url_filter += urlfilter
             lfilter = list(set([tuple(x) for x in self.config.url_filter]))
             self.config.url_filter = lfilter
-            print 'URL FILTER=>',self.config.url_filter
+            log.extra('URL FILTER=>',self.config.url_filter)
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
