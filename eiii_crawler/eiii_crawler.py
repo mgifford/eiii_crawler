@@ -448,11 +448,12 @@ class EIIICrawler(object):
         # Update fromdict if any
         if fromdict:
             # For URL filter, append!
-            urlfilter = list(self.config.url_filter)
+            urlfilter = self.config.url_filter[:]
             self.config.__dict__.update(fromdict)
             self.config.url_filter += urlfilter
             # Remove duplicates
-            self.config.url_filter = list(set([tuple(x) for x in self.config.url_filter]))
+            lfilter = list(set([tuple(x) for x in self.config.url_filter]))
+            self.config.url_filter = lfilter
             print 'URL FILTER=>',self.config.url_filter         
 
         # Task id
@@ -742,9 +743,11 @@ class EIIICrawler(object):
         
         if fromdict:
             # For URL filter, append!
-            urlfilter = list(self.config.url_filter)
+            urlfilter = self.config.url_filter[:]           
             self.config.__dict__.update(fromdict)
             self.config.url_filter += urlfilter
+            lfilter = list(set([tuple(x) for x in self.config.url_filter]))
+            self.config.url_filter = lfilter
             print 'URL FILTER=>',self.config.url_filter
 
         # Task id
