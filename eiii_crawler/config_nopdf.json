@@ -1,0 +1,109 @@
+{
+ "byte_limits": {
+  "application/pdf": 200, 
+  "application/xhtml": 500, 
+  "application/xml": 500, 
+  "text/html": 500
+ }, 
+ "client_accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 
+ "client_accept_encoding": "gzip, deflate", 
+ "client_accept_language": "en-US, en;q=0.5", 
+ "client_connection": "keep-alive", 
+ "client_fake_mimetypes": [
+  "application/pdf"
+ ], 
+ "client_mimetypes": [
+  "text/html", 
+  "text/plain", 
+  "text/xml", 
+  "application/xhtml+xml", 
+  "application/xml"
+ ], 
+ "client_spoofuseragent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0", 
+ "client_standard_headers": [
+  "Accept", 
+  "Accept-Encoding", 
+  "Accept-Language", 
+  "Connection"
+ ], 
+ "client_useragent": "EIII Web Crawler v1.0 - http://www.eiii.eu", 
+ "configdir": "~/.eiii/crawler", 
+ "disable_dynamic_scope": false, 
+ "flag_detect_spurious_404": true, 
+ "flag_httpcompress": true, 
+ "flag_ignorerobots": false, 
+ "flag_ignoretlds": false, 
+ "flag_jsredirects": true, 
+ "flag_metarobots": true, 
+ "flag_randomize_sleep": true, 
+ "flag_randomize_urls": false, 
+ "flag_spoofua": true, 
+ "flag_storedata": true, 
+ "flag_supplement_urls": true, 
+ "flag_use_etags": true, 
+ "flag_use_last_modified": true, 
+ "flag_usecache": false, 
+ "flag_x_robots": true, 
+ "network_proxy": "", 
+ "num_workers": 2, 
+ "site_maxbytes": 500, 
+ "site_maxdepth": 10, 
+ "site_maxrequests": 20, 
+ "site_maxurlsize": 20, 
+ "site_scope": "SITE_SCOPE", 
+ "statsdir": "~/.eiii/crawler/stats", 
+ "storedir": "~/.eiii/crawler/store", 
+ "time_sleeptime": 1.0, 
+ "url_filter": [
+  [
+   "-", 
+   ".*\\/wp-content\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/wp-includes\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/plugins\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/themes\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/_layouts\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/styles\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/_sources\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/_static\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/static\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/js\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/stylesheets\\/.*"
+  ]
+ ], 
+ "url_limits": {
+  "application/pdf": 1000, 
+  "application/xhtml+xml": 8000, 
+  "application/xml": 8000, 
+  "text/html":8000
+ }
+}
