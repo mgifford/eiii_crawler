@@ -42,20 +42,20 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
 
         return self.state
     
-    def get_url_data_instance(self, url, parent_url=None):
+    def get_url_data_instance(self, url, parent_url=None, content_type='text/html'):
         """ Make an instance of the URL data class
         which fetches the URL """
 
-        return CrawlerUrlData(url, self.config)
+        return CrawlerUrlData(url, parent_url, content_type, self.config)
     
-    def download(self, url, parent_url=None):
+    def download(self, url, parent_url=None, content_type='text/html'):
         """ Download a URL and return an object which
         represents both its content and the headers. The
         headers are indicated by the 'headers' attribute
         and content by the 'content' attribute of the
         returned object. Returns error code if failed """
 
-        urlobj = self.get_url_data_instance(url, parent_url)
+        urlobj = self.get_url_data_instance(url, parent_url, content_type)
         # Double-dispatch pattern - this is so amazingly useful!
         # Gives you effect of mulitple inheritance with objects.
         urlobj.download(self)
@@ -98,8 +98,11 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
             # State is 1 - got data, doing work
             self.state = 1
             if self.allowed(url, parent_url, content_type, download=True):
-                log.info('Downloading URL',url,'...')
-                urlobj = self.download(url, parent_url)
+                # Refresh content-type
+                content_type = urlhelper.get_content_type(url, {})             
+                log.info('Downloading URL',url,'=>',content_type,'...')
+                
+                urlobj = self.download(url, parent_url, content_type)
                 
                 # Data is obtained using the method urlobj.get_data()
                 # Headers is obtained using the method urlobj.get_headers()
@@ -110,7 +113,9 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                 # etc. Child URLs would need to be constructed against the
                 # updated URL not the old one. E.g: https://docs.python.org/library/
                 url = urlobj.get_url()
-
+                # Get updated content-type if any
+                content_type = urlobj.get_content_type()
+                
                 # Make another call to allowed this time with the content and headers - it
                 # is up to the child class on how to implement this - for example
                 # it can chose to implement content specific rules in another function.
@@ -137,7 +142,7 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                         if len(full_curl)==0: continue
 
                         # Insert this back to the queue
-                        content_type = urlhelper.get_content_type(full_curl, headers)
+                        content_type = urlhelper.guess_content_type(full_curl)
                         # Skip if not allowed
                         if self.allowed(full_curl, parent_url=url, content_type=content_type):
                             # log.info(url," => Adding URL",full_curl,"...")
@@ -160,7 +165,7 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                     for ctype, curl, purl in newurls:
                         # Key is the child URL itself
                         if self.push(ctype, curl, purl, curl):
-                            log.debug("\tPushed new URL =>",curl,"...")
+                            log.debug("\tPushed new URL =>",curl,'('+ctype+')...')
                 else:
                     if url_data == None:
                         log.debug("URL data is null =>", url)
