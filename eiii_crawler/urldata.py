@@ -19,12 +19,14 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
     """ Caching URL data which implements caching of the downloaded
     URL data locally and supports HTTP 304 requests """
 
-    def __init__(self, url, parent_url, config):
-        super(CachingUrlData, self).__init__(url, parent_url, config)
+    def __init__(self, url, parent_url, content_type, config):
+        super(CachingUrlData, self).__init__(url, parent_url, content_type, config)
         self.orig_url = self.url
         self.headers = {}
         self.content = ''
         self.content_length = 0
+        # Given content-type if any
+        self.given_content_type = content_type
         # Download status
         # True -> Success
         # False -> Failed
@@ -148,6 +150,23 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             return True
         
         try:
+            # If a fake mime-type only do a HEAD request to get correct URL, dont
+            # download the actual data using a GET.
+            if self.given_content_type in self.config.client_fake_mimetypes:
+                utils.info("Waiting for (head request)",self.url,"...")
+                fhead = urlhelper.head_url(self.url, headers=self.build_headers())
+                utils.info("Downloaded (head request)",self.url,"...")              
+                if self.url != fhead.url:
+                    self.url = fhead.url
+                    log.extra("URL updated to",self.url)
+
+                # Simulate download event for this URL so it gets added to URL graph
+                # Publish fake download complete event          
+                eventr.publish(self, 'download_complete_fake',
+                               message='URL has been downloaded fakily',
+                               code=200,
+                               params=self.__dict__)                                
+    
             log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers())
             log.debug("Downloaded URL",self.url,"...")          
@@ -159,7 +178,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             if self.url != freq.url:
                 self.url = freq.url
                 log.extra("URL updated to",self.url)
-            
+
             # Add content-length also for downloaded content
             self.content_length = max(len(self.content),
                                       self.headers.get('content-length',0))
