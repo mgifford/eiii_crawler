@@ -85,11 +85,11 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         # pushed exactly match this structure
         return data
 
-    def get_url_data_instance(self, url, parent_url=None):
+    def get_url_data_instance(self, url, parent_url=None, content_type='text/html'):
         """ Make an instance of the URL data class
         which fetches the URL """
 
-        return urldata.CachingUrlData(url, parent_url, self.config)
+        return urldata.CachingUrlData(url, parent_url, content_type, self.config)
 
     def build_url(self, child_url, parent_url):
         """ Build the complete URL for child URL using the parent URL """
@@ -235,16 +235,16 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             return False
 
         # Part of client mime-types, check if part of fake mime-types
-        elif content_type in self.config.client_fake_mimetypes and download:
-            log.debug('Skipping URL',url,'as',content_type,'is part of fake mime-types (no download)')
-            # Simulate download event for this URL so it gets added to URL graph
-            # Publish fake download complete event          
-            self.eventr.publish(self, 'download_complete_fake',
-                                message='URL has been downloaded fakily',
-                                code=200,
-                                params=locals())            
-            
-            return False
+        elif content_type in self.config.client_cheat_mimetypes and download:
+           log.debug('Skipping URL',url,'as',content_type,'is part of cheat mime-types (no download)')
+           # Simulate download event for this URL so it gets added to URL graph
+           # Publish cheat download complete event          
+           self.eventr.publish(self, 'download_complete_cheat',
+                               message='URL cheated as downloaded',
+                               code=200,
+                               params=locals())            
+           
+           return False
         
         # If URL include rules are given - the scenario is most likely
         # if these are filtered by some of the other rules - so we should
@@ -449,7 +449,7 @@ class EIIICrawler(object):
         if fromdict:
             # For URL filter, append!
             urlfilter = self.config.url_filter[:]
-            self.config.__dict__.update(fromdict)
+            self.config.update(fromdict)
             self.config.url_filter += urlfilter
             # Remove duplicates
             lfilter = list(set([tuple(x) for x in self.config.url_filter]))
@@ -598,7 +598,8 @@ class EIIICrawler(object):
         """ Subscribe to events """
 
         self.eventr.subscribe('download_complete', self.url_download_complete)
-        self.eventr.subscribe('download_complete_fake', self.url_download_complete)     
+        self.eventr.subscribe('download_complete_fake', self.url_download_complete)
+        self.eventr.subscribe('download_complete_cheat', self.url_download_complete)            
         # self.eventr.subscribe('url_pushed', self.url_pushed_callback)       
         self.eventr.subscribe('download_cache', self.url_download_complete)     
         self.eventr.subscribe('download_error', self.url_download_error)
@@ -743,8 +744,9 @@ class EIIICrawler(object):
         
         if fromdict:
             # For URL filter, append!
-            urlfilter = self.config.url_filter[:]           
-            self.config.__dict__.update(fromdict)
+            urlfilter = self.config.url_filter[:]
+            self.config.update(fromdict)
+
             self.config.url_filter += urlfilter
             lfilter = list(set([tuple(x) for x in self.config.url_filter]))
             self.config.url_filter = lfilter
@@ -868,7 +870,7 @@ class EIIICrawler(object):
 
         # Look in current folder - this overrides the default config file
         if os.path.isfile(fname):
-            print 'Using config file...'
+            print 'Using config file',fname,'...'
             return fname
             
         # Try to load config from default location
