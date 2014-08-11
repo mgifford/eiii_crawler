@@ -226,9 +226,13 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             log.debug(url,'=> already downloaded')
             return False
 
+        if (parse) and content_type not in ('text/html','text/xhtml','application/xml','application/xhtml+xml'):
+            log.debug("Skipping URL for parsing as mime-type is not (X)HTML or XML")
+            return False
+        
         # print 'Checking allowd for URL',url
         # Skip mime-types we don't want to deal with based on URL extensions
-        content_type = urlhelper.get_content_type(url, headers)
+        # content_type = urlhelper.get_content_type(url, headers)
 
         if content_type not in self.config.client_mimetypes:
             log.debug('Skipping URL',url,'as content-type',content_type,'is not valid.')
