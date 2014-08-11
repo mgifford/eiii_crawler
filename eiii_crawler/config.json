@@ -8,6 +8,7 @@
  "client_accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 
  "client_accept_encoding": "gzip, deflate", 
  "client_accept_language": "en-US, en;q=0.5", 
+ "client_cheat_mimetypes": [], 
  "client_connection": "keep-alive", 
  "client_fake_mimetypes": [
   "application/pdf"
@@ -54,6 +55,7 @@
  "site_scope": "SITE_SCOPE", 
  "statsdir": "~/.eiii/crawler/stats", 
  "storedir": "~/.eiii/crawler/store", 
+ "time_limit": 480, 
  "time_sleeptime": 1.0, 
  "url_filter": [
   [
