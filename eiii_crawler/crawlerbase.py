@@ -66,6 +66,9 @@ class CrawlerLimits(object):
         'application/xml': 500,     
         'application/pdf': 200,
         }
+
+    # Maximum time duration of the crawl in minutes - 8 hrs by default
+    time_limit = 480
     # Maximum concurrent connections/requests to a site
     site_maxrequests = 20
     # Maximum bytes downloaded from a site in MB
@@ -159,19 +162,25 @@ class CrawlerConfig(object):
                                  'application/xhtml+xml','application/xml',
                                  'application/pdf']
 
-        # Mime-types we want to deal with (get URLs) but don't want to
-        # download - if a mime-type is added here its URLs will be processed
-        # till the point of download and will also appear in the URL graph
-        # but download will be skipped. For example this could be used to
+
+        # Update Aug 11 2014 - fake mimetypes URLs are fetched using
+        # a head request to get updated URL. For example this could be used to
         # get large sized URLs like PDF documents into the URL graph without
         # actually downloading them.
-
-        # Any URL with a mime-type here will be skipped for download.
+        
+        # Any URL with a mime-type here would be fetched using a head
+        # request and not using a regular (GET) request
 
         # NOTE: DON'T ADD HTML mime-types here as this means crawl will be
         # incomplete or mostly won't proceed at all!
-        
         self.client_fake_mimetypes = ['application/pdf']
+
+        # Cheats - Mime-types we want to deal with (get URLs) but don't want to
+        # download - if a mime-type is added here its URLs will be processed
+        # till the point of download and will also appear in the URL graph
+        # but download will be skipped. URLs for these mime-types will be
+        # completely skipped in download.
+        self.client_cheat_mimetypes = []
         
         # System settings
         self.num_workers = 2
@@ -208,6 +217,20 @@ class CrawlerConfig(object):
                             ('-', '.*\/js\/.*'),
                             ('-', '.*\/stylesheets\/.*')]    
         
+
+    def update(self, configdict):
+        """ Update configuration from another dictionary """
+
+        # For values other than dictionaries - simply update
+        # For values which are dictionaries - merge.
+        for k,v in configdict.items():
+            if type(v) is not dict:
+                self.__dict__[k] = v
+            else:
+                val = self.__dict__.get(k, {})
+                # Merge it
+                val.update(v)
+                self.__dict__[k] = val
         
     def get_real_useragent(self):
         """ Return the effective user-agent string """
@@ -318,7 +341,8 @@ class CrawlerEventRegistry(object):
     __metaclass__ = utils.SingletonMeta
     # Dictionary of allowed event names and descriptions
     __events__ = {'download_complete': 'Published when a URL is downloaded successfully',
-                  'download_complete_fake': 'Published when download of a URL is simulated',                  
+                  'download_complete_fake': 'Published when a URL is fetched using HEAD request only',
+                  'download_complete_cheat': 'Published when download of a URL is simulated completely',
                   'download_error': 'Published when a URL fails to download',
                   'download_cache': 'Retrieved a URL from the cache',
                   'url_obtained': 'Published when a URL is obtained from the pipeline for processing',
@@ -516,7 +540,7 @@ class CrawlerStats(object):
 class CrawlerUrlData(object):
     """ Class representing downloaded data for a URL """
 
-    def __init__(self, url, parent_url, config):
+    def __init__(self, url, parent_url, content_type,  config):
         self.url = url
         self.parent_url = parent_url
         # Useful stuff
@@ -564,7 +588,7 @@ class CrawlerLimitRules(object):
         # Subscribe to events       
         self.eventr = CrawlerEventRegistry.getInstance()
         self.eventr.subscribe('download_complete', self.check_crawler_limits)
-
+        self.eventr.subscribe('crawl_started', self.mark_start_time)
         # Do we need to apply URL limits also for retrievel from cache ?
         # Maybe we should since that also includes a HEAD request for the URL.
         # Anyway for the time being this is enabled.
@@ -577,7 +601,9 @@ class CrawlerLimitRules(object):
         # Map the limits to content-type
         self.url_limits = self.config.url_limits
         self.byte_limits = self.config.byte_limits
-
+        # Maximum time for crawling in seconds
+        self.time_limit = self.config.time_limit
+        
         self.url_counts = collections.defaultdict(int)
         self.byte_counts = collections.defaultdict(int)
         
@@ -585,6 +611,29 @@ class CrawlerLimitRules(object):
         self.num_urls = 0
         # Total bytes downloaded
         self.num_bytes = 0
+        # Start time-stamp
+        self.start_timestamp = 0
+        # Duration
+        self.duration = 0
+        
+    def mark_start_time(self, event):
+        """ Mark starting time of crawl """
+
+        self.start_timestamp = datetime.datetime.now().replace(microsecond=0)
+
+    def update_time(self):
+        """ Update the time taken for crawl """
+
+        tdelta = (datetime.datetime.now() - self.start_timestamp)
+        self.duration = tdelta.total_seconds()/60.0
+        log.debug("*** Duration of crawl -",self.duration,"minutes ***")
+
+        # If time of crawling exceeded, abort crawling
+        if self.duration > self.time_limit:
+            log.info('Time duration limit =>',self.time_limit,'<= for crawling reached.')
+            # Send abort_crawling event
+            self.eventr.publish(self, 'abort_crawling',
+                                message='Time limit for crawling exceeded!')      
         
     def update_counts(self, ctype, bytes=0):
         """ Update URL count for the content-type """
@@ -598,11 +647,15 @@ class CrawlerLimitRules(object):
         log.debug('===> Updating count for',ctype,' <====', self.url_counts[ctype])
         
     def check_crawler_limits(self, event):
-        """ Check whether enough URLs have been downloaded """
+        """ Check whether enough URLs have been downloaded according to
+        several limit constraints """
         
         # Get URL
         log.debug('Checking crawler limits', threading.currentThread())
         url = event.params.get('url')
+
+        # Update the total time
+        self.update_time()
         
         if url:
             headers = event.params.get('headers', {})
