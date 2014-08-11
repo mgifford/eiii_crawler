@@ -56,12 +56,18 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         if self.config.flag_storedata:
             fpath, fhdr, dirpath = self.get_url_store_paths()
             # Write data to fpath
+            # Write data ONLY if either last-modified or etag header is found.
+            dhdr = dict(self.headers)
+            lmt, etag = dhdr.get('last-modified'), dhdr.get('etag')
+            
             try:
                 with utils.ignore(): os.makedirs(dirpath)
-                if self.content:
+                if (lmt != None) or (etag != None) and self.content:
                     open(fpath, 'wb').write(zlib.compress(self.content))
                     log.info('Wrote URL content to',fpath,'for URL',self.url)
                 if self.headers:
+                    # Add URL to it
+                    self.headers['url'] = self.url
                     open(fhdr, 'wb').write(zlib.compress(str(dict(self.headers))))
                     log.info('Wrote URL headers to',fhdr,'for URL',self.url)                    
             except Exception, e:
@@ -106,11 +112,16 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                     headers = eval(zlib.decompress(open(fhdr).read()))
 
                     if self.make_head_request(headers):
+                        # Update URL from cache
+                        self.url = self.headers.get('url', self.url)
+                        
                         log.info(self.url, "==> URL is up-to-date, returning data from cache")
 
                         self.content = content
                         self.headers = headers
 
+                        self.content_type =  urlhelper.get_content_type(self.url, self.headers)
+                        
                         eventr = crawlerbase.CrawlerEventRegistry.getInstance()                 
                         # Raise the event for retrieving URL from cache
                         eventr.publish(self, 'download_cache',
@@ -145,7 +156,9 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         index, follow = True, True
         
         if self.get_headers_and_data():
-            self.status = True          
+            self.status = True
+            # Content-type
+            
             # Obtained from cache
             return True
         
@@ -153,19 +166,27 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             # If a fake mime-type only do a HEAD request to get correct URL, dont
             # download the actual data using a GET.
             if self.given_content_type in self.config.client_fake_mimetypes:
-                utils.info("Waiting for (head request)",self.url,"...")
+                log.info("Waiting for (head request)",self.url,"...")
                 fhead = urlhelper.head_url(self.url, headers=self.build_headers())
-                utils.info("Downloaded (head request)",self.url,"...")              
+                log.info("Downloaded (head request)",self.url,"...")
+
+                self.headers = fhead.headers
+            
                 if self.url != fhead.url:
                     self.url = fhead.url
                     log.extra("URL updated to",self.url)
 
+                self.content_type =  urlhelper.get_content_type(self.url, self.headers)
+            
                 # Simulate download event for this URL so it gets added to URL graph
                 # Publish fake download complete event          
                 eventr.publish(self, 'download_complete_fake',
                                message='URL has been downloaded fakily',
                                code=200,
-                               params=self.__dict__)                                
+                               params=self.__dict__)
+
+                self.status = True
+                return True
     
             log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers())
@@ -243,3 +264,13 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
 
         return self.url 
 
+    def get_content_type(self):
+        """ Return the content-type """
+
+        # URL might have been,
+        # 1. Actually downloaded
+        # 2. Obtained from cache
+        # 3. Faked (head request)
+        # Make sure self.content_type is up2date
+        # in all 3 cases.
+        return self.content_type
