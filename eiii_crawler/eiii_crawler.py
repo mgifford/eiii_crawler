@@ -445,7 +445,11 @@ class EIIICrawler(object):
         # Load config from file.
         cfgfile = self.load_config(fname=cfgfile)
         if cfgfile:
-            self.config = crawlerbase.CrawlerConfig.fromfile(cfgfile)
+            try:
+                self.config = crawlerbase.CrawlerConfig.fromfile(cfgfile)
+            except Exception, e:
+                print 'Error:',str(e)
+                sys.exit(1)
         else:
             # Use default config
             print 'Using default configuration...'
@@ -556,7 +560,7 @@ class EIIICrawler(object):
             if len(path)>0:
                 # URL with a folder like http://foo.com/bar/soap
                 # Use folder-scope for full crawl
-                utils.info("URL",url,"has non-zero path length. Setting dynamic folder scope for crawling...")
+                log.info("URL",url,"has non-zero path length. Setting dynamic folder scope for crawling...")
                 self.config.site_scope = CrawlPolicy.folder_scope
                 break
         
@@ -752,7 +756,6 @@ class EIIICrawler(object):
             # For URL filter, append!
             urlfilter = self.config.url_filter[:]
             self.config.update(fromdict)
-
             self.config.url_filter += urlfilter
             lfilter = list(set([tuple(x) for x in self.config.url_filter]))
             self.config.url_filter = lfilter
