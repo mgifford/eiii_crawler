@@ -1,5 +1,8 @@
 # -- coding: utf-8
 
+""" A bunch of utility functions and classes including global functions
+for getting a standard logging object for the crawler """
+
 import inspect
 import requests
 import itertools
@@ -7,14 +10,20 @@ import os
 import re
 import json
 import datetime
+import random
+
+import logger
 
 from contextlib import contextmanager
 from types import StringTypes
-# Global logger object
-g_logger = None
 
 __logprefix__ = 'logs'
 
+def get_default_logger(name='eiii_crawler'):
+    """ Return the default logging object """
+
+    return logger.getLogger(name, get_crawl_log() ,console=True)
+    
 def get_crawl_log():
     """ Get the crawl log file """
 
@@ -27,17 +36,17 @@ def get_crawl_log():
             return ''
 
     return os.path.join(__logprefix__, 'crawl.log')
-    
-def safedata(data):
-    """ Make data DB safe """
 
+def safedata(data):
+    """ Return an ascii encoded string containing non-ascii characters in a safe
+    unicode-encoded form with most non-ascii characters replaced with their HTML
+    entity forms """
+
+    # NOTE: This function SHOULD be improved! It is rather hacky right now.
     if data == None:
-        return
+        return 
 
     try:
-        #for i,j in special_chars_encoding:
-        #    data = data.replace(i, j)
-            
         data = data.replace('ø','&#248;').replace('æ','&#230;').replace('Å','&#197;').replace('Æ','&#198;').replace('Ø','&#216;').replace('å','&#229;').replace('§','&#167;').replace('°','&#176;').replace('ö', '&#246;').replace('Ö','&#214;').replace('\xc3\xa6','&#230;').replace('\xc3\x98','&#248;').replace('&nbsp;',' ').replace('^m','').replace('|',' ').replace('{',' ').replace('}', ' ').replace('\xc2\xa0',' ').replace('\305','&#197;').replace('\306','&#198').replace('\344','&#228;').replace('Ã','&#195;').replace('\xc3\x83', '&#195;')
         
         # Additional replacements for unicode \ encodings
@@ -160,14 +169,8 @@ def getPreviousFrameCaller(n=2):
 
     return (caller.filename, caller.function)
 
-def setGlobalLogger(logger):
-    """ Set the global logger object """
-
-    global g_logger
-    g_logger = logger
-
-def logMessage(msg, *args):
-    """ Log message with variable arguments """
+def log_message(msg, *args):
+    """ Log a message with variable arguments """
 
     try:
         msg = ' '.join([str(msg)] + map(lambda x: str(x), args))
@@ -175,82 +178,6 @@ def logMessage(msg, *args):
     except:
         print >> sys.stdout, msg, args
 
-# START - Logging functions
-def info(msg, *args):
-    """ Log at info level """
-
-    if g_logger:
-        sourcename, function = '',''
-        # Check if debugging is enabled on the logger
-        if g_logger.getDebug():
-            sourcename, function = getPreviousFrameCaller()
-            
-        return g_logger.info(msg, *args, sourcename=sourcename, function=function)
-    else:
-        logMessage(msg, *args)
-
-def warning(msg, *args):
-    """ Log at warning level """
-
-    if g_logger:
-        sourcename, function = '',''
-        # Check if debugging is enabled on the logger
-        if g_logger.getDebug():
-            # Get calling frame
-            sourcename, function = getPreviousFrameCaller()         
-            
-        return g_logger.warning(msg, *args, sourcename=sourcename, function=function)
-    else:
-        logMessage(msg, *args)
-
-def error(msg, *args):
-    """ Log at error level """
-
-    if g_logger:
-        sourcename, function = '',''
-        # Check if debugging is enabled on the logger
-        if g_logger.getDebug():
-            sourcename, function = getPreviousFrameCaller()
-            
-        return g_logger.error(msg, *args,sourcename=sourcename, function=function)
-    else:
-        logMessage(msg, *args)
-
-def critical(msg, *args):
-    """ Log at critical level """
-
-    if g_logger:
-        sourcename, function = '',''
-        # Check if debugging is enabled on the logger
-        if g_logger.getDebug():
-            sourcename, function = getPreviousFrameCaller()
-            
-        return g_logger.critical(msg, *args, sourcename=sourcename, function=function)
-    else:
-        logMessage(msg, *args)
-
-def debug(msg, *args):
-    """ Log at debug level """
-
-    if g_logger:
-        sourcename, function = '',''
-        # Check if debugging is enabled on the logger
-        if g_logger.getDebug():
-            sourcename, function = getPreviousFrameCaller()
-            
-        return g_logger.debug(msg, *args, sourcename=sourcename, function=function)
-    else:
-        logMessage(msg, *args)
-
-def logsimple(msg, *args):
-    """ Log a string with no formatting """
-
-    if g_logger:
-        return g_logger.logsimple(msg, *args)
-    else:
-        logMessage(msg, *args)
-        
-# END - Logging functions        
 def cleanurl(url):
     if '#' in url:
         url = url[:url.index('#')]
@@ -367,7 +294,30 @@ def convert_config(crawler_rules):
 
     return config_dict
 
-   
+def msgseed():
+    """ Lillesand"""
+    pass
+
+def bye_message():
+    """ Come up with a message to the world - Maybe sometimes fun as well """
+
+    prefixes = {'_': ("Hope things are better in",
+                      "May peace be upon",
+                      "Hope conditions are much improved at",
+                      "I pray to God for"),
+                ' ': ("Have a lot of fun at",
+                      "I hope it is a Sunny and warm day at",
+                      "Enjoy your work and games at",
+                      "Take a break. Go for a walk at",
+                      "Try something different for lunch today at",
+                      "Don't break your back by working too hard at",
+                      "Hope it is not too rainy in")}
+
+    msgkeys = dict([(x[0], x[1:]) for x in msgseed.func_doc.split('#')])
+    key = random.choice(msgkeys.keys())
+    rprefix = random.choice(prefixes[key])
+
+    return ' '.join((rprefix, msgkeys[key])) + ' today.'
 
 if __name__ == "__main__":
     import doctest
