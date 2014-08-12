@@ -1,4 +1,6 @@
-""" Classes for managing decoupled event signalling mechanism for the crawler framework
+# -- coding: utf-8
+"""
+Classes for managing decoupled event signalling mechanism for the crawler framework
 
 Event management for crawling - this implements a simple decoupled Publisher-Subscriber
 design pattern through a mediator whereby specific events are raised during the crawler workflow.
@@ -74,7 +76,7 @@ class CrawlerEvent(object):
             self.data = eval("%s('%s')" % (self.message_type, self.message))
         except Exception, e:
             self.data = ''
-            log.error(str(e))
+            # log.error(str(e))
 
     def __str__(self):
         return 'Event for "%s", published at [%s] - id <%s>' % (self.event_name,
