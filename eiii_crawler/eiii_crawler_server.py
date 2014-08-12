@@ -4,11 +4,12 @@ from ttrpc.server import SimpleTTRPCServer, UserError
 import time
 import datetime
 import sys
+import os
 import gc
 
-from eiii_crawler.eiii_crawler import logger, utils
+from eiii_crawler.eiii_crawler import utils
 from eiii_crawler.eiii_crawler import EIIICrawler, log
-from eiii_crawler.crawlerbase import CrawlerStats
+from eiii_crawler.crawlerstats import CrawlerStats
 
 class EIIICrawlerServer(SimpleTTRPCServer):
     """ EIII crawler server obeying the tt-rpc protocol """
@@ -75,7 +76,10 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         log.info('Crawl done.')
 
         # print self.url_graph
-        stats.publish_stats()      
+        stats.publish_stats()
+        log.info("Log file for this crawl can be found at", os.path.abspath(self.crawler.task_logfile))
+        log.info(utils.bye_message())
+        
         # Get stats object
         stats_dict = stats.get_stats_dict()
         
