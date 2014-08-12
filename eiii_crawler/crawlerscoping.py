@@ -1,9 +1,12 @@
+# -- coding: utf-8
 """ Classes which provide scoping rules and enforce limits for the crawler framework """
 
 import utils
 import urlhelper
 import collections
 import datetime
+import urlparse
+import os
 
 from crawlerevent import CrawlerEventRegistry
 
