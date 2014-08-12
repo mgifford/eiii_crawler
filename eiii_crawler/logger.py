@@ -11,7 +11,6 @@ import logging
 import functools
 import re
 import sys
-import utils
 
 # List of current loggers
 __loggers__ = {}
@@ -112,8 +111,10 @@ class LoggerWrapper(object):
         filename = filename.split('/')[-1]
         
         # Remove .py from the filename
-        with utils.ignore():
+        try:
             filename = filename[:filename.rindex('.')]
+        except:
+            pass
 
         try:
             logfunc = getattr(self._log, levelname)
@@ -142,6 +143,29 @@ class LoggerWrapper(object):
         # Reset formatter
         for handler in self._log.handlers:
             handler.setFormatter(formatter)        
+
+    def justlog(self, msg, *args, **kwargs):
+        """ Send a log line justified by a fixed width of spaces.
+        Logging is by default done at the INFO level when using
+        this function """
+
+        # Justify args
+        justify = kwargs.get('justify', 40)
+        # keychar to justify
+        fillchar = kwargs.get('fillchar', '>')
+        
+        msgargs = self._getMessage('', *args)
+        # spaces to justify
+        nspace = justify - len(msg)
+
+        if nspace>0:
+            fullmsg = msg + " " + msgargs.rjust(nspace, fillchar)
+        else:
+            # Cant justify - msg too long
+            fullmsg = self._getMessage(msg, *args)
+
+        # Log the message at info level
+        self._log.info(fullmsg)         
         
     # Set debug flag
     def setDebug(self, val = True):
