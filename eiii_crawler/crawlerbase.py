@@ -208,7 +208,7 @@ class CrawlerConfig(object):
         # error!
         for key in cfg.__dict__:
             if key not in config:
-                raise ConfigOutdatedException,"Missing key '%s' => Config file is out-of-date!" % key
+                raise ConfigOutdatedException,"Missing key '%s' => Config file is out-of-date! Regenerate config file by running crawlerbase.py as a script." % key
         
         # Set value
         cfg.__dict__ = config
