@@ -11,9 +11,9 @@ import os
 
 import urlhelper
 import utils
-import logger
 
-log = logger.getLogger('eiii_crawler',utils.get_crawl_log() ,console=True)
+# Default logging object
+log = utils.get_default_logger()
 
 class CachingUrlData(crawlerbase.CrawlerUrlData):
     """ Caching URL data which implements caching of the downloaded
