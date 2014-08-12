@@ -455,15 +455,15 @@ class EIIICrawler(object):
             print 'Using default configuration...'
             self.config = crawlerbase.CrawlerConfig()
 
+        # Default URL filter
+        self.default_url_filter = self.config.url_filter[:]
+        
         # Update fromdict if any
         if fromdict:
+            self.config.url_filter = []
             # For URL filter, append!
-            urlfilter = self.config.url_filter[:]
             self.config.update(fromdict)
-            self.config.url_filter += urlfilter
-            # Remove duplicates
-            lfilter = list(set([tuple(x) for x in self.config.url_filter]))
-            self.config.url_filter = lfilter
+            self.config.url_filter += self.default_url_filter
             log.extra('URL FILTER=>',self.config.url_filter)
 
         # Task id
@@ -753,12 +753,10 @@ class EIIICrawler(object):
         # session - the EIII crawler server use-case.
         
         if fromdict:
-            # For URL filter, append!
-            urlfilter = self.config.url_filter[:]
+            # For URL filter, reset and append
+            self.config.url_filter = []
             self.config.update(fromdict)
-            self.config.url_filter += urlfilter
-            lfilter = list(set([tuple(x) for x in self.config.url_filter]))
-            self.config.url_filter = lfilter
+            self.config.url_filter += self.default_url_filter           
             log.extra('URL FILTER=>',self.config.url_filter)
 
         # Task id
