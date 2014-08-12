@@ -2,9 +2,6 @@
 
 """ Implementation of EIII crawler """
 
-import crawlerbase
-from crawlerbase import CrawlerEventRegistry, CrawlPolicy
-
 import sys, os
 import Queue
 import requests
@@ -17,7 +14,6 @@ import binascii
 import re
 import time
 import datetime
-import logger
 import utils
 import argparse
 import hashlib
@@ -30,6 +26,11 @@ import json
 import cPickle
 import socket
 
+import crawlerbase
+from crawlerevent import CrawlerEventRegistry
+from crawlerscoping import CrawlPolicy, CrawlerLimitRules, CrawlerScopingRules
+from crawlerstats import CrawlerStats
+
 # Threaded implementation
 import threaded
 # URL data implementation
@@ -37,7 +38,8 @@ import urldata
 
 import js.jsparser as jsparser
 
-log = logger.getLogger('eiii_crawler',utils.get_crawl_log() ,console=True)
+# Default logging object
+log = utils.get_default_logger()
 
 # Default timeout set to 15s
 socket.setdefaulttimeout(15)
@@ -264,7 +266,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
 
         # Scoping rules
         if parent_url != None:
-            scoper = crawlerbase.CrawlerScopingRules(self.config, parent_url)
+            scoper = CrawlerScopingRules(self.config, parent_url)
             # import pdb; pdb.set_trace()
             
             # Proceed further - do site scoping rules
@@ -312,7 +314,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         # Not doing any other content rules now
         return True
 
-class EIIICrawlerStats(crawlerbase.CrawlerStats):
+class EIIICrawlerStats(CrawlerStats):
     """ EIII crawler stats class """
 
     def __init__(self, config):
@@ -463,8 +465,8 @@ class EIIICrawler(object):
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
         # Add another crawl log file to the logger
-        task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
-        log.addLogFile(task_logfile)
+        self.task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
+        log.addLogFile(self.task_logfile)
         
         # Insert task id
         self.config.task_id = task_id
@@ -492,7 +494,7 @@ class EIIICrawler(object):
         # Crawl stats
         self.stats = EIIICrawlerStats(self.config)
         # Crawl limits enforcement
-        self.limit_checker = crawlerbase.CrawlerLimitRules(self.config)
+        self.limit_checker = CrawlerLimitRules(self.config)
         
         # print 'Limit checker =>',self.limit_checker
         # Event registry
@@ -821,13 +823,19 @@ class EIIICrawler(object):
         self.eventr.publish(self, 'crawl_ended')        
         log.info('Crawl done.')
 
+        # Wait a bit
+        time.sleep(2)
+        
         # print self.url_graph
         self.stats.publish_stats()
+        log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))
 
     def quit(self):
         """ Clean-up and exit """
 
-        log.info("Quitting.")
+        log.info("Goodbye.")
+        log.info(utils.bye_message())
+        
         sys.exit(0)
 
     def _create_config_db(self, dbpath):
