@@ -18,6 +18,10 @@ import os
 from crawlerscoping import CrawlPolicy, CrawlerLimits
 from crawlerevent import CrawlerEventRegistry
 
+class ConfigOutdatedException(Exception):
+    """ Exception class indicating the config file is out-dated """
+    pass
+
 class CrawlerConfig(object):
     """ Configuration for the Crawler """
 
@@ -199,6 +203,12 @@ class CrawlerConfig(object):
 
         config = json.loads(open(filename).read())
         cfg = cls()
+
+        # Check if all keys are present, otherwise raise config out of date
+        # error!
+        for key in cfg.__dict__:
+            if key not in config:
+                raise ConfigOutdatedException,"Missing key '%s' => Config file is out-of-date!" % key
         
         # Set value
         cfg.__dict__ = config
@@ -352,4 +362,6 @@ class CrawlerWorkerBase(object):
     
 if __name__ == "__main__":
     CrawlerConfig().save_default()
-    CrawlerConfig().save('config.json') 
+    print 'Crawler config regenerated and saved to default location.'
+    CrawlerConfig().save('config.json')
+    print 'Crawler config regenerated and saved to config.json.' 
