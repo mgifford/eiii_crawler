@@ -5,12 +5,12 @@ import threading
 import uuid
 import utils
 import urlhelper
-import logger
 import random
 import time
 from crawlerbase import CrawlerUrlData, CrawlerWorkerBase
 
-log = logger.getLogger('eiii_crawler',utils.get_crawl_log() ,console=True)
+# Default logging object
+log = utils.get_default_logger()
 
 class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
     """ Base class for a threaded worker """
