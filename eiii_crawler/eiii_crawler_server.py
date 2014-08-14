@@ -140,7 +140,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         #    t.start()
         return self.do_crawl(ctl, crawler_rules)
 
-    def getresult(self, taskid):
+    def getresult(self, ctl, taskid):
         """ Return results for a task id """
 
         return self.return_dict.get(taskid)
