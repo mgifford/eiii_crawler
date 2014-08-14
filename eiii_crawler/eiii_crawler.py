@@ -25,6 +25,9 @@ import sqlite3
 import json
 import cPickle
 import socket
+import multiprocessing
+import signal
+import gc
 
 import crawlerbase
 from crawlerevent import CrawlerEventRegistry
@@ -255,12 +258,12 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         # If URL include rules are given - the scenario is most likely
         # if these are filtered by some of the other rules - so we should
         # apply them first.
-        if any([re.match(rule, url) for rule in self.config.url_include_rules]):
+        if any([re.match(rule, url) for rule in self.config._url_include_rules]):
             log.extra('Allowing URL',url,'due to specific inclusion rule.')         
             return True
 
         # Apply exclude rules next
-        if any([re.match(rule, url) for rule in self.config.url_exclude_rules]):
+        if any([re.match(rule, url) for rule in self.config._url_exclude_rules]):
             log.extra('Disallowing URL',url,'due to specific exclusion rule.')                      
             return False
 
@@ -414,7 +417,7 @@ class EIIICrawlerStats(CrawlerStats):
         # urls_af = list(self.urls_f - self.urls_d)
         # self.urls_f, self.urls_d, self.urls_a = map(list, (urls_af, self.urls_d, self.urls_a))
         # Write stats.json
-        statspath = os.path.expanduser(os.path.join(self.config.statsdir, self.config.task_id + '.json'))
+        statspath = os.path.expanduser(os.path.join(self.config.statsdir, self.config._task_id + '.json'))
 
         try:
             # import pdb; pdb.set_trace()
@@ -429,8 +432,8 @@ class EIIICrawlerStats(CrawlerStats):
             conn = sqlite3.connect(dbpath)
             c = conn.cursor()
             
-            url_string = ','.join(self.config.urls)
-            task_id = self.config.task_id
+            url_string = ','.join(self.config._urls)
+            task_id = self.config._task_id
             
             c.execute("""INSERT INTO crawls (crawl_id, urls, statspath)
             VALUES ('%(task_id)s', '%(url_string)s', '%(statspath)s')""" % locals())
@@ -438,10 +441,11 @@ class EIIICrawlerStats(CrawlerStats):
         except sqlite3.Error, e:
             log.error("Error writing to crawls db", str(e))
         
-class EIIICrawler(object):
+class EIIICrawler(multiprocessing.Process):
     """ EIII Web Crawler """
 
-    def __init__(self, urls=[], cfgfile='config.json', fromdict={}, args=None):
+    def __init__(self, urls=[], cfgfile='config.json', fromdict={},
+                 args=None, task_queue=None, value_dict=None):
         # Load config from file.
         cfgfile = self.load_config(fname=cfgfile)
         if cfgfile:
@@ -466,22 +470,34 @@ class EIIICrawler(object):
             self.config.url_filter += self.default_url_filter
             log.extra('URL FILTER=>',self.config.url_filter)
 
+        # Task queue - Used when crawler is run as an independent
+        # process through the crawler server
+        self.taskq = task_queue
+        # Semaphore - Used by the crawler clients to wait on
+        # till a crawl is finished.
+        # self.sem = multiprocessing.Semaphore(1)
+        # Value dictionary - return value of crawl is copied
+        # here when the crawler is called from the server.
+        self.value_dict = value_dict
+        
+        # Crawler ID
+        self.id = 'Crawler-' + str(uuid.uuid1())
+        
         # Task id
-        task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
+        task_id = self.config.__dict__.get('task_id', str(uuid.uuid4()))
+        # Insert task id
+        self.config._task_id = task_id
+        
         # Add another crawl log file to the logger
         self.task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
         log.addLogFile(self.task_logfile)
-        
-        # Insert task id
-        self.config.task_id = task_id
-        log.info("Crawl task ID is: ",task_id)
         
         # Prepare it
         self.prepare_config()
         # Prepare config
         self.urls = urls
         # Add to config
-        self.config.urls = urls
+        self.config._urls = urls
 
         # print 'ARGS=>',args
         # If a param is passed then override it
@@ -506,6 +522,7 @@ class EIIICrawler(object):
         self.subscribe_events()
 
         self.reset()
+        multiprocessing.Process.__init__(self, None, None, name='Crawler ' + self.id)        
 
     def reset(self):
         """ Reset previous crawling state if any """
@@ -528,7 +545,11 @@ class EIIICrawler(object):
         # or exception indicating to stop crawl
         # this cant be overridden
         self.red_flag = False
-
+        # Indicates crawler is busy
+        self.busy = False
+        # Server flag - used by the Crawler server only
+        self.server_flag = False
+        
         self.stats.reset()
         self.limit_checker.reset()
         self.eventr.reset()
@@ -552,7 +573,7 @@ class EIIICrawler(object):
         But if it is http://foo.com/bar/soap/ then use FOLDER_SCOPE
         """
         
-        for url in self.config.urls:
+        for url in self.config._urls:
             urlp = urlparse.urlparse(url)
             # Check urlpath after replacing trailing '/' if any
             path = urlp.path.rstrip('/').strip()
@@ -582,9 +603,8 @@ class EIIICrawler(object):
                 else:
                     minus_rules.append(rule)
         
-                
-        self.config.url_exclude_rules = minus_rules
-        self.config.url_include_rules = plus_rules
+        self.config._url_exclude_rules = minus_rules
+        self.config._url_include_rules = plus_rules
             
     def sighandler(self, signum, stack):
         """ Signal handler """
@@ -744,6 +764,24 @@ class EIIICrawler(object):
 
         return EIIICrawlerQueuedWorker(self.config, self)
 
+    def run(self):
+        """ Process entry method when the crawler is used
+        as a multiprocessing crawler from the EIII crawler server """
+
+        log.debug("Starting Crawler Process =>", self.id)
+
+        while self.server_flag:
+            log.debug(self.id,"=> waiting on task queue from server ...")
+            execute = self.taskq.get()
+            log.debug(self.id,"=> obtained task queue from server ...")         
+            # Execute consists of urls and configdict
+            urls, configdict  = execute
+            # Crawl it
+            # self.ctl = ctl
+            # Acquire semaphore
+            self.crawl_using(urls, configdict)
+            self.wait_crawl()
+            
     def crawl_using(self, urls, fromdict):
         """ Crawl using the given URLs and config dictionary.
         This is the API used by the EIII crawler server. """
@@ -761,20 +799,20 @@ class EIIICrawler(object):
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
+        
         # Add another crawl log file to the logger
         task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
         log.addLogFile(task_logfile)
         
         # Insert task id
-        self.config.task_id = task_id
-        log.info("Crawl task ID is: ",task_id)
+        self.config._task_id = task_id
         
         # Prepare it
         self.prepare_config()
         # Prepare config
         self.urls = urls
         # Add to config
-        self.config.urls = urls
+        self.config._urls = urls
         self.config.save('crawl.json')
 
         self.reset()        
@@ -783,6 +821,9 @@ class EIIICrawler(object):
     def crawl(self):
         """ Do the actual crawling """
 
+        log.info("Crawler",self.id,"starting crawl of task id",self.config._task_id,"...")
+        
+        self.busy = True
         # Demarcating text
         log.logsimple('\n')
         log.logsimple('>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<')
@@ -808,6 +849,51 @@ class EIIICrawler(object):
             # workers fill in some data.
             time.sleep(10*(nworkers - i))
 
+    def wait_crawl(self):
+        """ Waiting method used when crawler is run as a separate
+        process through the EIII crawler server """
+
+        # Wait for some time
+        time.sleep(10)
+
+        while self.work_pending():
+            time.sleep(5)
+            # Update status
+            #if self.ctl: self.ctl.setStatus(str(self.stats.get_num_urls()) + ", " +
+            #                      str(self.stats.get_crawl_url_rate()))
+                
+        self.eventr.publish(self, 'crawl_ended')        
+        log.info('Crawl done.')
+
+        # print self.url_graph
+        self.stats.publish_stats()
+        log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))
+        log.info(utils.bye_message())
+        
+        # Get the graph
+        url_graph = self.get_url_graph()
+        stats_dict = self.stats.get_stats_dict()
+
+        self.value_dict[self.config._task_id] = {'stats': stats_dict,
+                                                 'graph': url_graph}
+        # Force gc collection
+        gc.set_debug(gc.DEBUG_STATS|gc.DEBUG_COLLECTABLE|gc.DEBUG_UNCOLLECTABLE)
+        gc.collect()
+
+    def stop_server(self):
+        """ Stop method used only by the Crawler Server to stop the crawl process """
+
+        # Set red flag
+        self.red_flag = True
+        # Set server flag off
+        self.server_flag = False
+        
+        # Only used in abnormal conditions or to interrupt the crawl
+        for worker in self.workers:
+            worker.stop()
+
+        log.info("Crawl Process =>",self.id,"stopped.")
+        
     def wait(self):
         """ Wait for crawl to finish """
         
