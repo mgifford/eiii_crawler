@@ -140,6 +140,11 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         #    t.start()
         return self.do_crawl(ctl, crawler_rules)
 
+    def getresult(self, taskid):
+        """ Return results for a task id """
+
+        return self.return_dict.get(taskid)
+    
     def make_directed_graph(self, url_graph):
         """ Convert the URL graph data structure obtained
         from crawler into a directed graph
