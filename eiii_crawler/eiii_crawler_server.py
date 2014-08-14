@@ -143,7 +143,17 @@ class EIIICrawlerServer(SimpleTTRPCServer):
     def getresult(self, ctl, taskid):
         """ Return results for a task id """
 
-        return self.return_dict.get(taskid)
+        return_data = self.return_dict.get(taskid)
+        if return_data != None:
+            url_graph = return_data['graph']
+            stats_dict = return_data['stats']
+        
+            return { 'result': self.make_directed_graph(url_graph),
+                     'stats': stats_dict,
+                     '__type__': "crawler-result"}
+        else:
+            print 'No result found for task',taskid
+            return {}
     
     def make_directed_graph(self, url_graph):
         """ Convert the URL graph data structure obtained
