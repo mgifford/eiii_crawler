@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 from ttrpc.server import SimpleTTRPCServer, UserError
@@ -6,6 +7,9 @@ import datetime
 import sys
 import os
 import gc
+import signal
+import multiprocessing
+import threading
 
 from eiii_crawler.eiii_crawler import utils
 from eiii_crawler.eiii_crawler import EIIICrawler, log
@@ -24,8 +28,26 @@ class EIIICrawlerServer(SimpleTTRPCServer):
     _logger = _LoggerWrapper()
 
     def __init__(self):
-        self.crawler = EIIICrawler()
+        # All the crawler objects
+        self.instances = []
+        # Tasks queue
+        self.task_queue = multiprocessing.Queue()
+        # Dictionary used to share return-values from
+        # crawler processing
+        self.manager = multiprocessing.Manager()
+        # Return shared state dictionary shared with crawler processes
+        self.return_dict = self.manager.dict()
+        # Maxium number of crawl instances
+        self.maxnum = 10
         SimpleTTRPCServer.__init__(self)
+        try:
+            signal.signal(signal.SIGINT, self.sighandler)
+            signal.signal(signal.SIGTERM, self.sighandler)
+        except ValueError:
+            # "signal only works in main thread"
+            pass
+        
+        self.init_crawler_procs()
         
     def _packer_default(self, obj):
         strtypes = (datetime.datetime, datetime.date, datetime.timedelta)
@@ -33,15 +55,37 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             return str(obj)
         return obj
 
+    def sighandler(self, signum, stack):
+        """ Signal handler """
+
+        if signum in (signal.SIGINT, signal.SIGTERM,):
+            for crawler in self.instances:
+                log.info("Stopping Crawler",crawler.id)
+                crawler.stop_server()
+                time.sleep(1)
+                
+            sys.exit(1)
+            
     def ping(self, ctl):
         return "pong"
 
-    def crawl(self, ctl, crawler_rules):
-        """ Accepts a crawler control object, dictionary of
-        crawler rules and start crawling """
+    def init_crawler_procs(self):
+        """ Start a pool of crawler processes """
+        
+        for i in range(self.maxnum):
+            # Make a new instance
+            crawler = EIIICrawler(task_queue = self.task_queue,
+                                  value_dict = self.return_dict)
+            log.info("Initialized Crawler ", crawler.id)
+            crawler.server_flag = True
+            
+            self.instances.append(crawler)
+            crawler.start()
 
-        if ctl:
-            ctl.setStatus("Starting crawl ...")
+    def do_crawl(self, ctl, crawler_rules):
+        """ Perform crawling """
+
+        if ctl: ctl.setStatus("Starting crawl ...")
         print 'Starting crawl ...'
         # Map crawler rules into internal Rules.
         config_dict = utils.convert_config(crawler_rules)
@@ -53,47 +97,48 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         # Set log level
         log.setLevel(crawler_rules.get('loglevel','info'))
-        # print config_dict
-        # sys.exit(0)
 
         # Set task id
         config_dict['task_id'] = ctl.id_
-        self.crawler.crawl_using(urls, fromdict=config_dict)
-        
-        # Wait for some time
-        time.sleep(10)
+        # Push the task
+        task = (urls, config_dict)
+        self.task_queue.put(task)
 
-        stats = self.crawler.stats
-        
-        while self.crawler.work_pending():
-            time.sleep(5)
-            # Update status
-            if ctl: ctl.setStatus(str(stats.get_num_urls()) + ", " +
-                                  str(stats.get_crawl_url_rate()))
-                
+        return ctl.id_
+    
+    def poll(self, ctl, task_id):
+        """ Poll for crawl results - done by the client
+        which crawls the server """
 
-        self.crawler.eventr.publish(self, 'crawl_ended')        
-        log.info('Crawl done.')
+        # Poll for result 
+        # NOTE: This is better done with a synchronization primitive
+        # like a shared semaphore which automatically makes the
+        # client wait till the crawl finishes. However the semantics
+        # for shared memory semaphores and the synchronization is sometimes
+        # tricky to get right - so right now a polling is done as it
+        # though stupid, is simple.
+        print 'Calling poll for results...'
+        while not self.return_dict.has_key(task_id):
+            print 'Client waiting...',task_id,'...'
+            time.sleep(10)
 
-        # print self.url_graph
-        stats.publish_stats()
-        log.info("Log file for this crawl can be found at", os.path.abspath(self.crawler.task_logfile))
-        log.info(utils.bye_message())
-        
-        # Get stats object
-        stats_dict = stats.get_stats_dict()
-        
-        # Get the graph
-        url_graph = self.crawler.get_url_graph()
-
-        # Force gc collection
-        gc.set_debug(gc.DEBUG_STATS|gc.DEBUG_COLLECTABLE|gc.DEBUG_UNCOLLECTABLE)
-        gc.collect()
+        return_data = self.return_dict[task_id]
+        url_graph = return_data['graph']
+        stats_dict = return_data['stats']
         
         return { 'result': self.make_directed_graph(url_graph),
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
-                
+        
+    def crawl(self, ctl, crawler_rules, threaded=True):
+        """ Accepts a crawler control object, dictionary of
+        crawler rules and start crawling """
+
+        # if threaded:
+        #    t = threading.Thread(None, self.do_crawl, 'Crawl-'+ctl.id_,(ctl, crawler_rules))
+        #    t.start()
+        return self.do_crawl(ctl, crawler_rules)
+
     def make_directed_graph(self, url_graph):
         """ Convert the URL graph data structure obtained
         from crawler into a directed graph
@@ -172,6 +217,6 @@ if __name__ == "__main__":
     port=8910
     print 'Starting crawler server on port',port,'...'
     # EIIICrawlerServer().crawl(None, crawler_rules)
-    EIIICrawlerServer().listen("tcp://*:%d" % port)
+    EIIICrawlerServer().listen("tcp://*:%d" % port, nprocs=5)
 
     
