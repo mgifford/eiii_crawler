@@ -27,7 +27,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
-    def __init__(self):
+    def __init__(self, nprocs=10):
         # All the crawler objects
         self.instances = []
         # Tasks queue
@@ -38,7 +38,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # Return shared state dictionary shared with crawler processes
         self.return_dict = self.manager.dict()
         # Maxium number of crawl instances
-        self.maxnum = 10
+        self.nprocs = nprocs
+        
         SimpleTTRPCServer.__init__(self)
         try:
             signal.signal(signal.SIGINT, self.sighandler)
@@ -72,7 +73,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
     def init_crawler_procs(self):
         """ Start a pool of crawler processes """
         
-        for i in range(self.maxnum):
+        for i in range(self.nprocs):
             # Make a new instance
             crawler = EIIICrawler(task_queue = self.task_queue,
                                   value_dict = self.return_dict)
@@ -216,7 +217,10 @@ if __name__ == "__main__":
 
     port=8910
     print 'Starting crawler server on port',port,'...'
-    # EIIICrawlerServer().crawl(None, crawler_rules)
-    EIIICrawlerServer().listen("tcp://*:%d" % port, nprocs=5)
+    # Number of crawler processes to start
+    nprocs = 10
+    # An equivalent number (or greater) of processes need to be
+    # started on the tt-rpc server for proper 1:1 scaling.
+    EIIICrawlerServer(nprocs=nprocs).listen("tcp://*:%d" % port, nprocs=nprocs)
 
     
