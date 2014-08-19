@@ -8,4 +8,4 @@ A lote of careful thought and craft and learnings from past experience has gone 
 This crawler is expected to grow into a work of art. Hopefully it already is.
 
 ### Note of Coding Errors
-No code is perfect. The issue tracker is your friend (and my enemy - just kidding! :)
+No code is perfect. The issue tracker is your friend.
