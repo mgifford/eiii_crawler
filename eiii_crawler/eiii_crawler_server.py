@@ -105,7 +105,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         task = (urls, config_dict)
         self.task_queue.put(task)
 
-        return ctl.id_
+        return self.poll(ctl, ctl.id_)
     
     def poll(self, ctl, task_id):
         """ Poll for crawl results - done by the client
@@ -121,7 +121,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         print 'Calling poll for results...'
         while not self.return_dict.has_key(task_id):
             print 'Client waiting...',task_id,'...'
-            time.sleep(10)
+            time.sleep(3)
 
         return_data = self.return_dict[task_id]
         url_graph = return_data['graph']
