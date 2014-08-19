@@ -207,6 +207,9 @@ class CrawlerConfig(object):
         # Check if all keys are present, otherwise raise config out of date
         # error!
         for key in cfg.__dict__:
+            # Omit private keys, i.e those starting with an underscore
+            if key.startswith('_'): continue
+            
             if key not in config:
                 raise ConfigOutdatedException,"Missing key '%s' => Config file is out-of-date! Regenerate config file by running crawlerbase.py as a script." % key
         
