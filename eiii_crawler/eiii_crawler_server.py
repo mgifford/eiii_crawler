@@ -120,8 +120,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # though stupid, is simple.
         print 'Calling poll for results...'
         while not self.return_dict.has_key(task_id):
-            print 'Client waiting...',task_id,'...'
-            time.sleep(3)
+            # print 'Client waiting...',task_id,'...'
+            time.sleep(10)
 
         return_data = self.return_dict[task_id]
         url_graph = return_data['graph']
