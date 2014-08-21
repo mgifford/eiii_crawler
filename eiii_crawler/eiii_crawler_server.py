@@ -220,7 +220,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         """
 
         # Keeping this for the time being.
-        return int(float(open("/proc/loadavg").read().split()[0]) * 100)
+        return int((float(open("/proc/loadavg").read().split()[0])/multiprocessing.cpu_count()) * 100)
 
           
 if __name__ == "__main__":
