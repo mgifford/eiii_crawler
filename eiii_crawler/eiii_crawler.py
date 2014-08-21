@@ -149,7 +149,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
                     redirect = True
                     
             except jsparser.JSParserException, e:
-                log.error("JS Parser exception => ", e)
+                log.debug("JS Parser Error => ", e)
             
 
         # If JS redirect don't bother to parse with
