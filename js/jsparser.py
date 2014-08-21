@@ -144,7 +144,7 @@ class JSParser(object):
    
    re3 = re.compile(r'(?<![document\.write\s*|document\.writeln\s*])\(.*\)', re.MULTILINE)
    # End signature of document.write* methods
-   re4 = re.compile(r'[\'\"]\s*\)|[\'\"]\s*\);', re.MULTILINE)
+   re4 = re.compile(r'[\'\"]\s*\)|[\'\"]\s*\)', re.MULTILINE)
 
    # Pattern for contents inside document.write*(...) methods
    # This can be either a single string enclosed in quotes,
