@@ -744,6 +744,9 @@ class EIIICrawler(multiprocessing.Process):
         if parent_url:
             log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
             self.url_graph[parent_url].add((url, content_type))
+        else:
+            # Child itself is the parent - i.e top level URL, add empty children
+            self.url_graph[url] = set()         
                         
     def url_download_error(self, event):
         """ Event callback for notifying download for a URL in error """
@@ -868,7 +871,7 @@ class EIIICrawler(multiprocessing.Process):
         # print self.url_graph
         self.stats.publish_stats()
         log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))
-        log.info(utils.bye_message())
+        # log.info(utils.bye_message())
         
         # Get the graph
         url_graph = self.get_url_graph()
@@ -921,7 +924,7 @@ class EIIICrawler(multiprocessing.Process):
         """ Clean-up and exit """
 
         log.info("Goodbye.")
-        log.info(utils.bye_message())
+        # log.info(utils.bye_message())
         
         sys.exit(0)
 
