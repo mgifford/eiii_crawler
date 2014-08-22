@@ -10,6 +10,7 @@ import gc
 import signal
 import multiprocessing
 import threading
+import argparse
 
 from eiii_crawler.eiii_crawler import utils
 from eiii_crawler.eiii_crawler import EIIICrawler, log
@@ -72,7 +73,9 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     def init_crawler_procs(self):
         """ Start a pool of crawler processes """
-        
+
+        print 'Initializing',self.nprocs,'crawlers...'
+
         for i in range(self.nprocs):
             # Make a new instance
             crawler = EIIICrawler(task_queue = self.task_queue,
@@ -82,6 +85,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             
             self.instances.append(crawler)
             crawler.start()
+        print 'Initialized',self.nprocs,'crawlers.'
 
     def do_crawl(self, ctl, crawler_rules):
         """ Perform crawling """
@@ -236,6 +240,14 @@ if __name__ == "__main__":
     nprocs = 10
     # An equivalent number (or greater) of processes need to be
     # started on the tt-rpc server for proper 1:1 scaling.
-    EIIICrawlerServer(nprocs=nprocs).listen("tcp://*:%d" % port, nprocs=nprocs)
+    
+    # You can given --nprocs as a command-line argument
+    parser = argparse.ArgumentParser(description='EIII crawler server')
+    parser.add_argument('--nprocs', dest='nprocs', default=10,type=int,
+                        help='Number of crawler processes to start')
+    args = parser.parse_args()
+    print 'Number of parallel crawler processes set to',args.nprocs
+    
+    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % port, nprocs=args.nprocs)
 
     
