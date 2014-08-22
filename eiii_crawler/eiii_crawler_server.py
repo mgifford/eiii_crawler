@@ -109,7 +109,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         task = (urls, config_dict)
         self.task_queue.put(task)
 
-        return self.poll(ctl, ctl.id_)
+        return ctl.id_
     
     def poll(self, ctl, task_id):
         """ Poll for crawl results - done by the client
