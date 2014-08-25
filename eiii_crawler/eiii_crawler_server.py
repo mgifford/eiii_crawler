@@ -81,8 +81,6 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             crawler = EIIICrawler(task_queue = self.task_queue,
                                   value_dict = self.return_dict)
             log.info("Initialized Crawler ", crawler.id)
-            crawler.server_flag = True
-            
             self.instances.append(crawler)
             crawler.start()
         print 'Initialized',self.nprocs,'crawlers.'
@@ -248,6 +246,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print 'Number of parallel crawler processes set to',args.nprocs
     
-    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % port, nprocs=args.nprocs)
+    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % port, nprocs=args.nprocs*2)
 
     
