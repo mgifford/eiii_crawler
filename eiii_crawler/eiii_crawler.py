@@ -548,7 +548,7 @@ class EIIICrawler(multiprocessing.Process):
         # Indicates crawler is busy
         self.busy = False
         # Server flag - used by the Crawler server only
-        self.server_flag = False
+        self.server_flag = True
         
         self.stats.reset()
         self.limit_checker.reset()
@@ -772,11 +772,11 @@ class EIIICrawler(multiprocessing.Process):
         as a multiprocessing crawler from the EIII crawler server """
 
         log.debug("Starting Crawler Process =>", self.id)
-
+        
         while self.server_flag:
-            log.debug(self.id,"=> waiting on task queue from server ...")
+            log.info(self.id,"=> waiting on task queue from server ...")
             execute = self.taskq.get()
-            log.debug(self.id,"=> obtained task queue from server ...")         
+            log.info(self.id,"=> obtained task queue from server ...")         
             # Execute consists of urls and configdict
             urls, configdict  = execute
             # Crawl it
@@ -784,6 +784,7 @@ class EIIICrawler(multiprocessing.Process):
             # Acquire semaphore
             self.crawl_using(urls, configdict)
             self.wait_crawl()
+            log.debug("Crawler",self.id,"done crawl",self.server_flag)
             
     def crawl_using(self, urls, fromdict):
         """ Crawl using the given URLs and config dictionary.
