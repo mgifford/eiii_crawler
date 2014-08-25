@@ -107,7 +107,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         task = (urls, config_dict)
         self.task_queue.put(task)
 
-        return self.poll(ctl, ctl.id_)
+        return ctl.id_
     
     def poll(self, ctl, task_id):
         """ Poll for crawl results - done by the client
@@ -232,8 +232,8 @@ if __name__ == "__main__":
                      'seeds': ['http://docs.python.org/library/'], 'obey-robotstxt': 'false',
                      'loglevel': 'debug'}
 
-    port=8910
-    print 'Starting crawler server on port',port,'...'
+    # Port to listen on
+    port = 8910
     # Number of crawler processes to start
     nprocs = 10
     # An equivalent number (or greater) of processes need to be
@@ -243,9 +243,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EIII crawler server')
     parser.add_argument('--nprocs', dest='nprocs', default=10,type=int,
                         help='Number of crawler processes to start')
+    parser.add_argument('--port', dest='port', default=8910,type=int,
+                        help='Port number on which to listen')
     args = parser.parse_args()
     print 'Number of parallel crawler processes set to',args.nprocs
-    
+    print 'Starting crawler server on port',args.port,'...'
+
     EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % port, nprocs=args.nprocs*2)
+
 
     
