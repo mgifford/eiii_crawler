@@ -249,7 +249,7 @@ if __name__ == "__main__":
     print 'Number of parallel crawler processes set to',args.nprocs
     print 'Starting crawler server on port',args.port,'...'
 
-    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % port, nprocs=args.nprocs*2)
+    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
 
 
     
