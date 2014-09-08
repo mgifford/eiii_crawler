@@ -148,23 +148,19 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
 
         return headers
 
-    def download(self, crawler, parent_url=None):
-        """ Overloaded download method """
+    def pre_download(self, crawler, parent_url=None):
+        """ Steps to be executed before actually going ahead
+        and downloading the URL """
 
-        eventr = crawlerbase.CrawlerEventRegistry.getInstance()
-
-        index, follow = True, True
-        
         if self.get_headers_and_data():
             self.status = True
-            # Content-type
-            
             # Obtained from cache
             return True
-        
+
         try:
             # If a fake mime-type only do a HEAD request to get correct URL, dont
             # download the actual data using a GET.
+            
             if self.given_content_type in self.config.client_fake_mimetypes:
                 log.info("Waiting for (head request)",self.url,"...")
                 fhead = urlhelper.head_url(self.url, headers=self.build_headers())
@@ -187,7 +183,31 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
 
                 self.status = True
                 return True
-    
+        except urlhelper.FetchUrlException, e:
+            log.error('Error downloading',self.url,'=>',str(e))
+            # FIXME: Parse HTTP error string and find out the
+            # proper code to put here if HTTPError.
+            eventr.publish(self, 'download_error',
+                           message=str(e),
+                           is_error = True,
+                           code=0,
+                           params=self.__dict__)
+
+        return False         
+
+    def download(self, crawler, parent_url=None):
+        """ Overloaded download method """
+
+        eventr = crawlerbase.CrawlerEventRegistry.getInstance()
+
+        index, follow = True, True
+        
+        ret = self.pre_download(crawler, parent_url)
+        if ret:
+            # Satisfied already through cache or fake mime-types
+            return ret
+        
+        try:
             log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers())
             log.debug("Downloaded URL",self.url,"...")          
