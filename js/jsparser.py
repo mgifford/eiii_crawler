@@ -117,7 +117,8 @@ class HTMLJSParser(object):
       for x in range(len(self.statements)):
          s = self.statements[x]
          # Remove any braces
-         s = self.brace_close.transformString(self.brace_open.transformString(s))
+         # UPDATE: We need the { and } for detecting functions so commenting this.
+         # s = self.brace_close.transformString(self.brace_open.transformString(s))
          s = self.comment_open.transformString(s)
          s = self.comment_close.transformString(s)         
 
@@ -125,10 +126,6 @@ class HTMLJSParser(object):
          s = self.syntaxendre.sub('', s).strip()
          
          if s:self.statements[x] = s
-
-      # Trim any empty statements
-      # print 'Length=>',len(self.statements)
-      # print self.statements
       
 class JSParserException(Exception):
    """ An exception class for JSParser """
@@ -188,6 +185,13 @@ class JSParser(object):
    
    quotechars = re.compile(r'[\'\"]*')
    newlineplusre = re.compile(r'\n\s*\+')
+
+   jsfunction_re = re.compile(r'function ([a-zA-Z0-9_\.]+)\s*\([^\)]*\)')
+
+   # body onload locator
+   bodyonload_re = re.compile(r'\<body\s+[^>]*onload="(.*?)"[^>]*\>', re.IGNORECASE)
+   # document.ready locator
+   documentready_re = re.compile(r'\$\(\s*document\s*\)\.ready\(\s*(.*?)\s*\)', re.IGNORECASE)
    # Maximum number of lines in a function for a redirection
    # NOTE - This is totally arbitrary and is not really a good workaround!
    MAXJSLINES = 50
@@ -202,6 +206,9 @@ class JSParser(object):
       self.locations = []
       self.location_changed = False
       self.dom_changed = False
+      # Body onload handler
+      self.onload_handler = None
+      
       pass
 
    def resetDOM(self):
@@ -244,14 +251,24 @@ class JSParser(object):
       self.parser.reset()
       
       self.page.document.content = data
-      
+
+      # Body onload or document.ready handlers
+      body_handler = self.bodyonload_re.findall(data)
+      if len(body_handler):
+         self.onload_handler = body_handler[0].replace('(','').replace(')','').strip()
+      else:
+         jquery_handler = self.documentready_re.findall(data)
+         if len(jquery_handler):
+            self.onload_handler = jquery_handler[0].strip()
+
+      # print 'Onload handler=>',self.onload_handler
       # Create a jsparser to extract content inside <script>...</script>
       # print 'Extracting js content...'
       self.parser.feed(data)
       self.js = self.parser.statements[:]
       
       # print 'Extracted js content.'
-      # print 'Found %d JS statements.' % len(self.js)
+      print 'Found %d JS statements.' % len(self.js)
       
       # print 'Processing JS'
       for x in range(len(self.js)):
@@ -335,7 +352,7 @@ class JSParser(object):
          return False
 
       # Anything that looks like a method call or attribute access.
-      if any(map(urlstring.startswith, ('.','this.','document.'))):
+      if any(map(urlstring.startswith, ('.','this.','document.', 'window.'))):
          return False
       
       # Additional validation - Issue 427 for URL http://www.qnb.com.qa/cs/Satellite/QNBGlobal/en/enGlobalHome
@@ -372,14 +389,64 @@ class JSParser(object):
       statement = statement.strip()
       if statement.startswith('if '):
          return False
-      
+
       js_lines = statement.split('\n')
       if len(js_lines)>self.MAXJSLINES:
-         print 'debug: skipping JS statement for redirection since number of lines',len(js_lines),'>',self.MAXJSLINES
+         # print 'debug: skipping JS statement for redirection since number of lines',len(js_lines),'>',self.MAXJSLINES
          return False 
+
+      start_f, comment_open, fname = False, False, ''
+      braces = 0
+      functions = {}
       
       for line in js_lines:
-         
+         line = line.strip()
+         # If commented out code, then skip...
+         # Single-line comment
+         if line.startswith('//'):
+            # print 'Skipping',line,'...'            
+            continue
+         # Multiline comment
+         if line.startswith('/*'):
+            comment_open = True
+
+         if comment_open:
+            if line.endswith('*/'):
+               comment_open = False
+            else:
+               # Skip the line
+               # print 'Skipping',line,'...'
+               continue
+            
+         # Check if start of function
+         fmatch = self.jsfunction_re.findall(line)
+         if len(fmatch):
+            # Function name
+            fname = fmatch[0]
+            # Indicates start of function
+            start_f = True
+            # print 'Start of function => {',fname,'}.'
+               
+         if start_f:
+            # Check for braces
+            if '{' in line:
+               # print '{ =>',fname
+               functions[fname] = False
+               braces += 1
+            if '}' in line:
+               # print '} =>',fname               
+               braces -= 1
+
+            if fname in functions and braces==0:
+               # End of function
+               start_f = False
+               # print 'End of function => {',fname,'}.'               
+
+            # If this is not the body onLoad function skip it ...
+            if self.onload_handler and (fname != self.onload_handler):
+               # print 'Skipping function => {',fname,'} since it is not onload handler.'
+               continue
+            
          # print 'Expression=>',statement
          m1 = self.jsredirect1.search(line)
          if m1:
@@ -388,7 +455,7 @@ class JSParser(object):
             if tokens:
                 urltoken = tokens[0][-1]
                 # Strip of trailing and leading parents and also any semicolons
-                url = urltoken.replace('(','').replace(')','').replace(';','').strip()
+                url = urltoken.replace('(','').replace(')','').replace(';','').replace('}','').replace('{','').strip()
                 # Validate URL
                 if self.validate_url(url):
                    url = self.make_valid_url(url)
@@ -396,6 +463,8 @@ class JSParser(object):
                    # print 'Replacing location with',url
                    self.locations.append(url)
                    self.page.location.replace(url)
+                else:
+                   print 'info: URL =>',url,'<= is not valid.'
          else:
             m2 = self.jsredirect2.search(line)
             if m2:
@@ -404,7 +473,8 @@ class JSParser(object):
                
                urltoken = tokens[0][-1]
                # Strip of trailing and leading parents
-               url = urltoken.replace('(','').replace(')','').replace(';','').strip()
+               url = urltoken.replace('(','').replace(')','').replace(';','').replace('}','').replace('{','').strip()
+                
                if tokens and self.validate_url(url):
                   url = self.make_valid_url(url)
                   location_changed = True
@@ -412,11 +482,14 @@ class JSParser(object):
                   # print 'Replacing location with',url
                   self.locations.append(url)                  
                   location_changed = True
+               else:
+                   print 'info: URL =>',url,'<= is not valid.'                  
 
       # If > 1 location URLs, chose the "best"
       if len(self.locations)>1:
          url = self.choose_best_location()
          if len(url):
+            # print 'Best location=>',url
             self.page.location.replace(url)
          else:
             # No location change
@@ -620,7 +693,6 @@ def localtests():
     assert(repr(P.getDocument())==open('samples/jsnodom.html').read())
     assert(P.dom_changed==False)
     assert(P.location_changed==False)    
-    
 
     P.parse(open('samples/jstest2.html').read())
     assert(repr(P.getDocument())==open('samples/jstest2_dom.html').read())
@@ -659,6 +731,9 @@ def localtests():
     P.parse(open('samples/baladiya_gov_qa.html').read())
     assert(P.location_changed==True)
     assert(P.getLocation().href == 'http://www.baladiya.gov.qa/cui/index.dox')
+
+    P.parse(open('samples/alrayyan_tv.html').read())
+    assert(P.location_changed==False)
     
     print 'All local tests passed.'
 
