@@ -221,8 +221,9 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         """
 
-        # Keeping this for the time being.
-        return int((float(open("/proc/loadavg").read().split()[0])/multiprocessing.cpu_count()) * 100)
+        # If there are tasks waiting in the queue, report load=100.
+        # Otherwise, just report 0.
+        return self.task_queue.qsize() * 100
 
           
 if __name__ == "__main__":
