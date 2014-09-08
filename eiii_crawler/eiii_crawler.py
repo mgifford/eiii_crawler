@@ -4,25 +4,19 @@
 
 import sys, os
 import Queue
-import requests
 import urlhelper
 import robocop
-import urllib
 import urlparse
 import signal
-import binascii
 import re
 import time
 import datetime
 import utils
 import argparse
-import hashlib
-import zlib
 import collections
 import sgmllib
 import uuid
 import sqlite3
-import json
 import cPickle
 import socket
 import multiprocessing
@@ -68,7 +62,6 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
     def prepare_config(self):
         """ Prepare configuration """
 
-        pass
     
     def get(self, timeout=30):
         """ Get the data to crawl """
@@ -993,8 +986,7 @@ class EIIICrawler(multiprocessing.Process):
         parser.add_argument('-l','--loglevel',help='Set the log level',default='info',metavar='LOGLEVEL')
         parser.add_argument('-c','--config',help='Use the given configuration file',metavar='CONFIG',
                             default='config.json')
-        parser.add_argument('-p','--param',help='Override the value of a config param on the command-line',
-                            metavar='PARAM')
+        parser.add_argument('-p','--param',help='Override the value of a config param on the command-line (e.g: -p "flag_ignorerobots=True")', metavar='PARAM')
         parser.add_argument('urls', nargs='*', help='URLs to crawl')
 
         args = parser.parse_args()
