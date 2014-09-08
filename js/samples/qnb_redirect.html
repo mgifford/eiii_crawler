@@ -1,0 +1,231 @@
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+		<html xmlns="http://www.w3.org/1999/xhtml">
+			<head>
+<meta name="google-site-verification" content="uONWtnaGKU_19KP9xMU4OlYgCdJki-NNgRwHETd2kRc" />
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-11734737-2']);
+  _gaq.push(['_setDomainName', 'qnb.com.qa']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+				
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /><title>QNBGlobal - Global Home</title><meta name="pageTitle" content='Global Home'/><meta name="keywords" content='' /><meta name="description" content='' /><meta name="country" content='QNBGlobal'/><meta name="language" content='1338474026170'/><link rel="stylesheet" type="text/css" href="/cs/QNBUIDesign/QNBWebsite/en/css/style.css"/>
+				<link rel="stylesheet" type="text/css" href="/cs/QNBUIDesign/QNBWebsite/en/css/ArticleContentStyle.css" />
+				<!--[if IE 7]>
+				<link rel="stylesheet" type="text/css" href="/cs/QNBUIDesign/QNBWebsite/css/ie7.css"/>
+				<![endif]-->				
+				
+				<script language="javaScript" type="text/javascript" src="/cs/QNBUIDesign/QNBWebsite/en/js/jquery-1.4.3.min.js"></script>
+				<script language="javaScript" type="text/javascript" src="/cs/QNBUIDesign/QNBWebsite/en/js/jquery-ui-1.8.13.custom.min.js"></script>
+			</head>
+
+
+
+   <script>
+
+var expDays = 30;
+var exp = new Date();
+exp.setTime(exp.getTime() + (expDays*24*60*60*1000));
+function getCookieVal (offset) {
+var endstr = document.cookie.indexOf (";", offset);
+if (endstr == -1)
+endstr = document.cookie.length;
+return unescape(document.cookie.substring(offset, endstr));
+}
+function GetCookie (name) {
+var arg = name + "=";
+var alen = arg.length;
+var clen = document.cookie.length;
+var i = 0;
+while (i < clen) {
+var j = i + alen;
+if (document.cookie.substring(i, j) == arg)
+return getCookieVal (j);
+i = document.cookie.indexOf(" ", i) + 1;
+if (i == 0) break;
+}
+return null;
+}
+function SetCookie (name, value) {
+var argv = SetCookie.arguments;
+var argc = SetCookie.arguments.length;
+var expires = (argc > 2) ? argv[2] : null;
+var path = (argc > 3) ? argv[3] : null;
+var domain = (argc > 4) ? argv[4] : null;
+var secure = (argc > 5) ? argv[5] : false;
+document.cookie = name + "=" + escape (value) +
+((expires == null) ? "" : ("; expires=" + expires.toGMTString())) +
+((path == null) ? "" : ("; path=" + path)) +
+((domain == null) ? "" : ("; domain=" + domain)) +
+((secure == true) ? "; secure" : "");
+}
+function DeleteCookie (name) {
+var exp = new Date();
+exp.setTime (exp.getTime() - 1);
+var cval = GetCookie (name);
+document.cookie = name + "=" + cval + "; expires=" + exp.toGMTString();
+}
+var favorite = GetCookie('global');
+var colparamter='1';
+if(colparamter != "null"){
+if (favorite != null) {
+switch (favorite) {
+case 'QNBQatar' : url = ' http://www.qnb.com.qa/cs/Satellite/QNBQatar/en_QA/enHome';
+break;
+case 'QNBYemen' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBYemen/en_YM/enHome';
+break;
+case 'QNBSyria' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBSyria/en_SY/enHome';
+break;
+case 'QNBOman' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBOman/en_OM/enHome';
+break;
+case 'QNBKuwait' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBKuwait/en_KW/enHome';
+break;
+case 'QNBIran' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBIran/en_IR/enHome';
+break;
+case 'QNBLebanon' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBLebanon/en_LB/enHome';
+break;
+case 'QNBUnitedKingdom' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBUK/en_UK/enHome';
+break;
+case 'QNBSwitzerland'  :url = 'http://www.qnb.com.qa/cs/Satellite/QNBSwitzerland/en_SZ/enHome';
+break;
+case 'QNBFrance' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBFrance/en_FR/enHome';
+break;
+case 'QNBSingapore' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBSingapore/en_SG/enHome';
+break;
+case 'QNBSudan' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBSudan/en_SU/enHome';
+break;
+case 'QNBSudanJuba' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBSouthSudan/en_SSU/enHome';
+break;
+case 'QNBMauritania' :url = 'http://www.qnb.com.qa/cs/Satellite/QNBMauritania/en_MR/enHome';
+break;
+}
+window.location.href = url;
+}
+}
+</script>
+ 
+    <body>
+<div id="container">
+  <div id="masthead">
+    <div class="wrap">
+      <div id="header">
+        <div id="logo"> <a href="#"><img src="/cs/QNBUIDesign/QNBWebsite/en/img/qnb-logo.jpg" width="101" height="30" alt="QNB Logo" /></a> </div>
+        <div id="top-nav" style="width:550px; padding-right:30px;"> <a href="/cs/Satellite/QNBGlobal/ar/arGlobalHome?Global=1" class="lang-ar-link">عربي</a>
+          </ul>
+        </div>
+        <!-- #top-nav --> 
+      </div>
+    </div>
+    <!-- wrap--> 
+    <!-- header-->
+    <div class="wrap">
+      <div class="cover"> </div>
+    </div>
+    <!--secondary-wrap--> 
+  </div>
+  <!-- #masthead -->
+  <div class="wrap">
+    <div class="cover global-home">
+      <div class="country-list">
+        <div class="title">QNB International Network</div>
+        <ul>
+          <li class="c-name">Africa</li> <li><a href='http://www.qnbalahli.com/' name='QNBEgypt' onClick="SetCookie('global', this.name, exp);" >Egypt **</a></li> <li><a href='http://www.bcd.ly/' name='QNBLibya' onClick="SetCookie('global', this.name, exp);" >Libya*</a></li> <li><a href='/cs/Satellite/QNBMauritania/en_MR/enHome' name='QNBMauritania' onClick="SetCookie('global', this.name, exp);" >Mauritania</a></li> <li><a href='/cs/Satellite/QNBSouthSudan/en_SSU/enHome' name='QNBSouthSudan' onClick="SetCookie('global', this.name, exp);" >South Sudan (Juba)</a></li> <li><a href='/cs/Satellite/QNBSudan/en_SU/enHome' name='QNBSudan' onClick="SetCookie('global', this.name, exp);" >Sudan</a></li> <li><a href='http://qnb.com.tn/' name='QNBTunisia' onClick="SetCookie('global', this.name, exp);" >Tunisia **</a></li>
+        </ul>
+        <ul>
+          <li class="c-name">Asia</li> <li><a href='/cs/Satellite/QNBChina/en_CH/enHome'  name='QNBChina' onClick="SetCookie('global', this.name, exp);" >China</a></li> <li><a href='http://www.qnbkesawan.co.id'  name='QNBIndonesia' onClick="SetCookie('global', this.name, exp);" >Indonesia**</a></li> <li><a href='/cs/Satellite/QNBIndia/en_IN/enHome'  name='QNBIndia' onClick="SetCookie('global', this.name, exp);" >India</a></li> <li><a href='/cs/Satellite/QNBSingapore/en_SG/enHome'  name='QNBSingapore' onClick="SetCookie('global', this.name, exp);" >Singapore</a></li>
+        </ul>
+        <ul>
+          <li class="c-name">Europe</li> <li><a href='/cs/Satellite/QNBFrance/en_FR/enHome'  name='QNBFrance' onClick="SetCookie('global', this.name, exp);" >France</a></li> <li><a href='/cs/Satellite/QNBSwitzerland/en_SZ/enHome'  name='QNBSwitzerland' onClick="SetCookie('global', this.name, exp);" >Switzerland</a></li> <li><a href='/cs/Satellite/QNBUK/en_UK/enHome'  name='QNBUK' onClick="SetCookie('global', this.name, exp);" >United Kingdom</a></li>
+        </ul>
+        <ul>
+          <li class="c-name">GCC</li> <li><a href='/cs/Satellite/QNBQatar/en_QA/enHome' name='QNBQatar' onClick="SetCookie('global', this.name, exp);" >Qatar</a></li> <li><a href='/cs/Satellite/QNBKuwait/en_KW/enHome' name='QNBKuwait' onClick="SetCookie('global', this.name, exp);" >Kuwait</a></li> <li><a href='/cs/Satellite/QNBOman/en_OM/enHome' name='QNBOman' onClick="SetCookie('global', this.name, exp);" >Oman</a></li> <li><a href='http://www.cbiuae.com' name='QNBUAE' onClick="SetCookie('global', this.name, exp);" >UAE (CBI)**</a></li>
+        </ul>
+        <ul>
+          <li class="c-name">Middle East</li> <li><a href='/cs/Satellite/QNBIran/en_IR/enHome' name='QNBIran' onClick="SetCookie('global', this.name, exp);" >Iran*</a></li> <li><a href='http://www.mansourbank.com/' name='QNBIraq' onClick="SetCookie('global', this.name, exp);" >Iraq(Mansour Bank)**</a></li> <li><a href='http://www.hbtf.com' name='QNBJordan' onClick="SetCookie('global', this.name, exp);" >Jordan(HBTF Bank)**</a></li> <li><a href='/cs/Satellite/QNBLebanon/en_LB/enHome' name='QNBLebanon' onClick="SetCookie('global', this.name, exp);" >Lebanon</a></li> <li><a href='/cs/Satellite/QNBSyria/en_SY/enHome' name='QNBSyria' onClick="SetCookie('global', this.name, exp);" >Syria</a></li> <li><a href='/cs/Satellite/QNBYemen/en_YM/enHome' name='QNBYemen' onClick="SetCookie('global', this.name, exp);" >Yemen</a></li>
+        </ul>
+        
+        <div class="notes">
+			* QNB Representative Offices<br />
+			** Associates, Subsidiaries and Affiliate
+		</div>
+      </div>
+      <!-- global- home -->
+      
+      <div class="blocks">
+        <div class="row row1 no-hand-cursor">
+          <div class="first">
+            <h3>Exclusive Services</h3>
+            <span class="arrow-left-center"></span>
+            <ul class="width50"> <li style="margin-bottom:7px;"><a href='/cs/Satellite/QNBCapital/en_QA/enHome'  onclick="javascript:callCookie('QNBCapital')">QNB Capital</a></li> <li style="margin-bottom:7px;"><a href='/cs/Satellite/QNBFS/en_QA/enHome'  onclick="javascript:callCookie('QNBFS')">QNB Financial Services</a></li> <li style="margin-bottom:7px;"><a href='/cs/Satellite/QNBFirst/en_QA/enHome'  onclick="javascript:callCookie('QNBFirst')">QNB First</a></li> <li style="margin-bottom:7px;"><a href='/cs/Satellite/QNBPrivate/en_QA/enHome'  onclick="javascript:callCookie('QNBPrivate')">QNB Private</a></li>
+			</ul>
+          </div>
+          <div class="first second">
+            <h3>Follow Us</h3>
+            <span class="arrow-left-center"></span>
+            <div class="follow">
+            <!--ul>
+                <li><a href="http://facebook.com/QNBGroup" target="_blank" class="fb"></a></li>
+                <li><a href="http://twitter.com/qnbgroup" class="tw" target="_blank"></a></li>
+                <li><a href="http://youtube.com/qnbgroup" class="yt" target="_blank"></a></li>
+              </ul -->
+               <style>
+
+.linkstyle{
+font-family:Arial, Helvetica, sans-serif;
+font-size:12px;
+color:#880052;
+text-decoration:none;
+}
+a.linkstyle:hover{
+font-family:Arial, Helvetica, sans-serif;
+font-size:12px;
+color:#000000;
+text-decoration:none;
+}
+</style>
+<table cellpadding="6" cellspacing="0" >
+ <tr>
+   <td ><a href="http://facebook.com/QNBGroup" target="_blank" class="linkstyle"><img src="http://www.qnb.com.qa/cs/BlobServer?blobkey=id&blobnocache=true&blobwhere=1355401886445&blobcol=urlfile&blobtable=QNBImageFile" border="0" /></a></td>
+  <td ><a href="http://twitter.com/qnbgroup" target="_blank" class="linkstyle"><img src="http://www.qnb.com.qa/cs/BlobServer?blobkey=id&blobnocache=true&blobwhere=1355401886477&blobcol=urlfile&blobtable=QNBImageFile" border="0" /></a></td>
+    <td ><a href="http://youtube.com/qnbgroup" target="_blank" class="linkstyle"><img src="http://www.qnb.com.qa/cs/BlobServer?blobkey=id&blobnocache=true&blobwhere=1355401886485&blobcol=urlfile&blobtable=QNBImageFile" border="0" /></a></td>
+    <td ><a href="http://www.instagram.com/QNBGroup" target="_blank" class="linkstyle"><img src="http://www.qnb.com.qa/cs/BlobServer?blobkey=id&blobnocache=true&blobwhere=1355401886461&blobcol=urlfile&blobtable=QNBImageFile" border="0" /></a></td>
+    <td ><a href="http://www.linkedin.com/company/qatar-national-bank-group" target="_blank" class="linkstyle"><img src="http://www.qnb.com.qa/cs/BlobServer?blobkey=id&blobnocache=true&blobwhere=1355401886469&blobcol=urlfile&blobtable=QNBImageFile" border="0" /></a></td>
+    
+   
+    
+ 
+   
+   
+ 
+ 
+  
+   
+   <td ><a href="https://plus.google.com/113286626268338483006" target="_blank" class="linkstyle"><img src="http://www.qnb.com.qa/cs/BlobServer?blobkey=id&blobnocache=true&blobwhere=1355401886453&blobcol=urlfile&blobtable=QNBImageFile" border="0" /></a></td>
+ 
+ </tr>
+</table>
+              </div>            
+          </div>
+        </div>
+        <!-- row1 --> 
+      </div>
+      <!-- blocks --> 
+    </div>
+  </div>
+  <!-- wrap-->
+	<div id="footer">
+		  <div class="wrap"><div class="copyright">Copyright © 2014 QNB	| <a class='copyrightmaindiva'  href="/cs/Satellite/QNBGlobal/en/enDisclaimer">Disclaimer</a>	| <a class='copyrightmaindiva'  href="/cs/Satellite/QNBGlobal/en/enPrivacyPolicy">Privacy Policy</a></div></div></div>
+		</div>
+</body></html>
