@@ -83,9 +83,10 @@ def fetch(url, *exceptions, **headers):
         proxy = headers.get('proxy')
         if proxy:
             proxies = {'http' : proxy, 'https' : proxy}
-            yield requests.get(url, headers=headers, proxies=proxies, verify=False)
+            # Add a timeout of 15s
+            yield requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=15)
         else:
-            yield requests.get(url, headers=headers, verify=False)          
+            yield requests.get(url, headers=headers, verify=False, timeout=15)          
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
         raise FetchUrlException(e)
