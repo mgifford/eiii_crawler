@@ -34,6 +34,10 @@ Modified Anand B Pillai Oct 2 2007 Added JSParser class and renamed
 Modified Anand B Pillai  Jan 18 2008 Rewrote regular expressions in
                                      HTMLJSParser using pyparsing.
 
+Mod      Anand B Pillai  Sep 8 2014  Added filters for catching errors
+                                     in JS parsing like unexecuted
+                                     JS code etc.
+
 Copyright (C) 2007 Anand B Pillai.
 
 """
@@ -41,8 +45,18 @@ Copyright (C) 2007 Anand B Pillai.
 import sys, os
 import re
 import urllib2
+import urlparse
+
 from pyparsing import *
 from jsdom import *
+
+# Javscript string methods
+__jssmethods__ = ('.charAt','.charCodeAt','.concat','.fromCharCode',
+                  '.indexOf','.lastIndexOf','.localeCompare','.match',
+                  '.replace','.search','.slice','.split','.substr',
+                  '.substring','.toLocale','.toLowerCase','.toString',
+                  '.toUpperCase','.trim','.valueOf')
+                  
 
 class HTMLJSParser(object):
    """ Javascript parser which extracts javascript statements
@@ -174,7 +188,9 @@ class JSParser(object):
    
    quotechars = re.compile(r'[\'\"]*')
    newlineplusre = re.compile(r'\n\s*\+')
-      
+   # Maximum number of lines in a function for a redirection
+   # NOTE - This is totally arbitrary and is not really a good workaround!
+   MAXJSLINES = 50
     
    def __init__(self):
       self._nflag = False
@@ -182,6 +198,8 @@ class JSParser(object):
       self.resetDOM()
       self.statements = []
       self.js = []
+      # Location URLs
+      self.locations = []
       self.location_changed = False
       self.dom_changed = False
       pass
@@ -287,7 +305,9 @@ class JSParser(object):
    # Internal - validate URL strings for Javascript
    def validate_url(self, urlstring):
       """ Perform validation of URL strings """
-      
+
+      urlstring = urlstring.strip()
+
       # Validate the URL - This follows Firefox behaviour
       # In firefox, the URL might be or might not be enclosed
       # in quotes. However if it is enclosed in quotes the quote
@@ -299,9 +319,34 @@ class JSParser(object):
       # 'http://www.struer.dk/webtop/site.asp?site=5" are not.
       if urlstring.startswith("'") or urlstring.startswith('"'):
          if urlstring[0] != urlstring[-1]:
+            # print 'Invalid URL => ',urlstring
             # Invalid URL
             return False
-         
+
+      # Javascript variable/method check - a number of times the parser
+      # wrongly thinks pieces of JS code as URLs. This is a check for that.
+      # Usual suspects.
+      # 1. url
+      # 2. anything starting with document.
+      # 3. value
+      # 4. Unresolved JS method calls on string as part of URL
+      
+      if urlstring in ('url','value') or any(x in urlstring for x in __jssmethods__):
+         return False
+
+      # Anything that looks like a method call or attribute access.
+      if any(map(urlstring.startswith, ('.','this.','document.'))):
+         return False
+      
+      # Additional validation - Issue 427 for URL http://www.qnb.com.qa/cs/Satellite/QNBGlobal/en/enGlobalHome
+      # Parse the URL - at least one of the elements of the parsed
+      # object should be non-empty.
+      p = urlparse.urlparse(urlstring)
+
+      if all(getattr(p, field) == '' for field in p._fields):
+         return False
+
+             
       return True
 
    def make_valid_url(self, urlstring):
@@ -315,40 +360,96 @@ class JSParser(object):
       """ Process any changes in document location """
 
       location_changed = False
+      # Reset
+      self.locations = []
       
-      for line in statement.split('\n'):
+      # Issue #427 - Size of the JS statement/function in number of lines
+      # We skip anything more than 10 lines since it typically means it
+      # is a long function which is not a simple JS URL replacement.
+
+      # If a statement starts with an if ... then this means conditional
+      # code so skip straight away.
+      statement = statement.strip()
+      if statement.startswith('if '):
+         return False
+      
+      js_lines = statement.split('\n')
+      if len(js_lines)>self.MAXJSLINES:
+         print 'debug: skipping JS statement for redirection since number of lines',len(js_lines),'>',self.MAXJSLINES
+         return False 
+      
+      for line in js_lines:
          
          # print 'Expression=>',statement
          m1 = self.jsredirect1.search(line)
          if m1:
             tokens = self.jsredirect1.findall(line)
-            print 'TOKENS=>',tokens
+            # print 'TOKENS=>',tokens
             if tokens:
                 urltoken = tokens[0][-1]
-                # Strip of trailing and leading parents
-                url = urltoken.replace('(','').replace(')','').strip()
+                # Strip of trailing and leading parents and also any semicolons
+                url = urltoken.replace('(','').replace(')','').replace(';','').strip()
                 # Validate URL
                 if self.validate_url(url):
                    url = self.make_valid_url(url)
                    location_changed = True
+                   # print 'Replacing location with',url
+                   self.locations.append(url)
                    self.page.location.replace(url)
          else:
             m2 = self.jsredirect2.search(line)
             if m2:
                tokens = self.jsredirect2.findall(line)
-               print 'TOKENS=>',tokens
+               # print 'TOKENS=>',tokens
                
                urltoken = tokens[0][-1]
                # Strip of trailing and leading parents
-               url = urltoken.replace('(','').replace(')','').strip()
+               url = urltoken.replace('(','').replace(')','').replace(';','').strip()
                if tokens and self.validate_url(url):
                   url = self.make_valid_url(url)
                   location_changed = True
-                  self.page.location.replace(url)                  
+                  self.page.location.replace(url)
+                  # print 'Replacing location with',url
+                  self.locations.append(url)                  
                   location_changed = True
 
+      # If > 1 location URLs, chose the "best"
+      if len(self.locations)>1:
+         url = self.choose_best_location()
+         if len(url):
+            self.page.location.replace(url)
+         else:
+            # No location change
+            return False
+            
       return location_changed
-                
+
+   def choose_best_location(self):
+      """ If there are > 1 JS location URLs, choose among them according
+      to some heuristics """
+
+      # Prefer absolute URLs over relative ones i.e one with netloc
+      locations2 = [loc for loc in self.locations if urlparse.urlparse(loc).netloc != '']
+      # If nothing selected, skip this test
+      if len(locations2)==0:
+         locations2 = self.locations
+         # means all relative URLs - so drop the ones with single path fragment
+         locations2 = [loc for loc in locations2 if len(urlparse.urlparse(loc).path.split('/')) == 1]
+      
+      # Now select the ones with no query or fragments
+      locations3 = [loc for loc in locations2 if urlparse.urlparse(loc).query == '']
+      # If nothing selected, skip this test
+      if len(locations3)==0:
+         locations3 = locations2
+
+      # Choose the shortest
+      locations4 = sorted(locations3, key=len)
+      if len(locations4):
+         # Return 1st
+         return locations4[0]
+
+      return ''
+
    def _feed(self, data):
       """ Internal method to feed data to process DOM document """
       
@@ -551,6 +652,13 @@ def localtests():
 
     P.parse(open('samples/www_thegroup_com_qa.html').read())
     assert(P.location_changed==False)
+
+    P.parse(open('samples/qnb_redirect.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/baladiya_gov_qa.html').read())
+    assert(P.location_changed==True)
+    assert(P.getLocation().href == 'http://www.baladiya.gov.qa/cui/index.dox')
     
     print 'All local tests passed.'
 
