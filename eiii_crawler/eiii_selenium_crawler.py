@@ -9,21 +9,27 @@ import time
 import argparse
 import logger
 import utils
+import urldata
+import socket
+
 from selenium import webdriver
 from selenium.webdriver.common.proxy import *
 
-log = logger.getMultiLogger('eiii_crawler','crawl.log','crawl.err',console=True)
+log = utils.get_default_logger()
+
+# Default timeout set to 15s
+socket.setdefaulttimeout(15)
 
 __version__ = '1.0a'
 __author__ = 'Anand B Pillai'
 __maintainer__ = 'Anand B Pillai'
 
-class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
+class EIIISeleniumCrawlerUrlData(urldata.CachingUrlData):
     """ Class representing downloaded data for a URL.
     The data is downloaded using selenium web driver """
 
-    def __init__(self, url, parent_url, config, driver):
-        super(EIIISeleniumCrawlerUrlData, self).__init__(url, parent_url, config)
+    def __init__(self, url, parent_url, content_type, config, driver):
+        super(EIIISeleniumCrawlerUrlData, self).__init__(url, parent_url, content_type, config)
         self.driver = driver
         
     def download(self, crawler, parent_url=None):
@@ -33,13 +39,17 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
 
         index, follow = True, True
 
-        # Doesn't seem to work for Selenium crawler
-        if self.get_headers_and_data():
-            # Obtained from cache
-            return True
+        ret = self.pre_download(crawler, parent_url)
+        if ret:
+            # Satisfied already through cache or fake mime-types
+            return ret
         
         try:
             # freq = urlhelper.get_url(self.url, headers = self.build_headers())
+            # Wait upto 120 sec
+            # self.driver.implicitly_wait(120)
+            self.driver.set_page_load_timeout(300)
+            self.driver.set_script_timeout(300)
             self.driver.get(self.url)
             
             self.content = self.driver.page_source.encode('ascii','xmlcharrefreplace')
@@ -72,19 +82,20 @@ class EIIISeleniumCrawlerUrlData(eiii_crawler.EIIICrawlerUrlData):
                 status_code = urlhelper.check_spurious_404_title(title, status_code)
             
             if status_code in range(200, 300):
+                self.status = True
                 eventr.publish(self, 'download_complete',
                                message='URL has been downloaded successfully',
                                code=200,
                                params=self.__dict__)
             else:
-                log.error("Error downloading URL =>",self.url,"status code is ",freq.status_code)
+                log.error("Error downloading URL =>",self.url,"status code is ",status_code)
                 eventr.publish(self, 'download_error',
                                message='URL has not been downloaded successfully',
-                               code=freq.status_code,
+                               code=status_code,
                                params=self.__dict__)
 
             self.write_headers_and_data()
-        except urlhelper.FetchUrlException, e:
+        except (urlhelper.FetchUrlException, socket.timeout), e:
             log.error('Error downloading',self.url,'=>',str(e))
             # FIXME: Parse HTTP error string and find out the
             # proper code to put here if HTTPError.
@@ -105,11 +116,11 @@ class EIIISeleniumCrawlerQueuedWorker(eiii_crawler.EIIICrawlerQueuedWorker):
         self.driver = manager.get_web_driver()
         super(EIIISeleniumCrawlerQueuedWorker, self).__init__(config, manager)
 
-    def get_url_data_instance(self, url, parent_url=None):
+    def get_url_data_instance(self, url, parent_url=None, content_type='text/html'):
         """ Make an instance of the URL data class
         which fetches the URL """
 
-        return EIIISeleniumCrawlerUrlData(url, parent_url, self.config, self.driver)
+        return EIIISeleniumCrawlerUrlData(url, parent_url, content_type, self.config, self.driver)
 
     def parse(self, data, url):
         """ Parse the URL data and return an iterator over child URLs """
@@ -145,7 +156,6 @@ class EIIISeleniumCrawler(eiii_crawler.EIIICrawler):
         # Web driver
         self.remote_driver = False      
         self.driver = self.make_web_driver(args)
-        # With selenium we can have only 1 worker
         self.config.num_workers = 1
         # Driver mappings
 
