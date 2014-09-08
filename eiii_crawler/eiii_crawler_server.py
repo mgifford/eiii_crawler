@@ -221,8 +221,9 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
         """
 
-        # Keeping this for the time being.
-        return int((float(open("/proc/loadavg").read().split()[0])/multiprocessing.cpu_count()) * 100)
+        # If there are tasks waiting in the queue, report load=100.
+        # Otherwise, just report 0.
+        return self.task_queue.qsize() * 100
 
           
 if __name__ == "__main__":
@@ -249,7 +250,7 @@ if __name__ == "__main__":
     print 'Number of parallel crawler processes set to',args.nprocs
     print 'Starting crawler server on port',args.port,'...'
 
-    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % port, nprocs=args.nprocs*2)
+    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
 
 
     
