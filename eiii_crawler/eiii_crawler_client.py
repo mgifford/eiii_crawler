@@ -7,7 +7,7 @@ import sys
 crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 50)],
                  'scoping-rules': [('+','^anand.*')], 'min-crawl-delay': 2,
                  'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
-                 'seeds': ['https://mada.org.qa'], 'obey-robotstxt': False,
+                 'seeds': ['http://english.mofa.gov.qa/'], 'obey-robotstxt': False,
                  'loglevel': 'debug'}
 
 # Wait for 3 hours for crawl to end.
