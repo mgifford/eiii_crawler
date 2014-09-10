@@ -157,6 +157,8 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             # Obtained from cache
             return True
 
+        eventr = crawlerbase.CrawlerEventRegistry.getInstance()
+        
         try:
             # If a fake mime-type only do a HEAD request to get correct URL, dont
             # download the actual data using a GET.
@@ -173,7 +175,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                     log.extra("URL updated to",self.url)
 
                 self.content_type =  urlhelper.get_content_type(self.url, self.headers)
-            
+
                 # Simulate download event for this URL so it gets added to URL graph
                 # Publish fake download complete event          
                 eventr.publish(self, 'download_complete_fake',
