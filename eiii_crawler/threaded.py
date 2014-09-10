@@ -8,6 +8,7 @@ import urlhelper
 import random
 import time
 from crawlerbase import CrawlerUrlData, CrawlerWorkerBase
+from crawlerevent import CrawlerEventRegistry
 
 # Default logging object
 log = utils.get_default_logger()
@@ -135,6 +136,7 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                     newurls = []
                     
                     for curl in child_urls:
+                        if curl==None: continue
                         # Skip empty strings
                         if len(curl.strip())==0: continue
                         # Build full URL
@@ -189,6 +191,18 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
 
         log.info('Worker',self,'starting...')
         # Defines the "framework" for crawling
-        self.before_crawl()
-        self.do_crawl()
-        self.after_crawl()
+        try:
+            self.before_crawl()
+            self.do_crawl()
+            self.after_crawl()
+        # Any uncaught exception
+        except Exception, e:
+            # Raise thread killed event. Maybe this can be listened
+            # to by the manager to create a new thread so crawl doesn't
+            # get stuck.
+            log.info("Worker",self,"died due to unhandled exception",str(e))
+            eventr = CrawlerEventRegistry.getInstance()
+            eventr.publish(self, 'worker_threw_exception',
+                           message='Worker ' + self.name + ' died wih exception ' + str(e),
+                           params= self.__dict__)
+            
