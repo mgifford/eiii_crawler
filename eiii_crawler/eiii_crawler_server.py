@@ -16,6 +16,8 @@ from eiii_crawler.eiii_crawler import utils
 from eiii_crawler.eiii_crawler import EIIICrawler, log
 from eiii_crawler.crawlerstats import CrawlerStats
 
+pidfile = '/tmp/eiii_crawler_server.pid'
+
 class EIIICrawlerServer(SimpleTTRPCServer):
     """ EIII crawler server obeying the tt-rpc protocol """
 
@@ -29,6 +31,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
     _logger = _LoggerWrapper()
 
     def __init__(self, nprocs=10):
+        open(pidfile, 'w').write(str(os.getpid()))
         # All the crawler objects
         self.instances = []
         # Tasks queue
