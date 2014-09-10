@@ -627,6 +627,7 @@ class EIIICrawler(multiprocessing.Process):
         self.eventr.subscribe('download_cache', self.url_download_complete)     
         self.eventr.subscribe('download_error', self.url_download_error)
         self.eventr.subscribe('abort_crawling', self.abort_crawl)
+        self.eventr.subscribe('worker_threw_exception', self.replace_worker)
 
     def check_idna_domains(self):
         """ Check if the URL domains are IDNA neutral, if not
@@ -760,6 +761,24 @@ class EIIICrawler(multiprocessing.Process):
 
         return EIIICrawlerQueuedWorker(self.config, self)
 
+    def replace_worker(self, event):
+        """ Replace a killed worker with a new one """
+
+        # the killed thread.
+        thread = event.publisher
+        log.info("Thread",thread,"died.")
+        
+        # Find current index of this thread
+        for i in range(len(self.workers)):
+            t = self.workers[i]
+            if t == thread:
+                # Replace at this position
+                log.info("Making new worker at index",i,"replacing",thread,"...")
+                worker = self.make_worker()
+                self.workers[i] = worker
+                worker.start()
+                break
+                       
     def run(self):
         """ Process entry method when the crawler is used
         as a multiprocessing crawler from the EIII crawler server """
