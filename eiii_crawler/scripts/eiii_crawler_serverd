@@ -1,0 +1,101 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          eiii_crawler_serverd
+# Required-Start:    $network $syslog
+# Required-Stop:     $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Starts EIII Crawler Server
+# Description:       Provides EIII Crawler Server
+### END INIT INFO
+# /etc/init.d scripts for managing EIII Crawler Server
+
+NAME=eiii_crawler_server
+DESC="EIII Crawler Server"
+DAEMON=;
+START_DAEMON="yes";
+PIDFILE="/tmp/eiii_crawler_server.pid"
+
+
+. /lib/lsb/init-functions
+
+check_pid()
+{
+    if test -f "$PIDFILE"; then
+        log_warning_msg "pid file is exist in $PIDFILE, stop or restart $NAME"
+        exit 0
+    fi
+}
+
+is_yes() {
+    case "$1" in
+        [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|1) return 0;;
+        *) return 1;
+    esac
+}
+
+server_start()
+{
+    echo "$*"
+    DAEMON=`which eiii_crawler_server`;
+    if is_yes "$START_DAEMON"; then
+        echo "Found $DAEMON"
+        # check_pid
+        log_begin_msg "Starting $NAME"
+        exec "$DAEMON" $* &
+        log_end_msg $?
+    else
+        log_warning_msg "Not starting $NAME (disabled in /etc/default/$NAME)"
+    fi
+}
+
+server_stop()
+{
+    DAEMON=`which eiii_crawler_server`;
+    log_begin_msg "Stopping $NAME"
+    if [ -f "$PIDFILE" ];
+    then
+        pid=`cat $PIDFILE`
+        # kill all children first.
+        echo "Killing all chidren of PID $pid ..."
+        pkill -KILL -P $pid
+        sleep 2
+        echo "Killing $pid ..."
+        kill -9 $pid
+    else
+        echo "$NAME is not running."
+    fi
+    log_end_msg $?
+    rm -f $PIDFILE;
+}
+
+server_status()
+{
+    [ -f "$PIDFILE" ] && echo "$NAME is running."
+    [ ! -f "$PIDFILE" ] && echo "$NAME is not running."
+}
+
+case "$1" in
+  start)
+    shift 1
+    server_start $*
+    ;;
+  stop)
+    server_stop
+  ;;
+  status)
+    server_status
+    ;;
+  restart|force-reload)
+    shift 1
+    server_stop
+    sleep 2
+    server_start $*
+    ;;
+    *)
+    echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
