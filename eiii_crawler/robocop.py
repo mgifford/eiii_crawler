@@ -61,28 +61,34 @@ class Robocop(object):
         self.crawldelay = -1
 
         for line in content:
-            if line.lower().strip().startswith('sitemap:'):
+            
+            line = line.lower().strip()
+            if line.startswith('#'):
+                continue            
+            if line.startswith('sitemap:'):
                 # CHECKME: So ? This is not being used further or what...
                 sitemap = ':'.join(line.split(':')[1:]).strip()
                 continue
-            if line.lower().strip().startswith('user-agent:'):
+            # if line.lower().strip().startswith('user-agent:'):
+            if 'user-agent' in line:
                 useragent = ':'.join(line.split(':')[1:]).strip()
                 # print 'user-agent:',useragent
-                continue
-            if line.lower().strip().startswith('#'):
                 continue
             if 'disallow' in line.lower():
                 disallowallow = 'disallow'
             elif 'allow' in line.lower():
                 disallowallow = 'allow'
-            if (line.lower().startswith('crawldelay:') or line.lower().startswith('crawl-delay:')) and useragent in ('*',self.ua):
+            if (line.startswith('crawldelay:') or line.startswith('crawl-delay:')) and useragent in ('*',self.ua):
                 self.crawldelay = int(':'.join(line.split(':')[1:]).strip())
                 continue
             
             if disallowallow == 'disallow' and useragent in ('*', self.ua):
-                #print useragent,disallowallow,line#,rules
+                # print line
+                # print useragent,disallowallow,line#,rules
                 rules = ':'.join(line.split(':')[1:]).strip().split()
+                # print 'rules=>',rules
                 for rule in rules:
+                    # print 'Rule=>',rule
                     if rule.strip():
                         if 'http' in rule:
                             site_rules.append(rule + '.*')
@@ -165,37 +171,37 @@ class Robocop(object):
 
         # Pick up the rules
         site = urlhelper.get_website(url)
-        site_rules = self.rules.get(site)
 
         # Prefix scheme in front of URL
         url = urlhelper.get_full_url(url)
 
-        if site_rules != None:
-            # Check against the rules
-            if any(rule.match(url) for rule in site_rules):
-                return False
-
-        elif not meta:
-            # Nothing can be done as no rules configured, so returns default
-            # value of allow (True)
-            # print 'No rules configured for site',site,',returning default value'
-            return True
-        
         # Check meta if asked
         if meta: 
             return self.check_meta(url, content)[0]
 
-        return True
-    
+        site_rules = self.rules.get(site, [])
+        
+        if len(site_rules)==0:
+            # Parse the site
+            self.parse_site(url)
+            site_rules = self.rules.get(site)
+            
+        # Check against the rules
+        return not any(rule.match(url) for rule in site_rules)
                   
 if __name__ == '__main__':
-    r = Robocop('www.askoy.kommune.no')
+    # Pass in init
+    r = Robocop('www.aljazeera.net')
     # Check if can fetch
-    print r.can_fetch('www.askoy.kommune.no/cache/test')
-    print r.can_fetch('www.askoy.kommune.no/logs/log1.log')
-    print r.can_fetch('www.askoy.kommune.no/pictres/1.jpg')     
-
+    assert(not r.can_fetch('www.askoy.kommune.no/cache/test'))
+    assert(not r.can_fetch('www.askoy.kommune.no/logs/log1.log'))
+    assert(r.can_fetch('www.askoy.kommune.no/pictres/1.jpg'))
+    # Explicit parsing
     r.parse_site('http://www.metatags.info/')
-    print r.can_fetch('http://www.metatags.info/meta_name_robots', meta=True)
-    print r.can_fetch('http://www.metatags.info/cpanel/testing')    
-    print r.can_fetch('http://www.robotstxt.org/meta.html', meta=True)
+    assert(r.can_fetch('http://www.metatags.info/meta_name_robots', meta=True))
+    assert(not r.can_fetch('http://www.metatags.info/cpanel/testing'))
+    # implicit parsing
+    assert(r.can_fetch('http://www.robotstxt.org/meta.html', meta=True))
+    assert(r.can_fetch('http://www.aljazeera.net/news/healthmedicine'))
+    assert(not r.can_fetch('http://www.aljazeera.net/ajamonitor'))
+    print 'All tests passed.'
