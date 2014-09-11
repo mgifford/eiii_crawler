@@ -433,6 +433,8 @@ class EIIICrawlerStats(CrawlerStats):
             conn.commit()
         except sqlite3.Error, e:
             log.error("Error writing to crawls db", str(e))
+        except UnicodeDecodeError, e:
+            pass
         
 class EIIICrawler(multiprocessing.Process):
     """ EIII Web Crawler """
