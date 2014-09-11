@@ -48,7 +48,7 @@ server_start()
         fi
         # check_pid
         log_begin_msg "Starting $NAME"
-        /sbin/start-stop-daemon --oknodo --start --quiet --chuid tingtun --group tingtun --chdir /home/tingtun/ --exec "$DAEMON" $* 
+        /sbin/start-stop-daemon --oknodo --start --quiet --chuid tingtun --group tingtun --chdir /home/tingtun/ --verbose --exec "$DAEMON" $* &
         # exec "$DAEMON" $* &
         log_end_msg $?
     else
