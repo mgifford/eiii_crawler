@@ -18,7 +18,8 @@
   "text/plain", 
   "text/xml", 
   "application/xhtml+xml", 
-  "application/xml"
+  "application/xml", 
+  "application/pdf"
  ], 
  "client_spoofuseragent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:26.0) Gecko/20100101 Firefox/26.0", 
  "client_standard_headers": [
@@ -50,7 +51,7 @@
  "site_maxbytes": 500, 
  "site_maxdepth": 10, 
  "site_maxrequests": 20, 
- "site_maxurlsize": 20, 
+ "site_maxrequestsize": 5, 
  "site_scope": "SITE_SCOPE", 
  "statsdir": "~/.eiii/crawler/stats", 
  "storedir": "~/.eiii/crawler/store", 
