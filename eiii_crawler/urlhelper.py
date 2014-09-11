@@ -76,8 +76,34 @@ class FetchUrlException(Exception):
         return "FetcherException (wrapping: %s): %s" % (self.origclass.__name__,
                                                         self.message)
 
+class InvalidContentType(Exception):
+    pass
+
+class MaxRequestSizeExceeded(Exception):
+    pass
+
 @contextlib.contextmanager
 def fetch(url, *exceptions, **headers):
+    
+    try:
+        # Don't bother verifying SSL certificates for HTTPS urls.
+        # If a proxy is specified, set it.
+        proxy = headers.get('proxy')
+        if proxy:
+            proxies = {'http' : proxy, 'https' : proxy}
+            # Add a timeout of 15s
+            yield requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=15, stream=True)
+        else:
+            yield requests.get(url, headers=headers, verify=False, timeout=15, stream=True)          
+        # Catch a bunch of network errors - courtesy havestman
+    except exceptions, e:
+        raise FetchUrlException(e)
+    except Exception, e:
+        raise
+
+@contextlib.contextmanager
+def fetch_quick(url, *exceptions, **headers):
+    """ Fetch a URL immediately """
     
     try:
         # Don't bother verifying SSL certificates for HTTPS urls.
@@ -93,7 +119,7 @@ def fetch(url, *exceptions, **headers):
     except exceptions, e:
         raise FetchUrlException(e)
     except Exception, e:
-        raise
+        raise   
 
 @contextlib.contextmanager
 def head(url, *exceptions, **headers):
@@ -122,9 +148,9 @@ def fetch_ftp(url, *exception, **headers):
         raise FetchUrlException(e)
     except Exception, e:
         raise   
-    
+
 def fetch_url(url, headers={}, proxy=''):
-    """ Download a URL and return a two tuple of its content and headers """
+    """ Download a URL immediately """
 
     exceptions = [requests.exceptions.RequestException,
                   urllib2.HTTPError,urllib2.URLError,
@@ -135,17 +161,15 @@ def fetch_url(url, headers={}, proxy=''):
     if url.startswith('ftp://'):
         method = fetch_ftp
     else:
-        method = fetch
+        method = fetch_quick
 
     # If proxy is set, set it in header
     if proxy: headers['proxy'] = proxy
     
     with method(url, *exceptions, **headers) as freq:
-        return (freq.content, dict(freq.headers))
-
-    return (None, None)
-
-def get_url(url, headers={}, proxy=''):
+        return freq
+    
+def get_url(url, headers={}, proxy='', content_types=[], max_size=0):
     """ Download a URL and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
@@ -163,6 +187,15 @@ def get_url(url, headers={}, proxy=''):
     if proxy: headers['proxy'] = proxy
     
     with method(url, *exceptions, **headers) as freq:
+        # Check the content-type
+        hdr = freq.headers
+        ctype = hdr.get('content-type','text/html').split(';')[0]
+        if len(content_types) and ctype not in content_types:
+            raise InvalidContentType, 'content-type ' + ctype + ' is not valid.'
+        csize = int(hdr.get('content-length', 0))
+        if csize and max_size and (csize > max_size):
+            raise MaxRequestSizeExceeded, "size of request %d exceeds maximum request size %d" % (csize, max_size)
+        
         return freq
 
 def head_url(url, headers={}):
@@ -386,9 +419,9 @@ def guess_content_type(url):
         # Python mime-types library doesn't seem to identify .gz as
         # application/x-gzip, so adding it. This causes issue #439
         extn = url.rsplit('.')[-1]
-        try:
+        if extn in __mimetypes__:
             return __mimetypes__[extn]
-        except KeyError:
+        else:
             # Default
             return 'text/html'
 
