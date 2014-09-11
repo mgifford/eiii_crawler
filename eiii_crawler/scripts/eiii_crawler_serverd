@@ -40,9 +40,16 @@ server_start()
     DAEMON=`which eiii_crawler_server`;
     if is_yes "$START_DAEMON"; then
         echo "Found $DAEMON"
+        id tingtun > /dev/null
+        if [ ! $? -eq 0 ];
+        then
+            echo "User tingtun doesn't exist"
+            exit 1
+        fi
         # check_pid
         log_begin_msg "Starting $NAME"
-        exec "$DAEMON" $* &
+        /sbin/start-stop-daemon --oknodo --start --quiet --chuid tingtun --group tingtun --chdir /home/tingtun/ --exec "$DAEMON" $* 
+        # exec "$DAEMON" $* &
         log_end_msg $?
     else
         log_warning_msg "Not starting $NAME (disabled in /etc/default/$NAME)"
