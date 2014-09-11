@@ -65,7 +65,10 @@ Y07HOeuQ\n09XdvtIhWekuIrD5d2kb8nlPjDfldcNqsFZsAlvAlvgzsC3/A+nsAxc=\n'
 
 __tlds__ = zlib.decompress(base64.decodestring(__tldstring__)).split('.')
 
-__mimetypes__ = { 'gz': 'application/x-gzip' }
+# Add all tlds which dont evaluate to text/html
+__mimetypes__ = {tld: 'text/html' for tld in filter(lambda x: mimetypes.guess_type('http://foo.'+x)[0],
+                                                    __tlds__)}
+__mimetypes__['gz'] = 'application/x-gzip'
 
 class FetchUrlException(Exception):
     def __init__(self, message):
@@ -412,18 +415,18 @@ def guess_content_type(url):
     file types. Guess from the extension if any. If no extension
     found assume text/html """
 
-    ctype, encoding = mimetypes.guess_type(url, strict=False)
-    if ctype != None:
-        return ctype
+    extn = url.rsplit('.')[-1]
+    # Python mime-types library doesn't seem to identify .gz as
+    # application/x-gzip, so adding it. This causes issue #439
+    if extn in __mimetypes__:
+        return __mimetypes__[extn]
     else:
-        # Python mime-types library doesn't seem to identify .gz as
-        # application/x-gzip, so adding it. This causes issue #439
-        extn = url.rsplit('.')[-1]
-        if extn in __mimetypes__:
-            return __mimetypes__[extn]
-        else:
-            # Default
-            return 'text/html'
+        ctype, encoding = mimetypes.guess_type(url, strict=False)
+        if ctype != None:
+            return ctype
+
+    # Default
+    return 'text/html'
 
 def get_content_type(url, headers):
     """ Given a URL and its headers find the content-type """
