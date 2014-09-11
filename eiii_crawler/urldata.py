@@ -211,7 +211,10 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         
         try:
             log.debug("Waiting for URL",self.url,"...")
-            freq = urlhelper.get_url(self.url, headers = self.build_headers())
+            freq = urlhelper.get_url(self.url, headers = self.build_headers(),
+                                     content_types=self.config.client_mimetypes,
+                                     max_size = self.config.site_maxrequestsize*1024*1024
+                                     )
             log.debug("Downloaded URL",self.url,"...")          
 
             self.content = freq.content
@@ -258,6 +261,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                                params=self.__dict__)
 
             self.write_headers_and_data()
+            freq.close()
         except urlhelper.FetchUrlException, e:
             log.error('Error downloading',self.url,'=>',str(e))
             # FIXME: Parse HTTP error string and find out the
@@ -267,7 +271,13 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                            is_error = True,
                            code=0,
                            params=self.__dict__)
-
+        except (urlhelper.InvalidContentType, urlhelper.MaxRequestSizeExceeded), e:
+            log.error("Error downloading",self.url,'=>',str(e))
+            eventr.publish(self, 'download_error',
+                           message=str(e),
+                           is_error = True,
+                           code=0,
+                           params=self.__dict__)
         return True
 
             
