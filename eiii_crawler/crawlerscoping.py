@@ -65,11 +65,12 @@ class CrawlerLimits(object):
     # Maximum time duration of the crawl in minutes - 8 hrs by default
     time_limit = 480
     # Maximum concurrent connections/requests to a site
+    # NOTE: Unimplemented
     site_maxrequests = 20
     # Maximum bytes downloaded from a site in MB
     site_maxbytes = 500
     # Maximum size of single URL from a site in MB
-    site_maxurlsize = 20
+    site_maxrequestsize = 5
 
 
 class CrawlerScopingRules(object):
