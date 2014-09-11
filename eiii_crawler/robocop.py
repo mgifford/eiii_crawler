@@ -43,7 +43,7 @@ class Robocop(object):
 
         try:
             # print 'Robots URL =>',robots_url
-            freq = urlhelper.get_url(robots_url)
+            freq = urlhelper.fetch_url(robots_url)
             content = freq.content.split('\n')
             self.parse_robotstxt(content, site_nos)
         except:
@@ -140,7 +140,7 @@ class Robocop(object):
         if content==None:
             # Need to fetch the content
             try:
-                freq = urlhelper.get_url(url)
+                freq = urlhelper.fetch_url(url)
                 content = freq.content
             except Exception, e:
                 print 'Error fetching URL =>',str(e)
@@ -180,14 +180,10 @@ class Robocop(object):
             return self.check_meta(url, content)[0]
 
         site_rules = self.rules.get(site, [])
+        # print site_rules
         
-        if len(site_rules)==0:
-            # Parse the site
-            self.parse_site(url)
-            site_rules = self.rules.get(site)
-
         # Maybe no robots.txt ?
-        if site_rules == None:
+        if len(site_rules)==0:
             # Allow - default
             return True
         
@@ -196,7 +192,7 @@ class Robocop(object):
                   
 if __name__ == '__main__':
     # Pass in init
-    r = Robocop('www.aljazeera.net')
+    r = Robocop('http://www.askoy.kommune.no')
     # Check if can fetch
     assert(not r.can_fetch('www.askoy.kommune.no/cache/test'))
     assert(not r.can_fetch('www.askoy.kommune.no/logs/log1.log'))
@@ -206,7 +202,9 @@ if __name__ == '__main__':
     assert(r.can_fetch('http://www.metatags.info/meta_name_robots', meta=True))
     assert(not r.can_fetch('http://www.metatags.info/cpanel/testing'))
     # implicit parsing
+    r.parse_site('www.robotstxt.org')
     assert(r.can_fetch('http://www.robotstxt.org/meta.html', meta=True))
+    r.parse_site('www.aljazeera.net')   
     assert(r.can_fetch('http://www.aljazeera.net/news/healthmedicine'))
     assert(not r.can_fetch('http://www.aljazeera.net/ajamonitor'))
     print 'All tests passed.'
