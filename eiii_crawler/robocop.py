@@ -185,7 +185,12 @@ class Robocop(object):
             # Parse the site
             self.parse_site(url)
             site_rules = self.rules.get(site)
-            
+
+        # Maybe no robots.txt ?
+        if site_rules == None:
+            # Allow - default
+            return True
+        
         # Check against the rules
         return not any(rule.match(url) for rule in site_rules)
                   
