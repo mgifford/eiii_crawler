@@ -274,6 +274,9 @@ class JSParser(object):
       self.js = self.parser.statements[:]
       
       # print 'Extracted js content.'
+      if self.onload_handler != None and len(self.onload_handler):
+         self.js.append(self.onload_handler)
+
       print 'Found %d JS statements.' % len(self.js)
       
       # print 'Processing JS'
@@ -289,7 +292,10 @@ class JSParser(object):
             break
          else:
             # Further process the URL for document changes
-            position = self.parser.positions[x]
+            try:
+               position = self.parser.positions[x]
+            except IndexError:
+               continue
             
             rawdata = statement.strip()
             self._feed(rawdata)
@@ -748,7 +754,11 @@ def localtests():
     P.parse(open('samples/raya.html').read())
     assert(P.location_changed==False)    
     # print P.getLocation().href
-    
+
+    P.parse(open('samples/qmediame.html').read())
+    print P.location_changed
+    print P.getLocation().href
+
     print 'All local tests passed.'
 
 def webtests():
