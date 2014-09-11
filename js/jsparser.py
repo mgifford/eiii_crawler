@@ -192,6 +192,12 @@ class JSParser(object):
    bodyonload_re = re.compile(r'\<body\s+[^>]*onload="(.*?)"[^>]*\>', re.IGNORECASE)
    # document.ready locator
    documentready_re = re.compile(r'\$\(\s*document\s*\)\.ready\(\s*(.*?)\s*\)', re.IGNORECASE)
+   # Anonymous jquery function of the form
+   # $(...).func('elem', function(...)) ...
+   anon_jquery_func = re.compile(r'\$\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\([\'\"]{1}[a-zA-Z0-9_]+[\'\"]{1}\s*,\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
+   # Anonymous jquery function of the form
+   # $(...).func(function(...)) ...   
+   anon_jquery_func2 = re.compile(r'\$\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
    # Maximum number of lines in a function for a redirection
    # NOTE - This is totally arbitrary and is not really a good workaround!
    MAXJSLINES = 50
@@ -386,10 +392,14 @@ class JSParser(object):
 
       # If a statement starts with an if ... then this means conditional
       # code so skip straight away.
+      # print statement
       statement = statement.strip()
       if statement.startswith('if '):
          return False
 
+      if self.anon_jquery_func.search(statement) or self.anon_jquery_func2.search(statement):
+         return False
+      
       js_lines = statement.split('\n')
       if len(js_lines)>self.MAXJSLINES:
          # print 'debug: skipping JS statement for redirection since number of lines',len(js_lines),'>',self.MAXJSLINES
@@ -734,6 +744,10 @@ def localtests():
 
     P.parse(open('samples/alrayyan_tv.html').read())
     assert(P.location_changed==False)
+
+    P.parse(open('samples/raya.html').read())
+    assert(P.location_changed==False)    
+    # print P.getLocation().href
     
     print 'All local tests passed.'
 
