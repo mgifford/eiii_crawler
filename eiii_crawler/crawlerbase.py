@@ -151,6 +151,8 @@ class CrawlerConfig(object):
         # 8. */_static/*
         # 9.  */js/*
         # 10. */stylesheets/*
+        # 11. */login/*
+        # 12. */_login/*
         self.url_filter =  [('-',  '.*\/wp-content\/.*'),
                             ('-',  '.*\/wp-includes\/.*'),                          
                             ('-', '.*\/plugins\/.*'),
@@ -161,7 +163,9 @@ class CrawlerConfig(object):
                             ('-', '.*\/_static\/.*'),
                             ('-', '.*\/static\/.*'),
                             ('-', '.*\/js\/.*'),
-                            ('-', '.*\/stylesheets\/.*')]    
+                            ('-', '.*\/stylesheets\/.*'),
+                            ('-', '.*\/login\/.*'),
+                            ('-', '.*\/_login\/.*')]                                
         
 
     def update(self, configdict):
