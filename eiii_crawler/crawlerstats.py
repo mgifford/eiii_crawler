@@ -116,7 +116,7 @@ class CrawlerStats(object):
         """ Publish crawl stats """
 
         log.info('')
-        log.info("oxoxox BEGIN CRAWL STATISTICS xoxoxo")
+        log.justlog("oxoxox BEGIN CRAWL STATISTICS xoxoxo", justify=40)
         log.justlog("Start Timestamp",self.start_timestamp, justify=40)
         log.justlog("End Timestamp",self.end_timestamp, justify=40)
         log.justlog("Crawl Time",str(self.crawl_time), justify=40)
@@ -124,6 +124,6 @@ class CrawlerStats(object):
         log.justlog("# URLs downloaded",self.num_urls_downloaded, justify=40)
         log.justlog("# URLs with error",self.num_urls_error, justify=40)
         log.justlog("# URLs 404",self.num_urls_notfound, justify=40)
-        log.info("oxoxox END CRAWL STATISTICS xoxoxo")
+        log.justlog("oxoxox END CRAWL STATISTICS xoxoxo", justify=40)
         log.info('')
         
