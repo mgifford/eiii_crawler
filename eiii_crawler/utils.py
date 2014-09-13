@@ -13,6 +13,7 @@ import datetime
 import random
 
 import logger
+import urlhelper
 
 from contextlib import contextmanager
 from types import StringTypes
@@ -36,6 +37,32 @@ def get_crawl_log():
             return ''
 
     return os.path.join(__logprefix__, 'crawl.log')
+
+def get_logfilename(task_id, urls, config):
+    """ Return the crawl log filename according to the chosen logging theme """
+
+    theme = config.logfile_theme
+    site = urlhelper.get_website(urls[0])
+    
+    if theme == 'task':
+        return os.path.join(__logprefix__, 'crawl_' + task_id + '.log')
+    elif theme == 'site':
+        return os.path.join(__logprefix__, 'crawl_' + site + '.log')
+    elif theme == 'site_task':
+        return os.path.join(__logprefix__, 'crawl_' + '_'.join((site, task_id)) + '.log')
+    elif theme == 'site_folder':
+        folder = os.path.join(__logprefix__, site)
+        # Make sub-folder with site name and log file with task-id
+        with ignore():
+            os.makedirs(folder)
+
+        if os.path.isdir(folder):
+            return os.path.join(folder, 'crawl_' + task_id + '.log')
+        else:
+            print 'Log sub-folder',folder,'creation failed. Using regular logging.'
+            
+    # Defaults to site_task
+    return os.path.join(__logprefix__, 'crawl_' + '_'.join((site, task_id)) + '.log')
 
 def safedata(data):
     """ Return an ascii encoded string containing non-ascii characters in a safe
