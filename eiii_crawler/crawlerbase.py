@@ -165,8 +165,15 @@ class CrawlerConfig(object):
                             ('-', '.*\/js\/.*'),
                             ('-', '.*\/stylesheets\/.*'),
                             ('-', '.*\/login\/.*'),
-                            ('-', '.*\/_login\/.*')]                                
-        
+                            ('-', '.*\/_login\/.*')]
+
+        # Crawler log options
+        # 3 options
+        # 1. task - Uses task id to create log files
+        # 2. site - Uses site name to create log files
+        # 3. site_task - Mix of task id + site name (default)
+        # 4. site_folder - Sub-folders with site names and log files with task ids
+        self.logfile_theme = 'site_task'
 
     def update(self, configdict):
         """ Update configuration from another dictionary """
