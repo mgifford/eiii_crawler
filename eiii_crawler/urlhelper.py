@@ -675,10 +675,16 @@ class URLBuilder(object):
         self.parent_url = parent_url
 
     def normalize(self, url):
+
         try:
-            return urlnorm.norms(url)
+            urln = urlnorm.norms(url)
         except:
-            return url
+            urln = url
+
+        try:
+            return unicode(urln, 'latin1')
+        except TypeError:
+            return urln
         
     def build(self):
         """ Build the full child URL using the original child URL
@@ -686,51 +692,51 @@ class URLBuilder(object):
         borrowed from HarvestMan's urlparser library)
 
         >>> URLBuilder('http://www.yahoo.com/photos/my photo.gif').build()
-        'http://www.yahoo.com/photos/my photo.gif'
+        u'http://www.yahoo.com/photos/my photo.gif'
         >>> URLBuilder('http://www.rediff.com:80/r/r/tn2/2003/jun/25usfed.htm').build()
-        'http://www.rediff.com/r/r/tn2/2003/jun/25usfed.htm'
+        u'http://www.rediff.com/r/r/tn2/2003/jun/25usfed.htm'
         >>> URLBuilder('http://cwc2003.rediffblogs.com').build()
-        'http://cwc2003.rediffblogs.com'
+        u'http://cwc2003.rediffblogs.com'
         >>> URLBuilder('/sports/2003/jun/25beck1.htm','http://www.rediff.com').build()
-        'http://www.rediff.com/sports/2003/jun/25beck1.htm'
+        u'http://www.rediff.com/sports/2003/jun/25beck1.htm'
         >>> URLBuilder('http://ftp.gnu.org/pub/lpf.README').build()
-        'http://ftp.gnu.org/pub/lpf.README'
+        u'http://ftp.gnu.org/pub/lpf.README'
         >>> URLBuilder('http://www.python.org/doc/2.3b2/').build()
-        'http://www.python.org/doc/2.3b2/'
+        u'http://www.python.org/doc/2.3b2/'
         >>> URLBuilder('//images.sourceforge.net/div.png', 'http://sourceforge.net').build()
-        'http://images.sourceforge.net/div.png'
+        u'http://images.sourceforge.net/div.png'
         >>> URLBuilder('http://pyro.sourceforge.net/manual/LICENSE').build()
-        'http://pyro.sourceforge.net/manual/LICENSE'
+        u'http://pyro.sourceforge.net/manual/LICENSE'
         >>> URLBuilder('python/test.htm', 'http://www.foo.com/bar/index.html').build()
-        'http://www.foo.com/bar/python/test.htm'
+        u'http://www.foo.com/bar/python/test.htm'
         >>> URLBuilder('/python/test.css','http://www.foo.com/bar/vodka/test.htm').build()
-        'http://www.foo.com/python/test.css'
+        u'http://www.foo.com/python/test.css'
         >>> URLBuilder('/visuals/standard.css', 'http://www.garshol.priv.no/download/text/perl.html').build()
-        'http://www.garshol.priv.no/visuals/standard.css'
+        u'http://www.garshol.priv.no/visuals/standard.css'
         >>> URLBuilder('www.fnorb.org/index.html', 'http://pyro.sourceforge.net').build()
-        'http://www.fnorb.org/index.html'
+        u'http://www.fnorb.org/index.html'
         >>> URLBuilder('http://profigure.sourceforge.net/index.html','http://pyro.sourceforge.net').build()
-        'http://profigure.sourceforge.net/index.html'
+        u'http://profigure.sourceforge.net/index.html'
         >>> URLBuilder('#anchor', 'http://www.foo.com/bar/index.html').build()
-        ''
+        u''
         >>> URLBuilder('nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html#__init__#index-after','http://nltk.sourceforge.net/lite/doc/api/term-index.html').build()
-        'http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html'
+        u'http://nltk.sourceforge.net/lite/doc/api/nltk_lite.contrib.fst.draw_graph.GraphEdgeWidget-class.html'
         >>> URLBuilder('../../icons/up.png', 'http://www.python.org/doc/current/tut/node2.html').build()
-        'http://www.python.org/doc/icons/up.png'
+        u'http://www.python.org/doc/icons/up.png'
         >>> URLBuilder('../../eway/library/getmessage.asp?objectid=27015&moduleid=160', 'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160').build()
-        'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'
+        u'http://www.eidsvoll.kommune.no/eway/library/getmessage.asp?objectid=27015&moduleid=160'
         >>> URLBuilder('fileadmin/dz.gov.si/templates/../../../index.php', 'http://www.dz-rs.si').build()
-        'http://www.dz-rs.si/index.php'
+        u'http://www.dz-rs.si/index.php'
         >>> URLBuilder('http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70','http://www.evvs.dk').build()
-        'http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70'
+        u'http://www.evvs.dk/index.php?cPath=26&osCsid=90207c4908a98db6503c0381b6b7aa70'
         >>> URLBuilder('http://arstechnica.com/reviews/os/macosx-10.4.ars').build()
-        'http://arstechnica.com/reviews/os/macosx-10.4.ars'
+        u'http://arstechnica.com/reviews/os/macosx-10.4.ars'
         >>> URLBuilder('../index.php','http://www.foo.com/bar/').build()
-        'http://www.foo.com/index.php'
+        u'http://www.foo.com/index.php'
         >>> URLBuilder('./index.php','http://www.yahoo.com/images/public/').build()
-        'http://www.yahoo.com/images/public/index.php'
+        u'http://www.yahoo.com/images/public/index.php'
         >>> URLBuilder('http://www.foo.com/foo/../index.php').build()
-        'http://www.foo.com/index.php'
+        u'http://www.foo.com/index.php'
         >>> 
 
         """
@@ -742,11 +748,11 @@ class URLBuilder(object):
         url = url.strip()
             
         if not url:
-            return ''
+            return u''
 
         # Plain anchor URLs or other types of 'junk' URLs
         if any([url.startswith(item) for item in ('#','mailto:','javascript:','tel:', 'file:')]):
-            return ''
+            return u''
 
         # If the URL consists of HTML entities, then convert them to their proper form.
         # E.g: &#xD;&#xA;/English/News/Global/pages/Singapore-smog-eases-as-Indonesian-planes-water-bomb-fires.aspx
@@ -754,20 +760,25 @@ class URLBuilder(object):
         if entity_re.search(url):
             url = utils.unescape(url)
 
-        if quoted_re.search(url):
-            url = urllib.unquote(url)
+        # This unquoting is probably unnecessary and caused issue #457
+        # The problem is unless string casted, it returns a unicode string
+        # which actually contains byte characters which then can't be further
+        # encoded or decoded in proper ascii or unicode.
+        #if quoted_re.search(url):
+        #    url = urllib.unquote(url)
 
         # Do same for parent URL
         if entity_re.search(parent_url):
             parent_url = utils.unescape(parent_url)
 
-        if quoted_re.search(parent_url):
-            parent_url = urllib.unquote(parent_url)
+        # This unquoting is probably unnecessary and caused issue #457
+        #if quoted_re.search(parent_url):
+        #    parent_url = urllib.unquote(parent_url)
             
         # Strip again as unescape or unquote could have introduced newline characters.
         url = url.strip()
         if not url:
-            return ''
+            return u''
         
         parent_url = parent_url.strip()
         
@@ -779,7 +790,7 @@ class URLBuilder(object):
                 url = items[0]
             else:
                 # Forget about it
-                return ''
+                return u''
             
         if (url.startswith('http:') or url.startswith('https:')):
             return self.normalize(url)
@@ -829,7 +840,7 @@ class URLBuilder(object):
                 url = protocol +'://' + domain + '/' + path +'/' + urllib.quote(url)
 
         return self.normalize(url)
-        
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod(verbose=True)
