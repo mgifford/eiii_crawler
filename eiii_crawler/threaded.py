@@ -7,6 +7,8 @@ import utils
 import urlhelper
 import random
 import time
+import traceback
+
 from crawlerbase import CrawlerUrlData, CrawlerWorkerBase
 from crawlerevent import CrawlerEventRegistry
 
@@ -197,6 +199,10 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
             self.after_crawl()
         # Any uncaught exception
         except Exception, e:
+            tback = traceback.format_exc()
+            log.error("Unhandled exception on worker",self)
+            log.error("\tTraceback log => ",tback)
+            # raise
             # Raise thread killed event. Maybe this can be listened
             # to by the manager to create a new thread so crawl doesn't
             # get stuck.
