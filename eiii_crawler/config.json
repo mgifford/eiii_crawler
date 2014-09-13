@@ -46,6 +46,7 @@
  "flag_use_last_modified": true, 
  "flag_usecache": true, 
  "flag_x_robots": true, 
+ "logfile_theme": "site_task", 
  "network_proxy": "", 
  "num_workers": 2, 
  "site_maxbytes": 500, 
