@@ -38,7 +38,8 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         and their directory """
 
         # Let us write against original URL
-        urlhash = hashlib.md5(self.orig_url).hexdigest()
+        # Always assume bad Unicode
+        urlhash = hashlib.md5(self.orig_url.encode('latin1')).hexdigest()
         # First two bytes for folder, next two for file
         folder, sub_folder, fname = urlhash[:2], urlhash[2:4], urlhash[4:]
         # Folder is inside 'store' directory
@@ -164,9 +165,9 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             # download the actual data using a GET.
             
             if self.given_content_type in self.config.client_fake_mimetypes:
-                log.info("Waiting for (head request)",self.url,"...")
+                log.info("Making a head request",self.url,"...")
                 fhead = urlhelper.head_url(self.url, headers=self.build_headers())
-                log.info("Downloaded (head request)",self.url,"...")
+                log.info("Obtained with head request",self.url,"...")
 
                 self.headers = fhead.headers
             
@@ -183,7 +184,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                                code=200,
                                params=self.__dict__)
 
-                self.status = True
+                self.status = False
                 return True
         except urlhelper.FetchUrlException, e:
             log.error('Error downloading',self.url,'=>',str(e))
@@ -220,6 +221,9 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             self.content = freq.content
             self.headers = freq.headers
 
+            # print self.url,type(self.url)
+            # print freq.url,type(freq.url)
+            
             # Is the URL modified ? if so set it 
             if self.url != freq.url:
                 self.url = freq.url
