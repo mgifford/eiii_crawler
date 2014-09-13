@@ -22,6 +22,7 @@ import socket
 import multiprocessing
 import signal
 import gc
+import warnings
 
 import crawlerbase
 from crawlerevent import CrawlerEventRegistry
@@ -37,6 +38,8 @@ import js.jsparser as jsparser
 
 # Default logging object
 log = utils.get_default_logger()
+
+# warnings.simplefilter('ignore')
 
 # Default timeout set to 15s
 socket.setdefaulttimeout(15)
@@ -92,6 +95,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
     def build_url(self, child_url, parent_url):
         """ Build the complete URL for child URL using the parent URL """
 
+        # import pdb; pdb.set_trace()
         builder = urlhelper.URLBuilder(child_url, parent_url)
         url = builder.build()
 
