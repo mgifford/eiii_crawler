@@ -11,6 +11,7 @@ import logging
 import functools
 import re
 import sys
+import time
 
 # List of current loggers
 __loggers__ = {}
@@ -24,6 +25,7 @@ class LoggerWrapper(object):
 
     def __init__(self, log, console=False):
         self._log = log
+        self._startt = time.time()
         # Debug flag - if set, can be used to trace the
         # source of the caller stack frame
         self._sdebug = False
@@ -38,7 +40,7 @@ class LoggerWrapper(object):
             setattr(self, name, func)
 
         # Standard formatter
-        self.stdformat = logging.Formatter('%(asctime)s [%(sourcename)s/%(function)s]:%(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        self.stdformat = logging.Formatter('%(asctime)s [%(timespent)s] [%(sourcename)s/%(function)s]:%(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         
         self.__console = False
         # Add console logging if specified
@@ -58,7 +60,7 @@ class LoggerWrapper(object):
         self.shout = logging.StreamHandler(sys.stdout)
         self.sherr = logging.StreamHandler(sys.stderr)       
         # Formatter - skip debugging for console formatter
-        formatter2 = logging.Formatter('%(asctime)s :%(levelname)-8s - %(message)s',
+        formatter2 = logging.Formatter('%(asctime)s [%(timespent)s] :%(levelname)-8s - %(message)s',
                                        datefmt='%Y-%m-%d %H:%M:%S')
         self.shout.setFormatter(formatter2)
         self.sherr.setFormatter(formatter2)      
@@ -116,16 +118,23 @@ class LoggerWrapper(object):
         except:
             pass
 
+        tnow = time.time()
+        tdiff = int(round(tnow - self._startt))
+
+        hr, rem = divmod(tdiff, 3600)
+        mins, sec = divmod(rem, 60)
+        tsofar = '%.2d:%.2d:%.2d' % (hr, mins, sec)
+                         
         try:
             logfunc = getattr(self._log, levelname)
-            return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function})         
+            return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function, 'timespent': tsofar})         
         except AttributeError:
             logfunc = getattr(self._log, 'info')
             level = eval('logging.' + levelname.upper())
 
             # Custom levels are < INFO
             if (self._log.level <= level):
-                return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function})
+                return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function, 'timespent': tsofar})
 
     def logsimple(self, msg, *args):
         """ Send a log line to the log file with no formatting """
@@ -165,7 +174,7 @@ class LoggerWrapper(object):
             fullmsg = self._getMessage(msg, *args)
 
         # Log the message at info level
-        self._log.info(fullmsg)         
+        self._log.info(fullmsg, extra={'timespent': ''})         
         
     # Set debug flag
     def setDebug(self, val = True):
@@ -208,6 +217,7 @@ class LoggerWrapper(object):
     def addLogFile(self, logfile):
         """ Add a log file to the logger """
 
+        # print 'LOGFILE=>',logfile
         fh = logging.FileHandler(logfile)
         fh.setFormatter(self.stdformat)
         # add handler to logger object
