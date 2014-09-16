@@ -486,10 +486,10 @@ class EIIICrawler(multiprocessing.Process):
         task_id = self.config.__dict__.get('task_id', str(uuid.uuid4()))
         # Insert task id
         self.config._task_id = task_id
-        
-        # Add another crawl log file to the logger
-        self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
-        log.addLogFile(self.task_logfile)
+
+        if len(urls):
+            self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
+            log.addLogFile(self.task_logfile)
         
         # Prepare it
         self.prepare_config()
@@ -823,8 +823,8 @@ class EIIICrawler(multiprocessing.Process):
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
         
         # Add another crawl log file to the logger
-        task_logfile = os.path.join(utils.__logprefix__, 'crawl_' + task_id + '.log')
-        log.addLogFile(task_logfile)
+        self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
+        log.addLogFile(self.task_logfile)       
         
         # Insert task id
         self.config._task_id = task_id
