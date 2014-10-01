@@ -89,6 +89,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             self.instances.append(crawler)
             crawler.start()
         print 'Initialized',self.nprocs,'crawlers.'
+        # Turn console logging off.
+        log.setConsole(False)
 
     def do_crawl(self, ctl, crawler_rules):
         """ Perform crawling """
@@ -237,7 +239,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
             url_dgraph.append((ctype, url, child_index))
 
-        print 'URL directed graph=>',url_dgraph
+        # print 'URL directed graph=>',url_dgraph
         return url_dgraph
         
     def load(self, ctl):
