@@ -111,7 +111,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         self.task_queue.put(task)
 
         return ctl.id_
-    
+
     def poll(self, ctl, task_id):
         """ Poll for crawl results - done by the client
         which crawls the server """
@@ -131,10 +131,31 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         return_data = self.return_dict[task_id]
         url_graph = return_data['graph']
         stats_dict = return_data['stats']
+
+        url_graph = self.fix_url_graph(url_graph)
         
         return { 'result': self.make_directed_graph(url_graph),
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
+
+    def fix_url_graph(self, url_graph):
+        """ Fix or remove invalid URLs in URL graph """
+
+        url_graph_f = {}
+        
+        # Issue 470 - stand-alone % characters
+        for url in url_graph.keys():
+            url = utils.fix_quoted_url(url)
+            children = url_graph[url]
+            children2 = set()
+            
+            for child_url, ctype in children:
+                child_url = utils.fix_quoted_url(child_url)
+                children2.add((child_url, ctype))
+
+            url_graph_f[url] = children2
+
+        return url_graph_f
         
     def crawl(self, ctl, crawler_rules, threaded=True):
         """ Accepts a crawler control object, dictionary of
