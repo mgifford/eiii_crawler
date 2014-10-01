@@ -11,7 +11,7 @@ import re
 import json
 import datetime
 import random
-
+import urllib
 import logger
 import urlhelper
 
@@ -266,6 +266,20 @@ def create_cache_structure(root='.'):
             os.makedirs(folder)
 
     print "done."
+
+def fix_quoted_url(url):
+    """ Fix invalid URLs, specifically looks for
+    improperly quoted aspect. Returns fixed URLs """
+
+    if '%' in url:
+        url2 = urllib.unquote(url)
+        # If an stray percentage again then issue
+        # E.g: http://www.barwabank.com/media/PRL_Barwa Bank Net Profits Rise by 35%% for the First Half of 2014 (Arabic).pdf
+        if '%' in url2:
+            return urllib.quote(url2, safe='/:')
+
+    # No problemo
+    return url
 
 def convert_config(crawler_rules):
     """ Convert config rules from Checker's format
