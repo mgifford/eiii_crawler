@@ -277,7 +277,7 @@ class JSParser(object):
       if self.onload_handler != None and len(self.onload_handler):
          self.js.append(self.onload_handler)
 
-      print 'Found %d JS statements.' % len(self.js)
+      # print 'Found %d JS statements.' % len(self.js)
       
       # print 'Processing JS'
       for x in range(len(self.js)):
