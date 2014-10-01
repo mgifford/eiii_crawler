@@ -40,7 +40,7 @@ class LoggerWrapper(object):
             setattr(self, name, func)
 
         # Standard formatter
-        self.stdformat = logging.Formatter('%(asctime)s [%(timespent)s] [%(sourcename)s/%(function)s]:%(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        self.stdformat = logging.Formatter('%(asctime)s [%(timespent)s] :%(levelname)-8s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         
         self.__console = False
         # Add console logging if specified
@@ -107,20 +107,6 @@ class LoggerWrapper(object):
     def _dolog(self, levelname, msg, *args, **kwargs):
         """ Generic function for logging with variable arguments """
 
-        # Check specific keywordargs filename and function
-        filename, function = kwargs.get('sourcename',''), kwargs.get('function')
-        # Check for None
-        filename = filename or ''
-        function = function or ''
-        
-        filename = filename.split('/')[-1]
-        
-        # Remove .py from the filename
-        try:
-            filename = filename[:filename.rindex('.')]
-        except:
-            pass
-
         tnow = time.time()
         tdiff = int(round(tnow - self._startt))
 
@@ -130,14 +116,14 @@ class LoggerWrapper(object):
                          
         try:
             logfunc = getattr(self._log, levelname)
-            return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function, 'timespent': tsofar})         
+            return logfunc(self._getMessage(msg, *args), extra={'timespent': tsofar})         
         except AttributeError:
             logfunc = getattr(self._log, 'info')
             level = eval('logging.' + levelname.upper())
 
             # Custom levels are < INFO
             if (self._log.level <= level):
-                return logfunc(self._getMessage(msg, *args), extra={'sourcename':filename,'function':function, 'timespent': tsofar})
+                return logfunc(self._getMessage(msg, *args), extra={'timespent': tsofar})
 
     def logsimple(self, msg, *args):
         """ Send a log line to the log file with no formatting """
@@ -222,7 +208,7 @@ class LoggerWrapper(object):
 
         # Remove previous file handle if any
         if self._extrafhandle != None:
-            print 'Removing file handle',self._extrafhandle
+            # print 'Removing file handle',self._extrafhandle
             self._log.removeHandler(self._extrafhandle)
             
         # print 'LOGFILE=>',logfile
@@ -298,7 +284,7 @@ def getMultiLogger(app, logfile, errlogfile, level=logging.INFO, console=False):
     fhout = logging.FileHandler(logfile)
     fherr = logging.FileHandler(errlogfile) 
 
-    formatter = logging.Formatter('%(asctime)s [%(sourcename)s/%(function)s]:%(levelname)-8s - %(message)s',
+    formatter = logging.Formatter('%(asctime)s [%(timespent)s]: %(levelname)-8s - %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S') 
 
     fhout.setFormatter(formatter)
