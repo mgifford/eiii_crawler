@@ -50,6 +50,9 @@ class LoggerWrapper(object):
             self._addConsoleHandlers()
             
         self.__console = console
+        # Additional file handle
+        self._extrafhandle = None
+        
 
     def myrepr(self, string):
         return self.squote_re.sub('',repr(string))
@@ -214,16 +217,21 @@ class LoggerWrapper(object):
 
         self.__console = val
 
-    def addLogFile(self, logfile):
+    def addLogFile(self, logfile, sethandler = True):
         """ Add a log file to the logger """
 
+        # Remove previous file handle if any
+        if self._extrafhandle != None:
+            print 'Removing file handle',self._extrafhandle
+            self._log.removeHandler(self._extrafhandle)
+            
         # print 'LOGFILE=>',logfile
         fh = logging.FileHandler(logfile)
         fh.setFormatter(self.stdformat)
         # add handler to logger object
         self._log.addHandler(fh)
- 
-        
+        if sethandler: self._extrafhandle = fh
+
 class ErrorFilter(object):
     """ Logging filter class that filters out all
     log records at levels < ERROR """
@@ -255,7 +263,7 @@ def getLogger(app, logfile, level=logging.INFO, console=False):
     log.setLevel(level)
 
     logobject = LoggerWrapper(log, console=console)
-    logobject.addLogFile(logfile)
+    logobject.addLogFile(logfile, sethandler=False)
 
     # Make entry for the logging object in the logger dictionary
     __loggers__[key] = logobject
