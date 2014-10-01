@@ -30,7 +30,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
-    def __init__(self, nprocs=10):
+    def __init__(self, nprocs=10, loglevel='info'):
         open(pidfile, 'w').write(str(os.getpid()))
         # All the crawler objects
         self.instances = []
@@ -43,6 +43,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         self.return_dict = self.manager.dict()
         # Maxium number of crawl instances
         self.nprocs = nprocs
+        # Log level
+        self.loglevel = loglevel
         
         SimpleTTRPCServer.__init__(self)
         try:
@@ -102,7 +104,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             raise UserError(0, "No URLs given!")
 
         # Set log level
-        log.setLevel(crawler_rules.get('loglevel','info'))
+        print 'Setting log level to' , crawler_rules.get('loglevel',self.loglevel)
+        log.setLevel(crawler_rules.get('loglevel',self.loglevel))
 
         # Set task id
         config_dict['task_id'] = ctl.id_
@@ -270,11 +273,16 @@ if __name__ == "__main__":
                         help='Number of crawler processes to start')
     parser.add_argument('--port', dest='port', default=8910,type=int,
                         help='Port number on which to listen')
+    parser.add_argument('--debug', dest='loglevel', const='debug',
+            default='info', nargs='?', help='Enable debug logging')
     args = parser.parse_args()
     print 'Number of parallel crawler processes set to',args.nprocs
     print 'Starting crawler server on port',args.port,'...'
+    if args.loglevel is 'debug':
+        print 'Enabled debug messages.'
 
-    EIIICrawlerServer(nprocs=args.nprocs).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
+    log.setLevel(args.loglevel)
+    EIIICrawlerServer(nprocs=args.nprocs,loglevel=args.loglevel).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
 
 
     
