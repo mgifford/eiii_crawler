@@ -467,14 +467,11 @@ class EIIICrawler(multiprocessing.Process):
             # For URL filter, append!
             self.config.update(fromdict)
             self.config.url_filter += self.default_url_filter
-            log.extra('URL FILTER=>',self.config.url_filter)
+            # log.extra('URL FILTER=>',self.config.url_filter)
 
         # Task queue - Used when crawler is run as an independent
         # process through the crawler server
         self.taskq = task_queue
-        # Semaphore - Used by the crawler clients to wait on
-        # till a crawl is finished.
-        # self.sem = multiprocessing.Semaphore(1)
         # Value dictionary - return value of crawl is copied
         # here when the crawler is called from the server.
         self.value_dict = value_dict
@@ -490,6 +487,7 @@ class EIIICrawler(multiprocessing.Process):
         if len(urls):
             self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
             log.addLogFile(self.task_logfile)
+            log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))
         
         # Prepare it
         self.prepare_config()
@@ -498,7 +496,6 @@ class EIIICrawler(multiprocessing.Process):
         # Add to config
         self.config._urls = urls
 
-        # print 'ARGS=>',args
         # If a param is passed then override it
         if args and args.param:
             try:
@@ -790,6 +787,7 @@ class EIIICrawler(multiprocessing.Process):
         as a multiprocessing crawler from the EIII crawler server """
 
         log.debug("Starting Crawler Process =>", self.id)
+        # Turn console logging off
         
         while self.server_flag:
             log.info(self.id,"=> waiting on task queue from server ...")
@@ -817,14 +815,14 @@ class EIIICrawler(multiprocessing.Process):
             self.config.url_filter = []
             self.config.update(fromdict)
             self.config.url_filter += self.default_url_filter           
-            log.extra('URL FILTER=>',self.config.url_filter)
 
         # Task id
         task_id = self.config.__dict__.get('task_id',uuid.uuid4().hex)
         
         # Add another crawl log file to the logger
         self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
-        log.addLogFile(self.task_logfile)       
+        log.addLogFile(self.task_logfile)
+        log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))     
         
         # Insert task id
         self.config._task_id = task_id
@@ -837,8 +835,10 @@ class EIIICrawler(multiprocessing.Process):
         self.config._urls = urls
         self.config.save('crawl.json')
 
+        log.setConsole(False)
         self.reset()        
         self.crawl()
+        log.setConsole(True)        
                     
     def crawl(self):
         """ Do the actual crawling """
