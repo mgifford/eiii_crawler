@@ -276,7 +276,10 @@ def fix_quoted_url(url):
         # If an stray percentage again then issue
         # E.g: http://www.barwabank.com/media/PRL_Barwa Bank Net Profits Rise by 35%% for the First Half of 2014 (Arabic).pdf
         if '%' in url2:
-            return urllib.quote(url2, safe='/:')
+            try:
+                return urllib.quote(url2, safe='/:')
+            except KeyError:
+                return urllib.quote(url2.encode('utf-8'), safe='/:')                
 
     # No problemo
     return url
