@@ -822,7 +822,7 @@ class EIIICrawler(multiprocessing.Process):
         # Add another crawl log file to the logger
         self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
         log.addLogFile(self.task_logfile)
-        log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))     
+        # log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))     
         
         # Insert task id
         self.config._task_id = task_id
@@ -838,7 +838,7 @@ class EIIICrawler(multiprocessing.Process):
         log.setConsole(False)
         self.reset()        
         self.crawl()
-        log.setConsole(True)        
+        # log.setConsole(True)        
                     
     def crawl(self):
         """ Do the actual crawling """
