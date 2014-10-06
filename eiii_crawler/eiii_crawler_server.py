@@ -11,6 +11,7 @@ import signal
 import multiprocessing
 import threading
 import argparse
+import traceback
 
 from eiii_crawler.eiii_crawler import utils
 from eiii_crawler.eiii_crawler import EIIICrawler, log
@@ -137,7 +138,10 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         url_graph = return_data['graph']
         stats_dict = return_data['stats']
 
-        url_graph = self.fix_url_graph(url_graph)
+        try:
+            url_graph = self.fix_url_graph(url_graph)
+        except Exception, e:
+            log.error(traceback.format_exc())
         
         return { 'result': self.make_directed_graph(url_graph),
                  'stats': stats_dict,
