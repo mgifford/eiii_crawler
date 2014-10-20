@@ -330,7 +330,11 @@ def convert_config(crawler_rules):
         config_dict[new_key] = limit_dict
         
     config_dict['flag_ignorerobots'] = not crawler_rules['obey-robotstxt']
-
+    # Also sync other robots rules flags with this one since it is
+    # safe to assume if one wants to disable robots.txt he would also
+    # like to disable other robots flags in general.
+    config_dict['flag_metarobots'] = config_dict['flag_x_robots'] = config_dict['flag_ignorerobots']
+    
     try:
         config_dict['url_filter'] = list(config_dict['url_filter'])
     except KeyError:
