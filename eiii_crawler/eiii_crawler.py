@@ -303,12 +303,14 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             index, follow = self.robots_p.check_meta(url, content=content)
             # Don't bother too much with NO index, but bother with NOFOLLOW
             if not follow:
+                log.extra('META robots rules disallows URL =>',url)             
                 return False
 
         if self.flag_x_robots:
             index, follow = self.robots_p.x_robots_check(url, headers=headers)
             # Don't bother too much with NO index, but bother with NOFOLLOW
             if not follow:
+                log.extra('x-robots rules disallows URL =>',url)                            
                 return False
             
         # Not doing any other content rules now
