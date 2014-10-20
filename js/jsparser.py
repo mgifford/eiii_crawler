@@ -716,71 +716,71 @@ def localtests():
     print 'Doing local tests...'
     
     P = JSParser()
-    # P.parse(open('samples/bportugal.html').read())
-    ## assert(repr(P.getDocument())==open('samples/bportugal_dom.html').read())
-    ## assert(P.dom_changed==True)
-    ## assert(P.location_changed==False)
+    P.parse(open('samples/bportugal.html').read())
+    assert(repr(P.getDocument())==open('samples/bportugal_dom.html').read())
+    assert(P.dom_changed==True)
+    assert(P.location_changed==False)
     
-    ## P.parse(open('samples/jstest.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jstest_dom.html').read())
-    ## assert(P.dom_changed==True)
-    ## assert(P.location_changed==False)
+    P.parse(open('samples/jstest.html').read())
+    assert(repr(P.getDocument())==open('samples/jstest_dom.html').read())
+    assert(P.dom_changed==True)
+    assert(P.location_changed==False)
 
-    ## P.parse(open('samples/jsnodom.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jsnodom.html').read())
-    ## assert(P.dom_changed==False)
-    ## assert(P.location_changed==False)    
+    P.parse(open('samples/jsnodom.html').read())
+    assert(repr(P.getDocument())==open('samples/jsnodom.html').read())
+    assert(P.dom_changed==False)
+    assert(P.location_changed==False)    
 
-    ## P.parse(open('samples/jstest2.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jstest2_dom.html').read())
-    ## assert(P.dom_changed==True)
-    ## assert(P.location_changed==False)    
+    P.parse(open('samples/jstest2.html').read())
+    assert(repr(P.getDocument())==open('samples/jstest2_dom.html').read())
+    assert(P.dom_changed==True)
+    assert(P.location_changed==False)    
 
-    ## P.parse(open('samples/jstest3.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jstest3_dom.html').read())
-    ## assert(P.dom_changed==True)
-    ## assert(P.location_changed==False)
+    P.parse(open('samples/jstest3.html').read())
+    assert(repr(P.getDocument())==open('samples/jstest3_dom.html').read())
+    assert(P.dom_changed==True)
+    assert(P.location_changed==False)
 
-    ## P.parse(open('samples/jsredirect.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jsredirect.html').read())
-    ## assert(P.dom_changed==False)
-    ## assert(P.location_changed==True)
-    ## assert(P.getLocation().href=="http://www.struer.dk/webtop/site.asp?site=5")
+    P.parse(open('samples/jsredirect.html').read())
+    assert(repr(P.getDocument())==open('samples/jsredirect.html').read())
+    assert(P.dom_changed==False)
+    assert(P.location_changed==True)
+    assert(P.getLocation().href=="http://www.struer.dk/webtop/site.asp?site=5")
 
-    ## P.parse(open('samples/jsredirect4.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jsredirect4.html').read())
-    ## assert(P.dom_changed==False)
-    ## assert(P.location_changed==True)
-    ## assert(P.getLocation().href=="http://www.szszm.hu/szigetszentmiklos.hu")
+    P.parse(open('samples/jsredirect4.html').read())
+    assert(repr(P.getDocument())==open('samples/jsredirect4.html').read())
+    assert(P.dom_changed==False)
+    assert(P.location_changed==True)
+    assert(P.getLocation().href=="http://www.szszm.hu/szigetszentmiklos.hu")
     
-    ## P.parse(open('samples/jsredirect5.html').read())
-    ## assert(repr(P.getDocument())==open('samples/jsredirect5.html').read())
-    ## assert(P.dom_changed==False)
-    ## assert(P.location_changed==True)
-    ## assert(P.getLocation().href=="sopron/main.php")    
+    P.parse(open('samples/jsredirect5.html').read())
+    assert(repr(P.getDocument())==open('samples/jsredirect5.html').read())
+    assert(P.dom_changed==False)
+    assert(P.location_changed==True)
+    assert(P.getLocation().href=="sopron/main.php")    
 
-    ## P.parse(open('samples/www_thegroup_com_qa.html').read())
-    ## assert(P.location_changed==False)
+    P.parse(open('samples/www_thegroup_com_qa.html').read())
+    assert(P.location_changed==False)
 
-    ## P.parse(open('samples/qnb_redirect.html').read())
-    ## assert(P.location_changed==False)
+    P.parse(open('samples/qnb_redirect.html').read())
+    assert(P.location_changed==False)
 
-    ## P.parse(open('samples/baladiya_gov_qa.html').read())
-    ## assert(P.location_changed==True)
-    ## assert(P.getLocation().href == 'http://www.baladiya.gov.qa/cui/index.dox')
+    P.parse(open('samples/baladiya_gov_qa.html').read())
+    assert(P.location_changed==True)
+    assert(P.getLocation().href == 'http://www.baladiya.gov.qa/cui/index.dox')
 
-    ## P.parse(open('samples/alrayyan_tv.html').read())
-    ## assert(P.location_changed==False)
+    P.parse(open('samples/alrayyan_tv.html').read())
+    assert(P.location_changed==False)
 
-    ## P.parse(open('samples/raya.html').read())
-    ## assert(P.location_changed==False)    
-    ## # print P.getLocation().href
+    P.parse(open('samples/raya.html').read())
+    assert(P.location_changed==False)    
+    # print P.getLocation().href
 
     P.parse(open('samples/qmediame.html').read())
-    print P.location_changed
-    print P.getLocation().href
+    assert(P.location_changed==True)        
     
     P.parse(open('samples/www.qdb.qa.html').read())
+    assert(P.location_changed==True)            
     print P.location_changed
     print P.getLocation().href    
 
