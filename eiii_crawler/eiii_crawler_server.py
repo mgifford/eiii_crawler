@@ -277,14 +277,10 @@ if __name__ == "__main__":
                      'seeds': ['http://docs.python.org/library/'], 'obey-robotstxt': 'false',
                      'loglevel': 'debug'}
 
-    # Port to listen on
-    port = 8910
-    # Number of crawler processes to start
-    nprocs = 10
+    # You can given --nprocs as a command-line argument
+    #
     # An equivalent number (or greater) of processes need to be
     # started on the tt-rpc server for proper 1:1 scaling.
-    
-    # You can given --nprocs as a command-line argument
     parser = argparse.ArgumentParser(description='EIII crawler server')
     parser.add_argument('--nprocs', dest='nprocs', default=10,type=int,
                         help='Number of crawler processes to start')
