@@ -1,7 +1,7 @@
-
 #!/usr/bin/env python
 
 from ttrpc.server import SimpleTTRPCServer, UserError
+from ttrpc.client import TTRPCProxy
 import time
 import datetime
 import sys
@@ -31,7 +31,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
-    def __init__(self, nprocs=10, loglevel='info'):
+    def __init__(self, nprocs=10, loglevel='info',bus_uri=None,port=8910):
         open(pidfile, 'w').write(str(os.getpid()))
         # All the crawler objects
         self.instances = []
@@ -55,6 +55,17 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             # "signal only works in main thread"
             pass
         
+        if bus_uri:
+            # Register on bus
+            self.url='tcp://127.0.0.1:' + str(port)
+            proxy = TTRPCProxy(bus_uri,retries=3,timeout=6000)
+            if proxy.ping() == 'pong':
+                # We need to fork this off to a separate thread so that we are
+                # free to handle the call which the bus makes back to us
+                t = threading.Thread(target=proxy.Call(proxy,'add-crawler'),
+                                     args=(self.url,))
+                t.start()
+
         self.init_crawler_procs()
         
     def _packer_default(self, obj):
@@ -281,14 +292,20 @@ if __name__ == "__main__":
                         help='Port number on which to listen')
     parser.add_argument('--debug', dest='loglevel', const='debug',
             default='info', nargs='?', help='Enable debug logging')
+    parser.add_argument('--bus', dest='bus_uri', default=None, type=str,
+                        help='URI to bus to register on.')
     args = parser.parse_args()
     print 'Number of parallel crawler processes set to',args.nprocs
     print 'Starting crawler server on port',args.port,'...'
     if args.loglevel is 'debug':
         print 'Enabled debug messages.'
+    if args.bus_uri:
+        print 'Will register on bus at', args.bus_uri
 
     log.setLevel(args.loglevel)
-    EIIICrawlerServer(nprocs=args.nprocs,loglevel=args.loglevel).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
+    EIIICrawlerServer(nprocs=args.nprocs,loglevel=args.loglevel,
+                      bus_uri=args.bus_uri,port=args.port
+                     ).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
 
 
     
