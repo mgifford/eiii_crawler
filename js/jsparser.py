@@ -136,7 +136,7 @@ class JSParserException(Exception):
       self._context =context
 
    def __str__(self):
-      return str(self._error)
+      return repr(self)
 
    def __repr__(self):
       return '@'.join((str(self._error), str(self._context)))
@@ -156,7 +156,9 @@ class JSParser(object):
    re3 = re.compile(r'(?<![document\.write\s*|document\.writeln\s*])\(.*\)', re.MULTILINE)
    # End signature of document.write* methods
    re4 = re.compile(r'[\'\"]\s*\)|[\'\"]\s*\)', re.MULTILINE)
-
+   # End of comments
+   re_comment = re.compile(r'\/\/\s*--\>')
+   
    # Pattern for contents inside document.write*(...) methods
    # This can be either a single string enclosed in quotes,
    # a set of strings concatenated using "+" or a set of
@@ -198,6 +200,13 @@ class JSParser(object):
    # Anonymous jquery function of the form
    # $(...).func(function(...)) ...   
    anon_jquery_func2 = re.compile(r'\$\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
+   # jQuery functions of the form
+   # jQuery(document).func(function(...))
+   jquery_func = re.compile(r'jQuery\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
+
+   # Comments of the form <!-- content -->
+   js_comments = re.compile(r'\<\!--.*\s*\/\/--\>', re.MULTILINE)
+   
    # Maximum number of lines in a function for a redirection
    # NOTE - This is totally arbitrary and is not really a good workaround!
    MAXJSLINES = 50
@@ -224,6 +233,8 @@ class JSParser(object):
       self.page.location = Location()
       self.location_changed = False
       self.dom_changed = False
+      # Body onload handler
+      self.onload_handler = None      
       
    def _find(self, data):
       # Search for document.write* statements and return the
@@ -253,15 +264,20 @@ class JSParser(object):
       """ Parse HTML, extract javascript and process it """
 
       self.js = []
+      self.statements = []
       self.resetDOM()
+
       self.parser.reset()
+      # print 'Len of JS =>',len(self.parser.statements)
       
       self.page.document.content = data
 
       # Body onload or document.ready handlers
       body_handler = self.bodyonload_re.findall(data)
+      # print 'BODY HANDLER =>',body_handler
       if len(body_handler):
          self.onload_handler = body_handler[0].replace('(','').replace(')','').strip()
+         # print 'ONload handler =>',self.onload_handler
       else:
          jquery_handler = self.documentready_re.findall(data)
          if len(jquery_handler):
@@ -408,7 +424,10 @@ class JSParser(object):
       # if statement.startswith('try '):
       #   return False
       
-      if self.anon_jquery_func.search(statement) or self.anon_jquery_func2.search(statement):
+      if (self.anon_jquery_func.search(statement) or
+          self.anon_jquery_func2.search(statement) or
+          self.jquery_func.search(statement) or
+          self.js_comments.search(statement)):
          return False
       
       js_lines = statement.split('\n')
@@ -451,7 +470,7 @@ class JSParser(object):
             # Reset previous line
             prev_line = line
             continue
-         
+
          # Check if start of function
          fmatch = self.jsfunction_re.findall(line)
          if len(fmatch):
@@ -477,9 +496,15 @@ class JSParser(object):
                # print 'End of function => {',fname,'}.'               
 
             # If this is not the body onLoad function skip it ...
-            if self.onload_handler and (fname != self.onload_handler):
-               # print 'Skipping function => {',fname,'} since it is not onload handler.'
+            if self.onload_handler:
+               if (fname != self.onload_handler):
+                  # print 'Skipping function => {',fname,'} since it is not onload handler.'
+                  continue
+            else:
+               # Skip functions anyway if we don't find onload handler
+               # print 'Onload handler not found, skipping function => {',fname,'} anyway.'
                continue
+            
             
          # print 'Expression=>',line
          m1 = self.jsredirect1.search(line)
@@ -494,7 +519,7 @@ class JSParser(object):
                 if self.validate_url(url):
                    url = self.make_valid_url(url)
                    location_changed = True
-                   # print 'Replacing location with',url
+                   print 'Replacing location with',url
                    self.locations.append(url)
                    self.page.location.replace(url)
                 else:
@@ -665,10 +690,13 @@ class JSParser(object):
                # print 'Pos=>',pos
                # print contentdata
                m1 = self.re3.search(contentdata)
-
+               
             m2 = self.re4.search(rawdata, pos)
             if not m2:
-               raise JSParserException('Missing end paren!')
+               # If this is end of comment, then fine, otherwise raise error
+               # as it has to be an end paren then.
+               if not self.re_comment.search(rawdata, pos):
+                  raise JSParserException('Missing end paren!')
             else:
                start = m2.start()
                statement = rawdata[:start+1].strip()
@@ -684,8 +712,12 @@ class JSParser(object):
                elif statement[0] in ('+','-') and statement[-1] in ("'", '"'):
                   # Firefox seems to accept this case
                   print 'warning: garbage char "%s" in beginning of statement!' % statement[0]
-               else:
-                  raise JSParserException("Garbage in beginning/end of statement!")
+               #elif statement[0] not in ('"', "'") and statement[-1] not in ("'", '"'):
+               #   # Sometimes the JS might be a function in which case we cannot
+               #   # expect it to start with single or double quotes. 
+               #   pass
+               #else:
+               #   raise JSParserException("Garbage in beginning/end of statement!", statement)
                   
                # Add statement to list
                self.statements.append((statement, self._nflag))
@@ -774,7 +806,7 @@ def localtests():
 
     P.parse(open('samples/raya.html').read())
     assert(P.location_changed==False)    
-    # print P.getLocation().href
+    print P.getLocation().href
 
     P.parse(open('samples/qmediame.html').read())
     assert(P.location_changed==True)        
@@ -782,8 +814,24 @@ def localtests():
     P.parse(open('samples/www.qdb.qa.html').read())
     assert(P.location_changed==True)            
     print P.location_changed
-    print P.getLocation().href    
+    print P.getLocation().href
 
+    P.parse(open('samples/ralingen_kommune.html').read())
+    assert(P.location_changed==False)                
+    # print P.getLocation().href
+
+    P.parse(open('samples/hoyanger_kommune.html').read())
+    assert(P.location_changed==False)                
+    # print P.getLocation().href
+
+    P.parse(open('samples/sor-varanger_kommune.html').read())
+    assert(P.location_changed==False)                
+    # print P.getLocation().href 
+    
+
+    P.parse(open('samples/tysver_kommune.html').read())
+    print P.getLocation().href
+    
     print 'All local tests passed.'
 
 def webtests():
