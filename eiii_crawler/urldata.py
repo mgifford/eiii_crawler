@@ -63,9 +63,14 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             
             try:
                 with utils.ignore(): os.makedirs(dirpath)
-                if (lmt != None) or (etag != None) and self.content:
+
+                # Issue http://gitlab.tingtun.no/eiii/eiii_crawler/issues/412
+                # Always save starting URL.
+                # Hint - parent_url is None for starting URL.
+                if ((self.parent_url == None) or (lmt != None) or (etag != None)) and self.content:
                     open(fpath, 'wb').write(zlib.compress(self.content))
                     log.info('Wrote URL content to',fpath,'for URL',self.url)
+
                 if self.headers:
                     # Add URL to it
                     self.headers['url'] = self.url
