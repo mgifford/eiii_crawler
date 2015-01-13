@@ -19,6 +19,11 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
     """ Caching URL data which implements caching of the downloaded
     URL data locally and supports HTTP 304 requests """
 
+    # REFACTORME: This class does both downloading and caching.
+    # The proper way to do this is to derive a class which does
+    # only downloading, another which does caching and then
+    # inherit this as a mixin from both (MI).
+    
     def __init__(self, url, parent_url, content_type, config):
         super(CachingUrlData, self).__init__(url, parent_url, content_type, config)
         self.orig_url = self.url
@@ -100,6 +105,8 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                     return True
             except urlhelper.FetchUrlException, e:
                 pass
+        else:
+            log.debug("Required meta-data headers (lmt, etag) not present =>", self.url)
 
         # No lmt or etag or URL is not uptodate
         return False
@@ -112,7 +119,10 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         if self.config.flag_usecache:
             fpath, fhdr, dirpath = self.get_url_store_paths()
 
-            if os.path.isfile(fpath) and os.path.isfile(fhdr):
+            fpath_f = os.path.isfile(fpath)
+            fhdr_f = os.path.isfile(fhdr)
+            
+            if fpath_f and fhdr_f:
                 try:
                     content = zlib.decompress(open(fpath).read())
                     headers = eval(zlib.decompress(open(fhdr).read()))
@@ -140,6 +150,11 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                 except Exception, e:
                     log.error("Error in getting URL headers & data for URL",self.url)
                     log.error("\t",str(e))
+            else:
+                if not fpath_f:
+                    log.debug("Data file [%s] not present =>" % fpath, self.url)
+                if not fhdr_f:
+                    log.debug("Header file [%s] not present =>" % fhdr, self.url)                    
 
         return False
         
