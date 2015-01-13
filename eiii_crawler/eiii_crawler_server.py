@@ -231,7 +231,12 @@ class EIIICrawlerServer(SimpleTTRPCServer):
                 url_ctype[url] = ctype
 
         # Make a list out of it
-        url_list = sorted(list(url_set))
+        # Bug: sorted gives a UnicodeDecodeError if an impoperly encoded unicode
+        # URL is present in the list - see http://gitlab.tingtun.no/eiii/eiii_crawler/issues/411
+        # Sorted is possibly not needed .
+        
+        # url_list = sorted(list(url_set))
+        url_list = list(url_set)
         # print url_list
         
         url_dgraph = []
