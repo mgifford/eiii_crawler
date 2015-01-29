@@ -18,6 +18,14 @@ import urlnorm
 import re
 import utils
 
+from bs4 import BeautifulSoup
+
+# Filter warnings by requests library on certificate issue.
+# import warnings
+# warnings.filterwarnings("ignore") # NOTE: This is BAD, so it is a workaround to be worked around
+                                  # later once we add certficate verification.
+
+
 ___author__ = "Anand B Pillai"
 __maintainer__ = "Anand B Pillai"
 __version__ = "0.1"
@@ -492,6 +500,44 @@ def check_page_error(title, content):
     if title=='Problem loading page':
         # Error in connection
         raise FetchUrlException, title
+
+class BeautifulLister(object):
+    """ An HTML parser using BeautifulSoup """
+    
+    def __init__(self):
+        self.reset()
+
+    def feed(self, content):
+        """ Feed parser with data """
+        
+        soup=BeautifulSoup(content, "lxml")
+        # Text of links mapped to the link text
+        # Caveat - right now this is a fallback parser so it parses only
+        # anchor tags ('a') and nothing else. 
+        self.urlmap = {item['href']:item.text for item in soup.findAll('a') if item.has_attr('href')}
+        self.urls = self.urlmap.keys()      
+
+    def close(self):
+        # Dummy method to imitate most parsers
+        pass
+    
+    def reset(self):
+        """ Reset the state """
+        
+        self.urlmap = {}
+        self.urls = []
+        # Redirect URL if any
+        self.follow_url = ''
+        # Replaced source URL
+        self.source_url = ''
+        # Should we redirect to the follow URL ?
+        self.redirect = False
+        # Should we replace the source (parent) URL ?
+        self.base_changed = False               
+
+    def get_url_map(self):
+        """ Return the URL map """
+        return self.urlmap
     
 class URLLister(sgmllib.SGMLParser):
     """ Simple HTML parser using sgmllib's SGMLParser """
