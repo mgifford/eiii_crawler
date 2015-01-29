@@ -166,6 +166,15 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             
         except sgmllib.SGMLParseError, e:
             log.error("Error parsing data for URL =>",url)
+            # Try parsing with beautiful soup
+
+            log.info("Parsing again with fall-back parser ...")
+            parser = urlhelper.BeautifulLister()
+            parser.feed(data)
+            # print 'URLS =>', parser.urls
+            self.eventr.publish(self, 'url_parsed',
+                                params=locals())
+            
 
         # Do we have a redirect ?
         if parser.redirect:
