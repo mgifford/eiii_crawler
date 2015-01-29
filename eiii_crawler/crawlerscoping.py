@@ -233,7 +233,13 @@ class CrawlerLimitRules(object):
             headers = event.params.get('headers', {})
             # get content type
             ctype = urlhelper.get_content_type(url, headers)
+            
             self.update_counts(ctype, int(event.params.get('content_length', 0)))
+
+            # Ignore if content-type in fake_mimetypes
+            if ctype in self.config.client_fake_mimetypes:
+                log.debug('Ignoring limit check for fake mime-type =>', ctype)
+                return False
 
             # Get limit for the content-type
             url_limit = self.url_limits.get(ctype)
