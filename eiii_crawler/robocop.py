@@ -12,7 +12,7 @@ __version__ = "0.1"
 class Robocop(object):
     """ Robots.txt parser for websites """
 
-    meta_re = re.compile(r'\<meta\s+name=\"robots\"\s+content=\"(.*?)\"\s*\>', re.IGNORECASE)
+    meta_re = re.compile(r'\<meta\s+name=\"robots\"\s+content=\"([a-zA-Z,\s]+)\"\s*', re.IGNORECASE)
     
     def __init__(self, url=None, useragent=None):
 
@@ -56,12 +56,12 @@ class Robocop(object):
         site_rules = []
 
         useragent = '*'
-        disallowallow = 'disallow'
+        state = ''
 
         self.crawldelay = -1
 
         for line in content:
-            
+            # print 'LINE =>',line
             line = line.lower().strip()
             if line.startswith('#'):
                 continue            
@@ -75,15 +75,17 @@ class Robocop(object):
                 # print 'user-agent:',useragent
                 continue
             if 'disallow' in line.lower():
-                disallowallow = 'disallow'
+                state = 'disallow'
             elif 'allow' in line.lower():
-                disallowallow = 'allow'
+                state = 'allow'
             if (line.startswith('crawldelay:') or line.startswith('crawl-delay:')) and useragent in ('*',self.ua):
                 self.crawldelay = int(':'.join(line.split(':')[1:]).strip())
                 continue
-            
-            if disallowallow == 'disallow' and useragent in ('*', self.ua):
-                # print line
+
+            # Bug: this will catch ALL content, even if the content
+            # doesn't have the format of a robots.txt!
+            # E.g: http://www.nord-odal.kommune.no/no/robots.txt
+            if state == 'disallow' and useragent in ('*', self.ua):
                 # print useragent,disallowallow,line#,rules
                 rules = ':'.join(line.split(':')[1:]).strip().split()
                 # print 'rules=>',rules
@@ -152,9 +154,12 @@ class Robocop(object):
         if meta_match:
             # Split into 2
             try:
-                rules = sorted([x.strip() for x in meta_match[0].lower().split(',')], reverse=True)
-                # print 'Rules=>', (rules[0] == 'index', rules[1] == 'follow')
-                return (rules[0] == 'index', rules[1] == 'follow')
+                rules = {x.strip():1 for x in meta_match[0].lower().split(',')}
+                # print 'RULEZ =>',rules
+                # return (rules[0] == 'index', rules[1] == 'follow')
+                # Negative catch-all is better since we can have rules
+                # like content="ALL"
+                return (not 'noindex' in rules, not 'nofollow' in rules)
             except:
                 pass
 
@@ -193,7 +198,7 @@ class Robocop(object):
 if __name__ == '__main__':
     # Pass in init
     r = Robocop('http://www.askoy.kommune.no')
-    # Check if can fetch
+    ## # Check if can fetch
     assert(not r.can_fetch('www.askoy.kommune.no/cache/test'))
     assert(not r.can_fetch('www.askoy.kommune.no/logs/log1.log'))
     assert(r.can_fetch('www.askoy.kommune.no/pictres/1.jpg'))
@@ -207,4 +212,10 @@ if __name__ == '__main__':
     r.parse_site('www.aljazeera.net')   
     assert(r.can_fetch('http://www.aljazeera.net/news/healthmedicine'))
     assert(not r.can_fetch('http://www.aljazeera.net/ajamonitor'))
+
+    # No robots.txt for this site
+    r.parse_site('www.nord-odal.kommune.no')
+    assert(r.can_fetch('http://www.nord-odal.kommune.no/test/'))
+    assert(r.check_meta('http://www.vestnes.kommune.no/Modules/Default.aspx') == (True, True))
+    assert(r.check_meta('http://www.chami.com/tips/internet/010198I.html') == (True, True)) 
     print 'All tests passed.'
