@@ -282,6 +282,8 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             if not scoper.allowed(url):
                 log.debug('Scoping rules does not allow URL=>',url)
                 return False
+        else:
+            log.extra('Parent URL is none =>', url)
                         
         if (content != None) or len(headers):
             # Do content or header checks
