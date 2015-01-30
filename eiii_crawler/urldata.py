@@ -12,6 +12,8 @@ import os
 import urlhelper
 import utils
 
+from crawlerscoping import CrawlerScopingRules
+
 # Default logging object
 log = utils.get_default_logger()
 
@@ -192,8 +194,19 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                 self.headers = fhead.headers
             
                 if self.url != fhead.url:
-                    self.url = fhead.url
-                    log.info("URL updated to",self.url)
+                    # Flexi scope - no problem
+                    # Allow external domains only for flexible site scope
+                    if self.config.site_scope == 'SITE_FLEXI_SCOPE':
+                        self.url = fhead.url
+                        log.info("URL updated to",self.url)                     
+                    else:
+                        scoper = CrawlerScopingRules(self.config, self.url)
+                        if scoper.allowed(fhead.url):
+                            self.url = fhead.url
+                            log.info("URL updated to",self.url)
+                        else:
+                            log.extra('Site scoping rules does not allow URL=>', fhead.url)
+                            return False                            
 
                 self.content_type =  urlhelper.get_content_type(self.url, self.headers)
 
@@ -246,9 +259,20 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             
             # Is the URL modified ? if so set it 
             if self.url != freq.url:
-                self.url = freq.url
-                log.info("URL updated to",self.url)
-
+                # Flexi scope - no problem
+                # Allow external domains only for flexible site scope
+                if self.config.site_scope == 'SITE_FLEXI_SCOPE':
+                    self.url = freq.url
+                    log.info("URL updated to",self.url)                 
+                else:
+                    scoper = CrawlerScopingRules(self.config, self.url)
+                    if scoper.allowed(freq.url):
+                        self.url = freq.url
+                        log.info("URL updated to",self.url)
+                    else:
+                        log.extra('Site scoping rules does not allow URL=>', freq.url)
+                        return False                            
+                
             # Add content-length also for downloaded content
             self.content_length = max(len(self.content),
                                       self.headers.get('content-length',0))
