@@ -193,7 +193,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             
                 if self.url != fhead.url:
                     self.url = fhead.url
-                    log.extra("URL updated to",self.url)
+                    log.info("URL updated to",self.url)
 
                 self.content_type =  urlhelper.get_content_type(self.url, self.headers)
 
@@ -247,7 +247,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             # Is the URL modified ? if so set it 
             if self.url != freq.url:
                 self.url = freq.url
-                log.extra("URL updated to",self.url)
+                log.info("URL updated to",self.url)
 
             # Add content-length also for downloaded content
             self.content_length = max(len(self.content),
