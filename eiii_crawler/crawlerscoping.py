@@ -103,7 +103,7 @@ class CrawlerScopingRules(object):
         # If both sites are same
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
-                # print '\tSame site, all site scope, returning True',url,'=>',self.url
+                log.info('\tSame site, all site scope, returning True',url,'=>',self.url)
                 ret &= True
             elif scope in CrawlPolicy.all_folder_scopes:
                 # NOTE - folder_link_scope check is not implemented
@@ -131,13 +131,13 @@ class CrawlerScopingRules(object):
             url_root_site = urlhelper.get_root_website(url_site)
             if url_root_site == self.rootsite:
                 if scope in CrawlPolicy.all_fullsite_scopes:
-                    # print '\tSame root site, all full site scope, returning True',url,'=>',self.url                  
+                    log.info('\tSame root site, all full site scope, returning True',url_root_site,'=>',self.url,self.rootsite)
                     ret &= True
                 else:
-                    # print '\tSame root site, but not full-site-scope, returning False',url,'=>',self.url
+                    log.info('\tSame root site, but not full-site-scope, returning False',url_root_site,'=>',self.url,self.rootsite)
                     ret &= False
             else:
-                # print '\tDifferent root site, returning False',url,'=>',self.url                                
+                log.info('\tDifferent root site, returning False',url,'=>',self.url,self.rootsite)
                 ret &= False
 
         # Depth scope
