@@ -17,7 +17,13 @@ class CrawlPolicy(object):
     """ Crawl policy w.r.t site root and folders """
 
     # Crawl any URL in the given site e.g: http://www.foo.com/*
+    # But URL redirections out of site would not be allowed
+    # E.g: http://foo.com/a => http://bar.com/b is NOT OK   
     site_scope = 'SITE_SCOPE'
+    # Crawl any URL in the given site e.g: http://www.foo.com/*
+    # Plus URL redirections outside site will be allowed
+    # E.g: http://foo.com/a => http://bar.com/b is OK
+    site_flexi_scope = 'SITE_FLEXI_SCOPE'
     # Site and all its subsites E.g: http://www.foo.com and http://server.foo.com etc.
     site_full_scope = 'SITE_FULL_SCOPE'
     # Crawl site scope plus URLs linked outside site at level 1
@@ -103,7 +109,7 @@ class CrawlerScopingRules(object):
         # If both sites are same
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
-                log.info('\tSame site, all site scope, returning True',url,'=>',self.url)
+                log.debug('\tSame site, all site scope, returning True',url,'=>',self.url)
                 ret &= True
             elif scope in CrawlPolicy.all_folder_scopes:
                 # NOTE - folder_link_scope check is not implemented
@@ -131,13 +137,13 @@ class CrawlerScopingRules(object):
             url_root_site = urlhelper.get_root_website(url_site)
             if url_root_site == self.rootsite:
                 if scope in CrawlPolicy.all_fullsite_scopes:
-                    log.info('\tSame root site, all full site scope, returning True',url_root_site,'=>',self.url,self.rootsite)
+                    log.debug('\tSame root site, all full site scope, returning True',url_root_site,'=>',self.url,self.rootsite)
                     ret &= True
                 else:
-                    log.info('\tSame root site, but not full-site-scope, returning False',url_root_site,'=>',self.url,self.rootsite)
+                    log.debug('\tSame root site, but not full-site-scope, returning False',url_root_site,'=>',self.url,self.rootsite)
                     ret &= False
             else:
-                log.info('\tDifferent root site, returning False',url,'=>',self.url,self.rootsite)
+                log.debug('\tDifferent root site, returning False',url,'=>',self.url,self.rootsite)
                 ret &= False
 
         # Depth scope
