@@ -137,7 +137,7 @@ def head(url, *exceptions, **headers):
     
     try:
         # Don't bother verifying SSL certificates for HTTPS urls.
-        yield requests.head(url, headers=headers, allow_redirects=True)
+        yield requests.head(url, headers=headers, allow_redirects=True, timeout=15)
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
         raise FetchUrlException(e)
