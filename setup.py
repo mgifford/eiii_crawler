@@ -7,7 +7,7 @@ except ImportError:
     from distutils.core import setup
 
 setup(name = "eiii-crawler",
-      version = "0.01",
+      version = "0.9",
       description = "A crawler developed for the EIII project.",
       keywords = "Web Crawler",
       author = "Anand B Pillai",
