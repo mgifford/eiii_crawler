@@ -35,6 +35,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         open(pidfile, 'w').write(str(os.getpid()))
         # All the crawler objects
         self.instances = []
+        # Number of tasks
+        self.ntasks = 0
         # Tasks queue
         self.task_queue = multiprocessing.Queue()
         # Dictionary used to share return-values from
@@ -42,6 +44,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         self.manager = multiprocessing.Manager()
         # Return shared state dictionary shared with crawler processes
         self.return_dict = self.manager.dict()
+        # Shared state - indicates crawler activity
+        self.state = self.manager.dict()
         # Maxium number of crawl instances
         self.nprocs = nprocs
         # Log level
@@ -96,7 +100,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         for i in range(self.nprocs):
             # Make a new instance
             crawler = EIIICrawler(task_queue = self.task_queue,
-                                  value_dict = self.return_dict)
+                                  value_dict = self.return_dict,
+                                  state = self.state)
             log.info("Initialized Crawler ", crawler.id)
             self.instances.append(crawler)
             crawler.start()
@@ -126,7 +131,9 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # Push the task
         task = (urls, config_dict)
         self.task_queue.put(task)
-
+        # Increment tasks
+        self.ntasks += 1
+        
         return ctl.id_
 
     def poll(self, ctl, task_id):
@@ -264,16 +271,18 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         
     def load(self, ctl):
         """
-        Returns a number. If it's above 100, it's overloaded. The
-        chance of getting a crawl call is proportional to how much below
+        Returns a number. Ranges from 0 - 100. 0 means crawlers are idling,
+        100 means all crawlers are active.
+    
+        The chance of getting a crawl call is proportional to how much below
         100 it is compared to the other servers in rotation.
-
         """
 
-        # If there are tasks waiting in the queue, report load=100.
-        # Otherwise, just report 0.
-        return self.task_queue.qsize() * 100
-
+        # Load => # of active crawlers/# of nprocs
+        nactive = len(filter(lambda x: x==1, self.state.values()))
+        print '# active/# procs =>',nactive,'=>',self.nprocs
+        return 100.0*nactive/self.nprocs
+        
           
 if __name__ == "__main__":
     crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 50)],
