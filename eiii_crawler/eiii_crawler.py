@@ -457,7 +457,8 @@ class EIIICrawler(multiprocessing.Process):
     """ EIII Web Crawler """
 
     def __init__(self, urls=[], cfgfile='config.json', fromdict={},
-                 args=None, task_queue=None, value_dict=None):
+                 args=None, task_queue=None, value_dict=None, state=None):
+
         # Load config from file.
         cfgfile = self.load_config(fname=cfgfile)
         if cfgfile:
@@ -488,6 +489,8 @@ class EIIICrawler(multiprocessing.Process):
         # Value dictionary - return value of crawl is copied
         # here when the crawler is called from the server.
         self.value_dict = value_dict
+        # Shared state between server and the crawler
+        self.state = state
         
         # Crawler ID
         self.id = 'Crawler-' + str(uuid.uuid1())
@@ -808,11 +811,14 @@ class EIIICrawler(multiprocessing.Process):
             log.info(self.id,"=> obtained task queue from server ...")         
             # Execute consists of urls and configdict
             urls, configdict  = execute
-            # Crawl it
-            # self.ctl = ctl
-            # Acquire semaphore
+
+            # Set state to busy
+            self.state[self.id] = 1
             self.crawl_using(urls, configdict)
             self.wait_crawl()
+
+            # Set state to idling
+            self.state[self.id] = 0
             log.debug("Crawler",self.id,"done crawl",self.server_flag)
             
     def crawl_using(self, urls, fromdict):
