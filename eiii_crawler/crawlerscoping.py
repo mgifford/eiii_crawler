@@ -98,7 +98,17 @@ class CrawlerScopingRules(object):
         """ Return whether the URL can be crawled according
         to the configured site scoping rules """
 
-        # print 'Checking scope for',url,'against',self.url
+        log.debug('Checking scope for',url,'against',self.url)
+        # Fix for issue #420
+        # For some websites e.g http://www.vagsoy.kommune.no/ the
+        # URL is forwarded to http://vagsoy.kommune.no/. Right now this
+        # fails as the rules treat www.foo.com and foo.com as different.
+        # We should generally assume that www.foo.com and foo.com
+        # are the same - irrespective of any scope.
+        if urlhelper.is_www_of(url, self.url):
+            log.debug(url,'is a www sister of',self.url,'or the same')
+            return True
+        
         scope = self.config.site_scope
         # Get the website of the URL
         url_site = urlhelper.get_website(url)
