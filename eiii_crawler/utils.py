@@ -306,7 +306,8 @@ def convert_config(crawler_rules):
     mapping_keys = {'seeds': 'urls',
                     'scoping-rules': 'url_filter',
                     'min-crawl-delay': 'time_sleeptime',
-                    'loglevel': 'loglevel'
+                    'loglevel': 'loglevel',
+                    'sslvalidate': 'flag_ssl_validate'
                     }
 
     other_keys = {'max-pages': 'url_limits',
