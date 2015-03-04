@@ -97,15 +97,17 @@ class MaxRequestSizeExceeded(Exception):
 def fetch(url, *exceptions, **headers):
     
     try:
-        # Don't bother verifying SSL certificates for HTTPS urls.
         # If a proxy is specified, set it.
         proxy = headers.get('proxy')
+        # SSL cert verify
+        verify = headers.get('verify', False)
+
         if proxy:
             proxies = {'http' : proxy, 'https' : proxy}
             # Add a timeout of 15s
-            yield requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=15, stream=True)
+            yield requests.get(url, headers=headers, proxies=proxies, verify=verify, timeout=15, stream=True)
         else:
-            yield requests.get(url, headers=headers, verify=False, timeout=15, stream=True)          
+            yield requests.get(url, headers=headers, verify=verify, timeout=15, stream=True)          
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
         raise FetchUrlException(e)
@@ -117,15 +119,16 @@ def fetch_quick(url, *exceptions, **headers):
     """ Fetch a URL immediately """
     
     try:
-        # Don't bother verifying SSL certificates for HTTPS urls.
+        # SSL cert verify
+        verify = headers.get('verify', False)       
         # If a proxy is specified, set it.
         proxy = headers.get('proxy')
         if proxy:
             proxies = {'http' : proxy, 'https' : proxy}
             # Add a timeout of 15s
-            yield requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=15)
+            yield requests.get(url, headers=headers, proxies=proxies, verify=verify, timeout=15)
         else:
-            yield requests.get(url, headers=headers, verify=False, timeout=15)          
+            yield requests.get(url, headers=headers, verify=verify, timeout=15)          
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
         raise FetchUrlException(e)
@@ -136,7 +139,6 @@ def fetch_quick(url, *exceptions, **headers):
 def head(url, *exceptions, **headers):
     
     try:
-        # Don't bother verifying SSL certificates for HTTPS urls.
         yield requests.head(url, headers=headers, allow_redirects=True, timeout=15)
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
@@ -160,7 +162,7 @@ def fetch_ftp(url, *exception, **headers):
     except Exception, e:
         raise   
 
-def fetch_url(url, headers={}, proxy=''):
+def fetch_url(url, headers={}, proxy='', verify=False):
     """ Download a URL immediately """
 
     exceptions = [requests.exceptions.RequestException,
@@ -176,11 +178,12 @@ def fetch_url(url, headers={}, proxy=''):
 
     # If proxy is set, set it in header
     if proxy: headers['proxy'] = proxy
+    headers['verify'] = verify
     
     with method(url, *exceptions, **headers) as freq:
         return freq
     
-def get_url(url, headers={}, proxy='', content_types=[], max_size=0):
+def get_url(url, headers={}, proxy='', content_types=[], max_size=0, verify=False):
     """ Download a URL and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
@@ -196,6 +199,7 @@ def get_url(url, headers={}, proxy='', content_types=[], max_size=0):
 
     # If proxy is set, set it in header
     if proxy: headers['proxy'] = proxy
+    headers['verify'] = verify
     
     with method(url, *exceptions, **headers) as freq:
         # Check the content-type
@@ -355,6 +359,26 @@ def get_depth(url):
     # Length of path is the depth
     return len(paths)
 
+def is_www_of(url1, url2):
+    """ Return true if the domain of url1 differs
+    only by a www w.r.t domain of url2 or viceverza """
+
+    # Schemes (http, https) are ignored
+    urlp1 = urlparse.urlparse(url1)
+    urlp2 = urlparse.urlparse(url2)
+    # print urlp1, urlp2
+    
+    # First compare server (netloc)
+    nl1, nl2 = urlp1.netloc, urlp2.netloc
+    # print nl1, nl2
+    
+    if len(nl2)>len(nl1):
+        left = nl2.replace(nl1, '')
+    elif len(nl1)>=len(nl2):
+        left = nl1.replace(nl2, '')     
+
+    return (left.lower() == 'www.' or left=='')
+    
 def get_root_website(site):
     """ Get the root website. For example this returns
     foo.com if the input is images.foo.com or static.foo.com
