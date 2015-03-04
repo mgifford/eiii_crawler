@@ -242,12 +242,15 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         if ret:
             # Satisfied already through cache or fake mime-types
             return ret
+
+        # print 'SSL validate flag =>',self.config.flag_ssl_validate
         
         try:
             log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers(),
                                      content_types=self.config.client_mimetypes,
-                                     max_size = self.config.site_maxrequestsize*1024*1024
+                                     max_size = self.config.site_maxrequestsize*1024*1024,
+                                     verify = self.config.flag_ssl_validate
                                      )
             log.debug("Downloaded URL",self.url,"...")          
 
