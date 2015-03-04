@@ -281,7 +281,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         # Load => # of active crawlers/# of nprocs
         nactive = len(filter(lambda x: x==1, self.state.values()))
         print '# active/# procs =>',nactive,'=>',self.nprocs
-        return 100.0*nactive/self.nprocs
+        return int(100.0*nactive/self.nprocs)
         
           
 if __name__ == "__main__":
