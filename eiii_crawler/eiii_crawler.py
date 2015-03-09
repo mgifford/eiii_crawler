@@ -23,6 +23,7 @@ import multiprocessing
 import signal
 import gc
 import warnings
+import copy
 
 import crawlerbase
 from crawlerevent import CrawlerEventRegistry
@@ -344,6 +345,8 @@ class EIIICrawlerStats(CrawlerStats):
         self.urls_a = set()
         # URLs with error
         self.urls_e = set()
+        # URL graph
+        self.url_graph = collections.defaultdict(set)
         
     def update_total_urls_downloaded(self, event):
         """ Update total number of URLs downloaded """
@@ -371,7 +374,17 @@ class EIIICrawlerStats(CrawlerStats):
         # The error URLs entry is a tuple of (url, parent_url)
         self.urls_e.add((event.params.get('url'),
                          event.params.get('parent_url')))
-            
+
+    def update_url_download(self, parent_url, url, content_type):
+        """ Update URL download information """
+
+        if parent_url:
+            log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
+            self.url_graph[parent_url].add((url, content_type))
+        else:
+            # Child itself is the parent - i.e top level URL, add empty children
+            self.url_graph[url] = set()         
+        
     def get_stats_dict(self):
         """ Get stats dictionary. """
 
@@ -380,7 +393,8 @@ class EIIICrawlerStats(CrawlerStats):
         mapping = {'urls_a': 'urls_all',
                    'urls_f': 'urls_filtered',
                    'urls_d': 'urls_downloaded',
-                   'urls_e': 'urls_error'}
+                   'urls_e': 'urls_error' }
+
 
         # print 'URLS_E=>',statsdict['urls_e']
         # Convert sets to list
@@ -396,6 +410,26 @@ class EIIICrawlerStats(CrawlerStats):
             # Drop original key
             del statsdict[key]
 
+        # Process URL graph - make a copy as we will be modifying it.
+        graph = copy.deepcopy(self.url_graph)
+        
+        for parent_url in graph.keys():
+            entries = graph[parent_url]
+            # Child URLs
+            entries = list(entries)
+            # Make URLs safe
+            entries_safe =  [(utils.safedata(url), ctype) for url, ctype in entries]
+            # Make entry safe
+            parent_url_safe = utils.safedata(parent_url)
+            if parent_url_safe != parent_url:
+                # Delete original key
+                del graph[parent_url]
+
+            # Add entry
+            graph[parent_url_safe] = entries_safe
+
+        statsdict['url_graph'] = graph
+        
         # delete copy
         del statsdict['config']
 
@@ -566,8 +600,6 @@ class EIIICrawler(multiprocessing.Process):
         self.limit_checker.reset()
         self.eventr.reset()
         
-        # URL graph
-        self.url_graph = collections.defaultdict(set)
         try:
             signal.signal(signal.SIGINT, self.sighandler)
             signal.signal(signal.SIGTERM, self.sighandler)
@@ -601,7 +633,7 @@ class EIIICrawler(multiprocessing.Process):
         """ Return the URL graph showing the tree of
         URLs crawled """
 
-        return self.url_graph
+        return self.stats.url_graph
     
     def prepare_config(self):
         """ Prepare steps if any for config object """
@@ -754,12 +786,7 @@ class EIIICrawler(multiprocessing.Process):
             # log.debug('Making entry for URL',orig_url,'in bitmap...')           
             self.url_bitmap[orig_url] = 1
 
-        if parent_url:
-            log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
-            self.url_graph[parent_url].add((url, content_type))
-        else:
-            # Child itself is the parent - i.e top level URL, add empty children
-            self.url_graph[url] = set()         
+        self.stats.update_url_download(parent_url, url, content_type)
                         
     def url_download_error(self, event):
         """ Event callback for notifying download for a URL in error """
