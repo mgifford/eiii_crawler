@@ -120,7 +120,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
-    def __init__(self, nprocs=10, loglevel='info',bus_uri=None,port=8910):
+    def __init__(self, nprocs=10, loglevel='info',bus_uri=None,port=8910,bind_addr='127.0.0.1'):
         open(pidfile, 'w').write(str(os.getpid()))
         # All the crawler objects
         self.instances = []
@@ -150,7 +150,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         
         if bus_uri:
             # Register on bus
-            self.url='tcp://127.0.0.1:' + str(port)
+            self.url='tcp://' + bind_addr + ':' + str(port)
             proxy = TTRPCProxy(bus_uri,retries=3,timeout=6000)
             if proxy.ping() == 'pong':
                 # We need to fork this off to a separate thread so that we are
@@ -313,6 +313,8 @@ if __name__ == "__main__":
             default='info', nargs='?', help='Enable debug logging')
     parser.add_argument('--bus', dest='bus_uri', default=None, type=str,
                         help='URI to bus to register on.')
+    parser.add_argument('--bindaddr', dest='bind_addr', default='127.0.0.1', type=str,
+                        help='IP address on which to listen.')
     args = parser.parse_args()
     print 'Number of parallel crawler processes set to',args.nprocs
     print 'Starting crawler server on port',args.port,'...'
@@ -323,8 +325,8 @@ if __name__ == "__main__":
 
     log.setLevel(args.loglevel)
     EIIICrawlerServer(nprocs=args.nprocs,loglevel=args.loglevel,
-                      bus_uri=args.bus_uri,port=args.port
-                     ).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
+                      bus_uri=args.bus_uri, port=args.port, bind_addr=args.bind_addr
+                     ).listen("tcp://%s:%d" % (args.bind_addr, args.port), nprocs=args.nprocs*2)
 
 
     
