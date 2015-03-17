@@ -13,11 +13,100 @@ import threading
 import argparse
 import traceback
 
-from eiii_crawler.eiii_crawler import utils
-from eiii_crawler.eiii_crawler import EIIICrawler, log
-from eiii_crawler.crawlerstats import CrawlerStats
+try:
+    from eiii_crawler import utils
+except ImportError:
+    from eiii_crawler.eiii_crawler import utils
+try:
+    from eiii_crawler import EIIICrawler, log
+except ImportError:
+    from eiii_crawler.eiii_crawler import EIIICrawler, log
+try:
+    from crawlerstats import CrawlerStats
+except ImportError:
+    from eiii_crawler.crawlerstats import CrawlerStats
 
 pidfile = '/tmp/eiii_crawler_server.pid'
+def fix_url_graph(url_graph):
+    """ Fix or remove invalid URLs in URL graph """
+
+    url_graph_f = {}
+
+    # Issue 470 - stand-alone % characters
+    for url in url_graph.keys():
+        url = utils.fix_quoted_url(url)
+        children = url_graph[url]
+        children2 = set()
+
+        for child_url, ctype in children:
+            child_url = utils.fix_quoted_url(child_url)
+            children2.add((child_url, ctype))
+
+        url_graph_f[url] = children2
+
+    return url_graph_f
+
+def make_directed_graph(url_graph):
+    """ Convert the URL graph data structure obtained
+    from crawler into a directed graph
+
+    Example:
+
+    [ ("text/html", "http://tingtun.no/", [0,1,2])
+    , ("text/html", "http://tingtun.no/search", [0,1,2])
+    , ("text/html", "http://tingtun.no/research", [0,1,2,3])
+    , ("application/pdf", "http://tingtun.no/research/some.pdf", [])
+    ]
+
+    """
+
+    url_set = set()
+    url_ctype = {}
+
+    # Add all to the set
+    for url_key, url_values in url_graph.items():
+        url_set.add(url_key)
+        # Keys are always HTML since they are parents
+        url_ctype[url_key] = 'text/html'
+
+        # print url_values
+        for url, ctype in url_values:
+            # print 'URL =>',url,ctype
+            url_set.add(url)
+            url_ctype[url] = ctype
+
+    # Make a list out of it
+    # Bug: sorted gives a UnicodeDecodeError if an impoperly encoded unicode
+    # URL is present in the list - see http://gitlab.tingtun.no/eiii/eiii_crawler/issues/411
+    # Sorted is possibly not needed .
+
+    # url_list = sorted(list(url_set))
+    url_list = list(url_set)
+    # print url_list
+
+    url_dgraph = []
+
+    for url in url_list:
+        ctype = url_ctype[url]
+        child_index = []
+
+        # Do I have children ?
+        if url in url_graph:
+            # Find indices of children, since we are
+            # going through the same list, index will
+            # be shared across both lists.
+            child_urls = map(lambda x: x[0], url_graph[url])
+            for child_url in child_urls:
+                child_index.append(url_list.index(child_url))
+        else:
+            # No child URLs
+            pass
+
+        url_dgraph.append((ctype, url, child_index))
+
+    # print 'URL directed graph=>',url_dgraph
+    return url_dgraph
+
 
 class EIIICrawlerServer(SimpleTTRPCServer):
     """ EIII crawler server obeying the tt-rpc protocol """
@@ -31,7 +120,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
 
     _logger = _LoggerWrapper()
 
-    def __init__(self, nprocs=10, loglevel='info',bus_uri=None,port=8910):
+    def __init__(self, nprocs=10, loglevel='info',bus_uri=None,port=8910,bind_addr='127.0.0.1'):
         open(pidfile, 'w').write(str(os.getpid()))
         # All the crawler objects
         self.instances = []
@@ -61,7 +150,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         
         if bus_uri:
             # Register on bus
-            self.url='tcp://127.0.0.1:' + str(port)
+            self.url='tcp://' + bind_addr + ':' + str(port)
             proxy = TTRPCProxy(bus_uri,retries=3,timeout=6000)
             if proxy.ping() == 'pong':
                 # We need to fork this off to a separate thread so that we are
@@ -157,33 +246,14 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         stats_dict = return_data['stats']
 
         try:
-            url_graph = self.fix_url_graph(url_graph)
+            url_graph = fix_url_graph(url_graph)
         except Exception, e:
             log.error(traceback.format_exc())
         
-        return { 'result': self.make_directed_graph(url_graph),
+        return { 'result': make_directed_graph(url_graph),
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
 
-    def fix_url_graph(self, url_graph):
-        """ Fix or remove invalid URLs in URL graph """
-
-        url_graph_f = {}
-        
-        # Issue 470 - stand-alone % characters
-        for url in url_graph.keys():
-            url = utils.fix_quoted_url(url)
-            children = url_graph[url]
-            children2 = set()
-            
-            for child_url, ctype in children:
-                child_url = utils.fix_quoted_url(child_url)
-                children2.add((child_url, ctype))
-
-            url_graph_f[url] = children2
-
-        return url_graph_f
-        
     def crawl(self, ctl, crawler_rules, threaded=True):
         """ Accepts a crawler control object, dictionary of
         crawler rules and start crawling """
@@ -201,74 +271,13 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             url_graph = return_data['graph']
             stats_dict = return_data['stats']
         
-            return { 'result': self.make_directed_graph(url_graph),
+            return { 'result': make_directed_graph(url_graph),
                      'stats': stats_dict,
                      '__type__': "crawler-result"}
         else:
             print 'No result found for task',taskid
             return {}
     
-    def make_directed_graph(self, url_graph):
-        """ Convert the URL graph data structure obtained
-        from crawler into a directed graph
-
-        Example:
-        
-        [ ("text/html", "http://tingtun.no/", [0,1,2])
-        , ("text/html", "http://tingtun.no/search", [0,1,2])
-        , ("text/html", "http://tingtun.no/research", [0,1,2,3])
-        , ("application/pdf", "http://tingtun.no/research/some.pdf", [])
-        ]
-
-        """
-
-        url_set = set()
-        url_ctype = {}
-        
-        # Add all to the set
-        for url_key, url_values in url_graph.items():
-            url_set.add(url_key)
-            # Keys are always HTML since they are parents
-            url_ctype[url_key] = 'text/html'
-
-            # print url_values
-            for url, ctype in url_values:
-                # print 'URL =>',url,ctype
-                url_set.add(url)
-                url_ctype[url] = ctype
-
-        # Make a list out of it
-        # Bug: sorted gives a UnicodeDecodeError if an impoperly encoded unicode
-        # URL is present in the list - see http://gitlab.tingtun.no/eiii/eiii_crawler/issues/411
-        # Sorted is possibly not needed .
-        
-        # url_list = sorted(list(url_set))
-        url_list = list(url_set)
-        # print url_list
-        
-        url_dgraph = []
-
-        for url in url_list:
-            ctype = url_ctype[url]
-            child_index = []
-            
-            # Do I have children ?
-            if url in url_graph:
-                # Find indices of children, since we are
-                # going through the same list, index will
-                # be shared across both lists.
-                child_urls = map(lambda x: x[0], url_graph[url])
-                for child_url in child_urls:
-                    child_index.append(url_list.index(child_url))
-            else:
-                # No child URLs
-                pass
-
-            url_dgraph.append((ctype, url, child_index))
-
-        # print 'URL directed graph=>',url_dgraph
-        return url_dgraph
-        
     def load(self, ctl):
         """
         Returns a number. Ranges from 0 - 100. 0 means crawlers are idling,
@@ -304,6 +313,8 @@ if __name__ == "__main__":
             default='info', nargs='?', help='Enable debug logging')
     parser.add_argument('--bus', dest='bus_uri', default=None, type=str,
                         help='URI to bus to register on.')
+    parser.add_argument('--bindaddr', dest='bind_addr', default='127.0.0.1', type=str,
+                        help='IP address on which to listen.')
     args = parser.parse_args()
     print 'Number of parallel crawler processes set to',args.nprocs
     print 'Starting crawler server on port',args.port,'...'
@@ -314,8 +325,8 @@ if __name__ == "__main__":
 
     log.setLevel(args.loglevel)
     EIIICrawlerServer(nprocs=args.nprocs,loglevel=args.loglevel,
-                      bus_uri=args.bus_uri,port=args.port
-                     ).listen("tcp://*:%d" % args.port, nprocs=args.nprocs*2)
+                      bus_uri=args.bus_uri, port=args.port, bind_addr=args.bind_addr
+                     ).listen("tcp://%s:%d" % (args.bind_addr, args.port), nprocs=args.nprocs*2)
 
 
     
