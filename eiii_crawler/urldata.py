@@ -192,7 +192,11 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                 log.info("Obtained with head request",self.url,"...")
 
                 self.headers = fhead.headers
-            
+                # If header returns 404 then skip this URL
+                if fhead.status_code not in range(200, 300):
+                    log.error('Error head requesting URL =>', fhead.url,"status code is",fhead.status_code)
+                    return False
+                
                 if self.url != fhead.url:
                     # Flexi scope - no problem
                     # Allow external domains only for flexible site scope
