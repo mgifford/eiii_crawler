@@ -6,7 +6,6 @@ import time
 import datetime
 import sys
 import os
-import gc
 import signal
 import multiprocessing
 import threading
@@ -22,9 +21,9 @@ try:
 except ImportError:
     from eiii_crawler.eiii_crawler import EIIICrawler, log
 try:
-    from crawlerstats import CrawlerStats
+    pass
 except ImportError:
-    from eiii_crawler.crawlerstats import CrawlerStats
+    pass
 
 pidfile = '/tmp/eiii_crawler_server.pid'
 def fix_url_graph(url_graph):
@@ -210,10 +209,6 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         if urls==None:
             print 'No URLs given!'
             raise UserError(0, "No URLs given!")
-
-        # Set log level
-        print 'Setting log level to' , crawler_rules.get('loglevel',self.loglevel)
-        log.setLevel(crawler_rules.get('loglevel',self.loglevel))
 
         # Set task id
         config_dict['task_id'] = ctl.id_
