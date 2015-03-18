@@ -11,6 +11,7 @@ import logging
 import functools
 import re
 import sys
+import os
 import time
 
 # List of current loggers
@@ -223,6 +224,24 @@ class LoggerWrapper(object):
         # add handler to logger object
         self._log.addHandler(fh)
         if sethandler: self._extrafhandle = fh
+
+    def removeLogFile(self, logfile):
+        """ Remove a log file from the logger """
+
+        rhandle = None
+        logfile = os.path.abspath(logfile)
+        
+        for handler in self._log.handlers:
+            if type(handler) == logging.FileHandler:
+                # print handler.baseFilename, logfile
+                if handler.baseFilename == logfile:
+                    # Remove it
+                    rhandle = handler
+                    break
+
+        if rhandle != None:
+            # print 'Removing file handler=>',rhandle
+            self._log.removeHandler(rhandle)
 
 class ErrorFilter(object):
     """ Logging filter class that filters out all
