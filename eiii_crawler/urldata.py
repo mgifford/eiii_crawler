@@ -101,7 +101,10 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                 req_header['if-none-match'] = etag
 
             try:
-                fhead = urlhelper.head_url(self.url, headers=req_header)
+                # print 'Making a head request =>',self.url
+                fhead = urlhelper.head_url(self.url, headers=req_header,
+                                           verify = self.config.flag_ssl_validate)
+
                 # Status code is 304 ?
                 if fhead.status_code == 304:
                     return True
