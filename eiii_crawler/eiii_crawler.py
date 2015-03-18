@@ -65,7 +65,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
 
     def prepare_config(self):
         """ Prepare configuration """
-
+        pass
     
     def get(self, timeout=30):
         """ Get the data to crawl """
@@ -845,7 +845,11 @@ class EIIICrawler(multiprocessing.Process):
             log.info(self.id,"=> obtained task queue from server ...")         
             # Execute consists of urls and configdict
             urls, configdict  = execute
-
+            # Set log level
+            loglevel = configdict.get('loglevel', 'info')
+            log.info('Setting log level to' , loglevel)
+            log.setLevel(loglevel)
+            
             # Set state to busy
             self.state[self.id] = 1
             self.crawl_using(urls, configdict)
