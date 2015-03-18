@@ -116,6 +116,7 @@ class LoggerWrapper(object):
                          
         try:
             logfunc = getattr(self._log, levelname)
+            # print self._log, id(self._log), self._log.level
             return logfunc(self._getMessage(msg, *args), extra={'timespent': tsofar})         
         except AttributeError:
             logfunc = getattr(self._log, 'info')
@@ -184,8 +185,13 @@ class LoggerWrapper(object):
         # Allow clients to pass in levels as strings
         if type(level) is str:
             level = eval('logging.' + level.upper())
-            
+
         self._log.setLevel(level)
+        
+        # Need to set level on each handler as well.
+        for handler in self._log.handlers:
+            # print 'Setting level',level,'for handler',handler
+            handler.setLevel(level)     
     
     def setFormat(self, format):
         """ Set format for log lines """
