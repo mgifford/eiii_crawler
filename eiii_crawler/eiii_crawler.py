@@ -293,7 +293,13 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
 
         # Check robots.txt
         if not self.flag_ignorerobots:
-            self.robots_p.parse_site(url)
+            status, msg = self.robots_p.parse_site(url)
+            if not status:
+                log.error("Error fetching/parsing robots.txt rules for",url,": robots.txt would be ignored")
+                log.error("\t=>",msg)
+                # Don't bother to check as now robots.txt rules don't apply
+                return True
+            
             # NOTE: Don't check meta NOW since content of URL has not been downloaded yet.
             if not self.robots_p.can_fetch(url, content=content, meta=False):
                 log.extra('Robots.txt rules disallows URL =>',url)
@@ -654,19 +660,20 @@ class EIIICrawler(multiprocessing.Process):
         """ Signal handler """
 
         if signum in (signal.SIGINT, signal.SIGTERM,):
-            log.info('You interrupted me ! Stopping my work and cleaning up...')
-            for worker in self.workers:
-                worker.stop()
-                
-            self.sig_count += 1
+           log.info('You interrupted me ! Stopping my work and cleaning up...')
+           for worker in self.workers:
+               worker.stop()
+               
+           self.sig_count += 1
 
         # Set red flag
         self.red_flag = True
-
+        sys.exit(1)
+        
         if self.sig_count>1:
-            log.info('Force Quitting...')
-            # Not exited in natural course, force exiting.
-            sys.exit(1)
+           log.info('Force Quitting...')
+           # Not exited in natural course, force exiting.
+           sys.exit(1)
 
     def subscribe_events(self):
         """ Subscribe to events """
@@ -960,7 +967,9 @@ class EIIICrawler(multiprocessing.Process):
         for worker in self.workers:
             worker.stop()
 
-        log.info("Crawl Process =>",self.id,"stopped.")
+        print 'Crawler process =>',self.id,'stopped.'
+        
+        # log.info("Crawl Process =>",self.id,"stopped.")
         
     def wait(self):
         """ Wait for crawl to finish """
