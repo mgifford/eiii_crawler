@@ -30,24 +30,37 @@ class Robocop(object):
         
     def parse_site(self, url):
         """ Parse robots.txt rules for a site or URL """
-        
+
+        # print 'Parsing site =>',url
         site = urlhelper.get_website(url, scheme=True)
         # Site without scheme
         site_nos = urlhelper.get_website(url)
+        # print 'Robocop rules =>',self.rules
         # If rules already exist, don't parse again
         if self.rules.has_key(site_nos):
             # print "Robots.txt already parsed for site",site_nos
-            return
+            return True, ''
         
         robots_url = site + '/robots.txt'
 
         try:
             # print 'Robots URL =>',robots_url
-            freq = urlhelper.fetch_url(robots_url)
+            # print 'Fetching URL =>',robots_url
+            freq = urlhelper.fetch_url(robots_url, verify=True)
             content = freq.content.split('\n')
             self.parse_robotstxt(content, site_nos)
-        except:
+        except urlhelper.FetchUrlException, e:
+            # Bug : This cause the frosta kommune slow crawl issue #422. The
+            # robots.txt URL of this site was causing a lot of redirects
+            # and finally failing, but we are not catching it. We need
+            # to catch it and disable the robots.txt rules of the site
+            # by adding a default allow-all rule.
             content = []
+            # Allow all
+            self.rules[site_nos] = []
+            return False, e
+
+        return True, ''
 
     def parse_robotstxt(self, content, site):
         """ Parse the robots.txt content """
@@ -142,7 +155,8 @@ class Robocop(object):
         if content==None:
             # Need to fetch the content
             try:
-                freq = urlhelper.fetch_url(url)
+                # print 'Fetching URL (meta) =>',robots_url              
+                freq = urlhelper.fetch_url(url, verify=True)
                 content = freq.content
             except Exception, e:
                 print 'Error fetching URL =>',str(e)
@@ -217,5 +231,15 @@ if __name__ == '__main__':
     r.parse_site('www.nord-odal.kommune.no')
     assert(r.can_fetch('http://www.nord-odal.kommune.no/test/'))
     assert(r.check_meta('http://www.vestnes.kommune.no/Modules/Default.aspx') == (True, True))
-    assert(r.check_meta('http://www.chami.com/tips/internet/010198I.html') == (True, True)) 
+    assert(r.check_meta('http://www.chami.com/tips/internet/010198I.html') == (True, True))
+
+    # One of few sites that disable crawl/index via meta robots
+    r.parse_site('http://www.salangen.kommune.no/')
+    assert(not r.can_fetch('http://www.salangen.kommune.no/', meta=True))
+
+    r.parse_site('http://www.dsb.no')
+    # Test for frosta kommune.no
+    r.parse_site('http://www.frosta.kommune.no')
+    assert(r.can_fetch('http://www.frosta.kommune.no/xyz/'))
+    
     print 'All tests passed.'
