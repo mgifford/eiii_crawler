@@ -139,7 +139,10 @@ def fetch_quick(url, *exceptions, **headers):
 def head(url, *exceptions, **headers):
     
     try:
-        yield requests.head(url, headers=headers, allow_redirects=True, timeout=15)
+        # SSL cert verify
+        verify = headers.get('verify', False)               
+        yield requests.head(url, headers=headers, allow_redirects=True, timeout=15,
+                            verify=verify)
         # Catch a bunch of network errors - courtesy havestman
     except exceptions, e:
         raise FetchUrlException(e)
@@ -213,7 +216,7 @@ def get_url(url, headers={}, proxy='', content_types=[], max_size=0, verify=Fals
         
         return freq
 
-def head_url(url, headers={}):
+def head_url(url, headers={}, verify=False):
     """ Download a URL with a HEAD request and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
@@ -223,7 +226,8 @@ def head_url(url, headers={}):
                   socket.error, socket.timeout]
 
     method = head
-        
+    headers['verify'] = verify
+    
     with method(url, *exceptions, **headers) as freq:
         return freq 
 
