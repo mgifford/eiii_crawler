@@ -836,8 +836,9 @@ class EIIICrawler(multiprocessing.Process):
         """ Process entry method when the crawler is used
         as a multiprocessing crawler from the EIII crawler server """
 
+        # Issue #426 - turn off global crawl.log for server crawls
+        log.removeLogFile(utils.get_crawl_log())
         log.debug("Starting Crawler Process =>", self.id)
-        # Turn console logging off
         
         while self.server_flag:
             log.info(self.id,"=> waiting on task queue from server ...")
