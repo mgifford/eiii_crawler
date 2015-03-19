@@ -239,13 +239,19 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         return_data = self.return_dict[task_id]
         url_graph = return_data['graph']
         stats_dict = return_data['stats']
-
+        error_msg = return_data.get('error', '')
+        
+        if len(url_graph) == 0:
+            print 'URL graph is empty'
+            print 'Fatal error message is =>',error_msg
+        
         try:
             url_graph = fix_url_graph(url_graph)
         except Exception, e:
             log.error(traceback.format_exc())
         
         return { 'result': make_directed_graph(url_graph),
+                 'error': error_msg,
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
 
