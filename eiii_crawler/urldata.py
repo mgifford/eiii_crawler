@@ -208,7 +208,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                         log.info("URL updated to",self.url)                     
                     else:
                         scoper = CrawlerScopingRules(self.config, self.url)
-                        if scoper.allowed(fhead.url):
+                        if scoper.allowed(fhead.url, parent_url, redirection=True):
                             self.url = fhead.url
                             log.info("URL updated to",self.url)
                         else:
@@ -276,7 +276,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                     log.info("URL updated to",self.url)                 
                 else:
                     scoper = CrawlerScopingRules(self.config, self.url)
-                    if scoper.allowed(freq.url):
+                    if scoper.allowed(freq.url, parent_url, redirection=True):
                         self.url = freq.url
                         log.info("URL updated to",self.url)
                     else:
