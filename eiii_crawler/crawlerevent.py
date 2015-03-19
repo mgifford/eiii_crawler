@@ -99,6 +99,7 @@ class CrawlerEventRegistry(object):
                   'url_pushed': 'Published when a new URL is pushed to the pipeline for processing',
                   'url_parsed': "Published after a URL's data has been parsed for new (child) URLs",
                   'url_filtered': "Published when a URL has been filtered after applying a rule",
+                  'url_not_allowed': "Published when a URL is not allowed by content-scoping rules",                  
                   'crawl_started': "Published when the crawl is started, no events can be published before this event",
                   'crawl_ended': "Published when the crawl ends, no events can be published after this event",
                   'abort_crawling': "Published if the crawl has to be aborted midway",
