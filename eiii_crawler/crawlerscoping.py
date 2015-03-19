@@ -86,6 +86,7 @@ class CrawlerScopingRules(object):
     def __init__(self, config, url):
         self.config = config
         self.url = url
+        self.eventr = CrawlerEventRegistry.getInstance()        
         # Find the site without the scheme
         self.site = urlhelper.get_website(url)
         # Find the 'folder' of the URL
@@ -94,11 +95,13 @@ class CrawlerScopingRules(object):
         # Root site
         self.rootsite = urlhelper.get_root_website(self.site)
 
-    def allowed(self, url):
+    def allowed(self, url, parent_url=None, content_type='text/html', redirection=False):
         """ Return whether the URL can be crawled according
         to the configured site scoping rules """
 
+        smsg = utils.StatusMessage()
         log.debug('Checking scope for',url,'against',self.url)
+        
         # Fix for issue #420
         # For some websites e.g http://www.vagsoy.kommune.no/ the
         # URL is forwarded to http://vagsoy.kommune.no/. Right now this
@@ -107,20 +110,19 @@ class CrawlerScopingRules(object):
         # are the same - irrespective of any scope.
         if urlhelper.is_www_of(url, self.url):
             log.debug(url,'is a www sister of',self.url,'or the same')
-            return True
+            smsg.msg = '[%s] is a www sister of [%s] or same' % (url, self.url)
+            return smsg
         
         scope = self.config.site_scope
         # Get the website of the URL
         url_site = urlhelper.get_website(url)
 
-        # Boolean and of values
-        ret = True
-        
         # If both sites are same
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
-                log.debug('\tSame site, all site scope, returning True',url,'=>',self.url)
-                ret &= True
+                smsg.msg = 'Same site, all site scope, returning True [%s] => [%s]' % (url, self.url)
+                log.debug('\t',smgs.msg)
+                smsg.status &= True
             elif scope in CrawlPolicy.all_folder_scopes:
                 # NOTE - folder_link_scope check is not implemented
                 # Only folder scope is done. Folder scope is correct
@@ -139,7 +141,7 @@ class CrawlerScopingRules(object):
                 ret2 = abs(len(pieces1) - len(pieces2))<=1
                 # print 'PIECES BOOLEAN =>',ret2
                 # Either ret1 or ret2
-                ret &= (ret1 or ret2)
+                smsg.status &= (ret1 or ret2)
         else:
             # Different site - work out root site
             # If root site is same for example images.foo.com and static.foo.com
@@ -147,23 +149,49 @@ class CrawlerScopingRules(object):
             url_root_site = urlhelper.get_root_website(url_site)
             if url_root_site == self.rootsite:
                 if scope in CrawlPolicy.all_fullsite_scopes:
-                    log.debug('\tSame root site, all full site scope, returning True',url_root_site,'=>',self.url,self.rootsite)
-                    ret &= True
+                    smsg.msg = 'True: same root site, all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
+                                                                                                                  self.url,
+                                                                                                                  self.rootsite)
+                    log.debug('\t',smsg.msg)                   
+                    smsg.status &= True
                 else:
-                    log.debug('\tSame root site, but not full-site-scope, returning False',url_root_site,'=>',self.url,self.rootsite)
-                    ret &= False
+                    smsg.status &= False
+                    smsg.msg = 'False: same root site, but not all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
+                                                                                                                           self.url,
+                                                                                                                           self.rootsite)
+                    if redirection:
+                        smsg.msg = smsg.msg + ' (URL redirection)'
+                        
+                    log.debug('\t',smsg.msg)
             else:
-                log.debug('\tDifferent root site, returning False',url,'=>',self.url,self.rootsite)
-                ret &= False
+                smsg.msg = 'False: Different root site [URL:%s, ROOT:%s] => [SITE: %s]' % (url,
+                                                                                           self.url,
+                                                                                           self.rootsite)
+
+                if redirection:
+                    smsg.msg = smsg.msg + ' (URL redirection)'
+                    
+                smsg.status &= False
+                log.debug('\t',smsg.msg)                   
 
         # Depth scope
         url_depth = urlhelper.get_depth(url)
         if url_depth > self.config.site_maxdepth:
-            ret &= False
+            smsg.msg = 'False: URL depth %d exceeds max configured site depth %d' % (url_depth,
+                                                                                     self.config.site_maxdepth)
+            smsg.status &= False
 
         # print '\tDefault value',url,'=>',self.url            
         # default value
-        return ret
+        if not smsg:
+            # Filtered
+            # This is a StatusMessage object
+            error_msg = str(smsg)
+            self.eventr.publish(self, 'url_not_allowed',
+                                params=locals())
+
+        
+        return smsg
 
 class CrawlerLimitRules(object):
     """ Class implementing crawler limiting rules with respect
