@@ -371,6 +371,26 @@ def bye_message():
 
     return ' '.join((rprefix, msgkeys[key])) + ' today.'
 
+class StatusMessage(object):
+    """ A class having behaviours of both a boolean
+    status (True, False) and an error message """
+
+    def __init__(self, status=True, msg=''):
+        self.status = status
+        self.msg = msg
+
+    def __str__(self):
+        return self.msg
+
+    def __unicode__(self):
+        return self.msg.encode('utf-8')
+
+    def __nonzero__(self):
+        return self.status
+
+    def __eq__(self, item):
+        return (self.status == item)
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod(verbose=True)
