@@ -99,7 +99,7 @@ class CrawlerScopingRules(object):
         """ Return whether the URL can be crawled according
         to the configured site scoping rules """
 
-        smsg = utils.StatusMessage()
+        smsg = utils.StatusMessage(type='scoping', subtype='')
         log.debug('Checking scope for',url,'against',self.url)
         
         # Fix for issue #420
@@ -161,6 +161,7 @@ class CrawlerScopingRules(object):
                                                                                                                            self.rootsite)
                     if redirection:
                         smsg.msg = smsg.msg + ' (URL redirection)'
+                        smsg.subtype = 'redirection'
                         
                     log.debug('\t',smsg.msg)
             else:
@@ -170,7 +171,8 @@ class CrawlerScopingRules(object):
 
                 if redirection:
                     smsg.msg = smsg.msg + ' (URL redirection)'
-                    
+                    smsg.subtype = 'redirection'
+                        
                 smsg.status &= False
                 log.debug('\t',smsg.msg)                   
 
@@ -179,6 +181,7 @@ class CrawlerScopingRules(object):
         if url_depth > self.config.site_maxdepth:
             smsg.msg = 'False: URL depth %d exceeds max configured site depth %d' % (url_depth,
                                                                                      self.config.site_maxdepth)
+            smsg.subtype = 'depth'          
             smsg.status &= False
 
         # print '\tDefault value',url,'=>',self.url            
@@ -186,8 +189,9 @@ class CrawlerScopingRules(object):
         if not smsg:
             # Filtered
             # This is a StatusMessage object
-            error_msg = str(smsg)
             self.eventr.publish(self, 'url_not_allowed',
+                                message=smsg,
+                                message_type='object',
                                 params=locals())
 
         
