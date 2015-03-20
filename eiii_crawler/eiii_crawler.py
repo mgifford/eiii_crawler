@@ -223,8 +223,9 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         if not result:
             # Filtered
             # This is a StatusMessage object
-            error_msg = str(result)
             self.eventr.publish(self, 'url_filtered',
+                                message=result,
+                                message_type='object',
                                 params=locals())
 
         return result
@@ -237,13 +238,14 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         # Is already downloaded ? Then skip right away
         # NOTE - Do this only for child URLs!
         if (parent_url != None) and (not parse) and self.manager.check_already_downloaded(url):
-            return utils.StatusMessage(False, url + ' already downloaded')
+            return utils.StatusMessage(False, url + ' already downloaded', type='duplicate')
 
         if (parse) and content_type not in ('text/html','text/xhtml','application/xml','application/xhtml+xml'):
-            return utils.StatusMessage(False, "Skipping URL for parsing as mime-type is not (X)HTML or XML")
+            return utils.StatusMessage(False, "Skipping URL for parsing as mime-type is not (X)HTML or XML", type='mime-type')
         
         if content_type not in self.config.client_mimetypes:
-            return utils.StatusMessage(False, 'Skipping URL ' + url + ' as content-type ' + content_type + ' is not valid.')
+            return utils.StatusMessage(False, 'Skipping URL ' + url + ' as content-type ' + content_type + ' is not valid.',
+                                       type='content-type')
 
         # Part of client mime-types, check if part of fake mime-types
         elif content_type in self.config.client_cheat_mimetypes and download:
@@ -256,18 +258,22 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
            
            return utils.StatusMessage(False,
                                       'Skipping URL ' + url + ' as ' + content_type + 
-                                      'is part of cheat mime-types (no download)')
+                                      'is part of cheat mime-types (no download)',
+                                      type='content-type',
+                                      subtype='fake-mime-type')
         
         
         # If URL include rules are given - the scenario is most likely
         # if these are filtered by some of the other rules - so we should
         # apply them first.
         if any([re.match(rule, url) for rule in self.config._url_include_rules]):
-            return utils.StatusMessage(True, 'Allowing URL ' + url + ' due to specific inclusion rule.')
+            return utils.StatusMessage(True, 'Allowing URL ' + url + ' due to specific inclusion rule.',
+                                       type='inclusion-rule')
 
         # Apply exclude rules next
         if any([re.match(rule, url) for rule in self.config._url_exclude_rules]):
-            return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to specific exclusion rule.')
+            return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to specific exclusion rule.',
+                                       type='exclusion-rule')
 
         # Scoping rules
         if parent_url != None:
@@ -278,7 +284,8 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             if not m_allowed:
                 # Get the message
                 error_msg = str(m_allowed)
-                return utils.StatusMessage(False, 'Scoping rules does not allow URL [Error: %s]'  % error_msg)
+                return utils.StatusMessage(False, 'Scoping rules does not allow URL [Error: %s]'  % error_msg,
+                                           type=m_allowed.type, subtype=m_allowed.subtype)
         else:
             log.extra('Parent URL is none =>', url)
                         
@@ -294,12 +301,14 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
                 log.error("Error fetching/parsing robots.txt rules for",url,": robots.txt would be ignored")
                 log.error("\t=>",msg)
                 # Don't bother to check as now robots.txt rules don't apply
-                return utils.StatusMessage(True, 'Error fetching/parsing robots.txt rules for "%s" robots.txt would be ignored' % url)
+                return utils.StatusMessage(True, 'Error fetching/parsing robots.txt rules for "%s" robots.txt would be ignored' % url,
+                                           type='robots', subtype='robots.txt')
             
             # NOTE: Don't check meta NOW since content of URL has not been downloaded yet.
             if not self.robots_p.can_fetch(url, content=content, meta=False):
                 log.extra('Robots.txt rules disallows URL =>',url)
-                return utils.StatusMessage(False, 'Robots.txt rules disallows URL %s' % url)                
+                return utils.StatusMessage(False, 'Robots.txt rules disallows URL %s' % url,
+                                           type='robots', subtype='robots.txt')                
 
         return utils.StatusMessage(True, 'Default allowed')
 
@@ -318,14 +327,16 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             # Don't bother too much with NO index, but bother with NOFOLLOW
             if not follow:
                 log.extra('META robots rules disallows URL =>',url)
-                return utils.StatusMessage(False, 'META robots rules disallows URL "%s"' % url)              
+                return utils.StatusMessage(False, 'META robots rules disallows URL "%s"' % url,
+                                           type='robots', subtype='meta-robots')              
 
         if self.flag_x_robots:
             index, follow = self.robots_p.x_robots_check(url, headers=headers)
             # Don't bother too much with NO index, but bother with NOFOLLOW
             if not follow:
                 log.extra('x-robots rules disallows URL =>',url)
-                return utils.StatusMessage(False, 'X-robots rules disallows URL "%s"' % url)                            
+                return utils.StatusMessage(False, 'X-robots rules disallows URL "%s"' % url,
+                                           type='robots', subtype='x-robots')                            
             
         # Not doing any other content rules now
         return utils.StatusMessage(True, 'Default allowed') 
@@ -599,7 +610,10 @@ class EIIICrawler(multiprocessing.Process):
         self.server_flag = True
         # Crawl failure message - when the starting URL
         # doesn't take off
-        self.fatal_msg = ''
+        self.fatal_msg = { 'msg': '',
+                           'type': '',
+                           'subtype': '',
+                           'url': '' }
         
         self.stats.reset()
         self.limit_checker.reset()
@@ -783,20 +797,31 @@ class EIIICrawler(multiprocessing.Process):
 
         url = event.params.get('url')
         parent_url = event.params.get('parent_url')
-        
+
         # If this is the start URL (parent_url==None) then keep
         # the error message.
-        error_msg = event.params.get('error_msg')
+
+        # This is error message object
+        error_msg = event.message
+        
         # Log it at debug level
-        if len(error_msg):
+        if len(str(error_msg)):
             log.debug(error_msg)
 
             # If parent URL is None, this often means the crawl doesn't
             # start as the starting URL itself is filtered, so that
             # message is important, hence log it.
-            if parent_url == None:
-                self.fatal_msg = error_msg
-                log.debug("Logging crawl fatal error", error_msg)
+
+            # Also log it if parent_url is the start URL since it means
+            # getting filtered at next level.
+            if (parent_url == None) or (parent_url in self.urls):
+                self.fatal_msg['msg'] = str(error_msg)
+                self.fatal_msg['type'] = error_msg.type
+                self.fatal_msg['subtype'] = error_msg.subtype
+                self.fatal_msg['url'] = url
+                self.fatal_msg['parent_url'] = '' if (parent_url==None) else parent_url
+                
+                # log.debug("Logging crawl fatal error", error_msg)
         
     def url_download_complete(self, event):
         """ Event callback for notifying download for a URL is done """
@@ -839,8 +864,17 @@ class EIIICrawler(multiprocessing.Process):
             # start as the starting URL itself is filtered, so that
             # message is important, hence log it.
             if parent_url == None:
-                self.fatal_msg = error_msg
-                log.debug("Logging crawl fatal error", error_msg)          
+                self.fatal_msg['msg'] = error_msg
+                self.fatal_msg['type'] = 'download'
+                self.fatal_msg['url'] = url
+                self.fatal_msg['parent_url'] = ''
+                
+                # We can do some heuristics here.
+                if error_msg.lower().find('name or service not known') != -1:
+                    self.fatal_msg['subtype'] = 'dns'
+
+                # Can add more sub-types later.
+                # log.debug("Logging crawl fatal error", error_msg)          
 
     def make_worker(self):
         """ Make a worker instance """
