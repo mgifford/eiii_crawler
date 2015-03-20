@@ -241,7 +241,7 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         stats_dict = return_data['stats']
         error_msg = return_data.get('error', '')
         
-        if len(url_graph) == 0:
+        if len(url_graph) <= 1:
             print 'URL graph is empty'
             print 'Fatal error message is =>',error_msg
         
