@@ -382,7 +382,7 @@ class StatusMessage(object):
         self.subtype = subtype
 
     def __str__(self):
-        return self.msg
+        return self.msg.encode('ascii','xmlcharrefreplace')
 
     def __unicode__(self):
         return self.msg.encode('utf-8')
