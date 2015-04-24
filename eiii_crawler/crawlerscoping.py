@@ -110,7 +110,7 @@ class CrawlerScopingRules(object):
         # are the same - irrespective of any scope.
         if urlhelper.is_www_of(url, self.url):
             log.debug(url,'is a www sister of',self.url,'or the same')
-            smsg.msg = '[%s] is a www sister of [%s] or same' % (url, self.url)
+            smsg.msg = u'[%s] is a www sister of [%s] or same' % (url, self.url)
             return smsg
         
         scope = self.config.site_scope
@@ -120,7 +120,7 @@ class CrawlerScopingRules(object):
         # If both sites are same
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
-                smsg.msg = 'Same site, all site scope, returning True [%s] => [%s]' % (url, self.url)
+                smsg.msg = u'Same site, all site scope, returning True [%s] => [%s]' % (url, self.url)
                 log.debug('\t',smgs.msg)
                 smsg.status &= True
             elif scope in CrawlPolicy.all_folder_scopes:
@@ -149,14 +149,14 @@ class CrawlerScopingRules(object):
             url_root_site = urlhelper.get_root_website(url_site)
             if url_root_site == self.rootsite:
                 if scope in CrawlPolicy.all_fullsite_scopes:
-                    smsg.msg = 'True: same root site, all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
+                    smsg.msg = u'True: same root site, all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
                                                                                                                   self.url,
                                                                                                                   self.rootsite)
                     log.debug('\t',smsg.msg)                   
                     smsg.status &= True
                 else:
                     smsg.status &= False
-                    smsg.msg = 'False: same root site, but not all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
+                    smsg.msg = u'False: same root site, but not all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
                                                                                                                            self.url,
                                                                                                                            self.rootsite)
                     if redirection:
@@ -165,7 +165,7 @@ class CrawlerScopingRules(object):
                         
                     log.debug('\t',smsg.msg)
             else:
-                smsg.msg = 'False: Different root site [URL:%s, ROOT:%s] => [SITE: %s]' % (url,
+                smsg.msg = u'False: Different root site [URL:%s, ROOT:%s] => [SITE: %s]' % (url,
                                                                                            self.url,
                                                                                            self.rootsite)
 
@@ -179,7 +179,7 @@ class CrawlerScopingRules(object):
         # Depth scope
         url_depth = urlhelper.get_depth(url)
         if url_depth > self.config.site_maxdepth:
-            smsg.msg = 'False: URL depth %d exceeds max configured site depth %d' % (url_depth,
+            smsg.msg = u'False: URL depth %d exceeds max configured site depth %d' % (url_depth,
                                                                                      self.config.site_maxdepth)
             smsg.subtype = 'depth'          
             smsg.status &= False
