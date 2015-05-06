@@ -50,6 +50,9 @@
  "logfile_theme": "site_task", 
  "network_proxy": "", 
  "num_workers": 2, 
+ "plugins": [
+  "circuitbreaker"
+ ], 
  "site_maxbytes": 500, 
  "site_maxdepth": 10, 
  "site_maxrequests": 20, 
