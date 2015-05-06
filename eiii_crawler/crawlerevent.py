@@ -14,9 +14,10 @@ event object as argument.
 """
 
 import datetime
-import utils
 import collections
 import uuid
+
+from eiii_crawler import utils
 
 # Default logging object
 log = utils.get_default_logger()
@@ -172,4 +173,17 @@ class CrawlerEventRegistry(object):
         """ Subscribe to an event with the given method """
 
         self.subscribers[event_name].add(method)
+
+def subscribe(*wargs):
+    """ Subscription decorator """
+    print 'Wargs =>',wargs
+    
+    def f(*fargs):
+        func = fargs[0]
+        print 'FUNC =>',func
+        CrawlerEventRegistry.getInstance().subscribe(wargs[0], func)
+        def wrapper(self, *args):
+            return func(self, *args)
+        return wrapper
+    return f
 

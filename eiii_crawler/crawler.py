@@ -4,14 +4,12 @@
 
 import sys, os
 import Queue
-import urlhelper
 import robocop
 import urlparse
 import signal
 import re
 import time
 import datetime
-import utils
 import argparse
 import collections
 import sgmllib
@@ -24,11 +22,14 @@ import signal
 import gc
 import warnings
 import copy
+import imp
 
-import crawlerbase
-from crawlerevent import CrawlerEventRegistry
-from crawlerscoping import CrawlPolicy, CrawlerLimitRules, CrawlerScopingRules
-from crawlerstats import CrawlerStats
+from eiii_crawler import crawlerbase
+from eiii_crawler.crawlerevent import CrawlerEventRegistry, subscribe
+from eiii_crawler.crawlerscoping import CrawlPolicy, CrawlerLimitRules, CrawlerScopingRules
+from eiii_crawler.crawlerstats import CrawlerStats
+from eiii_crawler import urlhelper
+from eiii_crawler import utils
 
 # Threaded implementation
 import threaded
@@ -36,6 +37,8 @@ import threaded
 import urldata
 
 import js.jsparser as jsparser
+# top-level plugin module
+import eiii_crawler.plugins as eiii_plugins
 
 # Default logging object
 log = utils.get_default_logger()
@@ -271,7 +274,9 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
                                        type='inclusion-rule')
 
         # Apply exclude rules next
+        # print 'Exclusion rules=>',self.config._url_exclude_rules
         if any([re.match(rule, url) for rule in self.config._url_exclude_rules]):
+            # print 'Disallowing URL',url,'due to specific exclusion rule'
             return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to specific exclusion rule.',
                                        type='exclusion-rule')
 
@@ -629,7 +634,25 @@ class EIIICrawler(multiprocessing.Process):
         self.check_idna_domains()
         if not self.config.disable_dynamic_scope:
             self.set_dynamic_scope()
-            
+
+        # Load plugins
+        self.load_plugins()
+
+    def load_plugins(self):
+        """ Load plugin modules which are enabled in the configuration """
+
+        for plugin in self.config.plugins:
+            print 'Loading plugin',plugin,'...'
+            # mod = getattr(eiii_plugins, plugin)
+            m = imp.find_module(plugin, eiii_plugins.__path__)
+            mod = imp.load_module(plugin, *m)
+            # If module defines a setup function, call it
+            try:
+                setup = getattr(mod, 'setup')
+                setup()
+            except AttributeError:
+                print 'Module',mod,'defines no setup function.'
+
     def set_dynamic_scope(self):
         """ Do self-adjusting of scope w.r.t the URL given
         If the URL is like http://foo.com use SITE_SCOPE (default)
@@ -694,7 +717,6 @@ class EIIICrawler(multiprocessing.Process):
         self.eventr.subscribe('download_complete', self.url_download_complete)
         self.eventr.subscribe('download_complete_fake', self.url_download_complete)
         self.eventr.subscribe('download_complete_cheat', self.url_download_complete)            
-        # self.eventr.subscribe('url_pushed', self.url_pushed_callback)       
         self.eventr.subscribe('download_cache', self.url_download_complete)     
         self.eventr.subscribe('download_error', self.url_download_error)
         self.eventr.subscribe('abort_crawling', self.abort_crawl)
@@ -822,7 +844,7 @@ class EIIICrawler(multiprocessing.Process):
                 self.fatal_msg['parent_url'] = '' if (parent_url==None) else parent_url
                 
                 # log.debug("Logging crawl fatal error", error_msg)
-        
+
     def url_download_complete(self, event):
         """ Event callback for notifying download for a URL is done """
 

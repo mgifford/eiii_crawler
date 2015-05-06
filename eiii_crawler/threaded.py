@@ -9,8 +9,8 @@ import random
 import time
 import traceback
 
-from crawlerbase import CrawlerUrlData, CrawlerWorkerBase
-from crawlerevent import CrawlerEventRegistry
+from eiii_crawler.crawlerbase import CrawlerUrlData, CrawlerWorkerBase
+from eiii_crawler.crawlerevent import CrawlerEventRegistry
 
 # Default logging object
 log = utils.get_default_logger()

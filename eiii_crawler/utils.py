@@ -12,18 +12,22 @@ import json
 import datetime
 import random
 import urllib
-import logger
-import urlhelper
+import threading
 
 from contextlib import contextmanager
 from types import StringTypes
+from eiii_crawler import logger
 
 __logprefix__ = 'logs'
 
 def get_default_logger(name='eiii_crawler'):
     """ Return the default logging object """
 
-    return logger.getLogger(name, get_crawl_log() ,console=True)
+    log = logger.getLogger(name, get_crawl_log() ,console=True)
+    # print 'Logger id =>',id(log)
+    # frame_info = getPreviousFrame(n=2)
+    # print 'Caller =>',frame_info
+    return log
     
 def get_crawl_log():
     """ Get the crawl log file """
@@ -40,6 +44,8 @@ def get_crawl_log():
 
 def get_logfilename(task_id, urls, config):
     """ Return the crawl log filename according to the chosen logging theme """
+
+    import eiii_crawler.urlhelper as urlhelper
 
     theme = config.logfile_theme
     site = urlhelper.get_website(urls[0])

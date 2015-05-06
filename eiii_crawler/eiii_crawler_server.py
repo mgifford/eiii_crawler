@@ -17,9 +17,9 @@ try:
 except ImportError:
     from eiii_crawler.eiii_crawler import utils
 try:
-    from eiii_crawler import EIIICrawler, log
+    from eiii_crawler.crawler import EIIICrawler, log
 except ImportError:
-    from eiii_crawler.eiii_crawler import EIIICrawler, log
+    from eiii_crawler.crawler import EIIICrawler, log
 try:
     pass
 except ImportError:

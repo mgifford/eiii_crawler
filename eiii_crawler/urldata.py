@@ -12,7 +12,7 @@ import os
 import urlhelper
 import utils
 
-from crawlerscoping import CrawlerScopingRules
+from eiii_crawler.crawlerscoping import CrawlerScopingRules
 
 # Default logging object
 log = utils.get_default_logger()

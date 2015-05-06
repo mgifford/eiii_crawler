@@ -16,8 +16,8 @@ import zlib
 import mimetypes
 import urlnorm
 import re
-import utils
 
+import eiii_crawler.utils as utils
 from bs4 import BeautifulSoup
 
 # Filter warnings by requests library on certificate issue.

@@ -15,8 +15,8 @@ import datetime
 import json
 import os
 
-from crawlerscoping import CrawlPolicy, CrawlerLimits
-from crawlerevent import CrawlerEventRegistry
+from eiii_crawler.crawlerscoping import CrawlPolicy, CrawlerLimits
+from eiii_crawler.crawlerevent import CrawlerEventRegistry
 
 class ConfigOutdatedException(Exception):
     """ Exception class indicating the config file is out-dated """
@@ -176,6 +176,9 @@ class CrawlerConfig(object):
         # 3. site_task - Mix of task id + site name (default)
         # 4. site_folder - Sub-folders with site names and log files with task ids
         self.logfile_theme = 'site_task'
+
+        # List of enabled plugins
+        self.plugins = ['circuitbreaker']
 
     def update(self, configdict):
         """ Update configuration from another dictionary """

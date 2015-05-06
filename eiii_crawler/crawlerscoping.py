@@ -8,7 +8,7 @@ import datetime
 import urlparse
 import os
 
-from crawlerevent import CrawlerEventRegistry
+from eiii_crawler.crawlerevent import CrawlerEventRegistry
 
 # Default logging object
 log = utils.get_default_logger()
