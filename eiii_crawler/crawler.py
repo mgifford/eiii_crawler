@@ -284,8 +284,9 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         if any([re.match(rule, url) for rule in self.config._url_dynamic_exclude_rules]):
             # Uncomment following for printing message during dynamic exclusion
             # log.extra('Disallowing URL ',url,' due to dynamic exclusion rule.')
+            # Add this to a list
             return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to dynamic exclusion rule.',
-                                       type='dynamic-exclusion-rule')
+                                       type='dynamic-exclusion-rule', subtype=rule)
 
         # Scoping rules
         if parent_url != None:
@@ -366,6 +367,8 @@ class EIIICrawlerStats(CrawlerStats):
         self.urls_d = set()
         # URLs filtered
         self.urls_f = set()
+        # Dynamic URLs filtered
+        self.urls_fd = collections.defaultdict(list)
         # All URLs
         self.urls_a = set()
         # URLs with error
@@ -382,9 +385,15 @@ class EIIICrawlerStats(CrawlerStats):
     def update_total_urls_skipped(self, event):
         """ Update total number of URLs skipped """     
 
+        error_msg = event.message
         super(EIIICrawlerStats, self).update_total_urls_skipped(event)
-        self.urls_f.add(event.params.get('url'))
-
+        url = event.params.get('url')
+        self.urls_f.add(url)
+        
+        # Add to dynamic URLs filtered dictionary if dynamic filtering
+        if error_msg.type == 'dynamic-exclusion-rule':
+            self.urls_fd[error_msg.subtype].append(url)
+        
     def update_total_urls(self, event):
         """ Update total number of URLs """
 
@@ -417,13 +426,14 @@ class EIIICrawlerStats(CrawlerStats):
 
         mapping = {'urls_a': 'urls_all',
                    'urls_f': 'urls_filtered',
+                   'urls_fd': 'urls_dynamic_filtered',
                    'urls_d': 'urls_downloaded',
                    'urls_e': 'urls_error' }
 
 
         # print 'URLS_E=>',statsdict['urls_e']
         # Convert sets to list
-        for key in ('urls_f','urls_e','urls_d','urls_a'):
+        for key in ('urls_f', 'urls_e','urls_d','urls_a'):
             # Make all URL data safe
             entries = list(statsdict[key])
             if key == 'urls_e':
@@ -435,6 +445,17 @@ class EIIICrawlerStats(CrawlerStats):
             # Drop original key
             del statsdict[key]
 
+        # Dictionary items
+        for key in ('urls_fd',):
+            entries = statsdict[key]
+            entries_safe = {}
+            
+            for regex, urls in entries.items():
+                urls_safe = map(utils.safedata, urls)
+                entries_safe[regex] = urls_safe
+
+            statsdict[mapping.get(key)] = entries_safe
+            
         # Process URL graph - make a copy as we will be modifying it.
         graph = copy.deepcopy(self.url_graph)
         
@@ -483,8 +504,6 @@ class EIIICrawlerStats(CrawlerStats):
         
         super(EIIICrawlerStats, self).publish_stats()
         # Filtered - downloaded
-        # urls_af = list(self.urls_f - self.urls_d)
-        # self.urls_f, self.urls_d, self.urls_a = map(list, (urls_af, self.urls_d, self.urls_a))
         # Write stats.json
         statspath = os.path.expanduser(os.path.join(self.config.statsdir, self.config._task_id + '.json'))
 
