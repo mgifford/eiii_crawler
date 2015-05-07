@@ -179,6 +179,9 @@ class CrawlerConfig(object):
 
         # List of enabled plugins
         self.plugins = ['circuitbreaker']
+        # Plugin configuration
+        self.plugin_conf = {'circuitbreaker': {'threshold': 20,
+                                               'min_hits': 10}}
 
     def update(self, configdict):
         """ Update configuration from another dictionary """
