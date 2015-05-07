@@ -74,7 +74,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         """ Get the data to crawl """
 
         data = self.manager.get()
-        log.debug("\tGot data =>", data)
+        # log.debug("\tGot data =>", data)
         return data
 
     def push(self, content_type, url, parent_url=None, key=None):
@@ -209,7 +209,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         """ Whether crawl work is still pending """
 
         # Is the queue empty ?
-        log.debug('Checking work pending...',)
+        # log.debug('Checking work pending...',)
         return self.manager.work_pending()
 
     def allowed(self, url, parent_url=None, content=None, content_type='text/html', headers={},
@@ -279,6 +279,13 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             # print 'Disallowing URL',url,'due to specific exclusion rule'
             return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to specific exclusion rule.',
                                        type='exclusion-rule')
+
+        # Dynamic exclusion rules
+        if any([re.match(rule, url) for rule in self.config._url_dynamic_exclude_rules]):
+            # Uncomment following for printing message during dynamic exclusion
+            # log.extra('Disallowing URL ',url,' due to dynamic exclusion rule.')
+            return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to dynamic exclusion rule.',
+                                       type='dynamic-exclusion-rule')
 
         # Scoping rules
         if parent_url != None:
@@ -648,10 +655,12 @@ class EIIICrawler(multiprocessing.Process):
             mod = imp.load_module(plugin, *m)
             # If module defines a setup function, call it
             try:
-                setup = getattr(mod, 'setup')
-                setup()
+                setup = getattr(mod, 'set_config')
+                # get configuration
+                plugin_conf = self.config.plugin_conf.get(plugin)
+                setup(**plugin_conf)
             except AttributeError:
-                print 'Module',mod,'defines no setup function.'
+                print 'Plugin',mod,'defines no set_config function.'
 
     def set_dynamic_scope(self):
         """ Do self-adjusting of scope w.r.t the URL given
@@ -691,6 +700,10 @@ class EIIICrawler(multiprocessing.Process):
         
         self.config._url_exclude_rules = minus_rules
         self.config._url_include_rules = plus_rules
+
+        # Initialize dynamic exclusion rules 
+        self.config._url_dynamic_exclude_rules = []
+        self.config._dynamic_rules_stats = collections.defaultdict(int)
             
     def sighandler(self, signum, stack):
         """ Signal handler """
@@ -789,14 +802,14 @@ class EIIICrawler(multiprocessing.Process):
         """ Is the work queue empty ? """
 
         dsz = self.dqueue.qsize()
-        log.debug('\tQUEUE SIZE =>', dsz)
+        # log.debug('\tQUEUE SIZE =>', dsz)
         return self.dqueue.empty()
 
     def workers_idle(self):
         """ Are all workers idle waiting for data ? """
 
         worker_states = [w.get_state() for w in self.workers]
-        log.debug('Worker states =>',worker_states)
+        # log.debug('Worker states =>',worker_states)
         return all((x==0) for x in worker_states)
         # return False
         
