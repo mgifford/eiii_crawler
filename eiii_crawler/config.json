@@ -50,6 +50,12 @@
  "logfile_theme": "site_task", 
  "network_proxy": "", 
  "num_workers": 2, 
+ "plugin_conf": {
+  "circuitbreaker": {
+   "min_hits": 10, 
+   "threshold": 20
+  }
+ }, 
  "plugins": [
   "circuitbreaker"
  ], 
