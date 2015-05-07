@@ -169,7 +169,8 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                     for ctype, curl, purl in newurls:
                         # Key is the child URL itself
                         if self.push(ctype, curl, purl, curl):
-                            log.debug("\tPushed new URL =>",curl,'('+ctype+')...')
+                            # log.debug("\tPushed new URL =>",curl,'('+ctype+')...')
+                            pass
                 else:
                     if url_data == None:
                         log.debug("URL data is null =>", url)
@@ -177,7 +178,8 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                         log.debug("URL is disallowed =>", url)
 
             else:
-                log.debug('Skipping URL',url,'...')
+                # log.debug('Skipping URL',url,'...')
+                pass
 
             # State is 3, sleeping off
             self.state = 3
