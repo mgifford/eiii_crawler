@@ -642,6 +642,14 @@ class URLLister(sgmllib.SGMLParser):
         if link:
             self.urls.append(link)
 
+    def start_embed(self, attrs):
+        """ Parse the (deprecated) <embed> tag """
+
+        adict = utils.CaselessDict(attrs)
+        link = adict.get('src','')
+        if link:
+            self.urls.append(link)          
+
     def start_param(self, attrs):
         """ Parse the <param> tag inside <object> tags """
         
