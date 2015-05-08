@@ -169,6 +169,7 @@ def fetch_url(url, headers={}, proxy='', verify=False):
     """ Download a URL immediately """
 
     exceptions = [requests.exceptions.RequestException,
+                  requests.exceptions.ConnectionError,
                   urllib2.HTTPError,urllib2.URLError,
                   httplib.BadStatusLine,IOError,TypeError,
                   ValueError, AssertionError,
@@ -190,6 +191,7 @@ def get_url(url, headers={}, proxy='', content_types=[], max_size=0, verify=Fals
     """ Download a URL and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
+                  requests.exceptions.ConnectionError,                
                   urllib2.HTTPError,urllib2.URLError,
                   httplib.BadStatusLine,IOError,TypeError,
                   ValueError, AssertionError,
@@ -220,6 +222,7 @@ def head_url(url, headers={}, verify=False):
     """ Download a URL with a HEAD request and return the requests object back """
     
     exceptions = [requests.exceptions.RequestException,
+                  requests.exceptions.ConnectionError,                
                   urllib2.HTTPError,urllib2.URLError,
                   httplib.BadStatusLine,IOError,TypeError,
                   ValueError, AssertionError,
