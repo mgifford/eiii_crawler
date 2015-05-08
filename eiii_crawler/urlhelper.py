@@ -618,6 +618,52 @@ class URLLister(sgmllib.SGMLParser):
             self.urls.extend(href)
             self.lasthref = href
 
+    def start_video(self, attrs):
+        """ Parse the HTML5 <video> tag """
+
+        adict = utils.CaselessDict(attrs)
+        link = adict.get('src','')
+        if link:
+            self.urls.append(link)
+
+    def start_audio(self, attrs):
+        """ Parse the HTML5 <audio> tag """
+
+        adict = utils.CaselessDict(attrs)
+        link = adict.get('src','')
+        if link:
+            self.urls.append(link)
+
+    def start_object(self, attrs):
+        """ Parse the generic <object> tag """
+
+        adict = utils.CaselessDict(attrs)
+        link = adict.get('data','')
+        if link:
+            self.urls.append(link)
+
+    def start_param(self, attrs):
+        """ Parse the <param> tag inside <object> tags """
+        
+        # Internet explorer uses <param> elements inside object
+        # to specify the source of the media.
+        # Ref: http://www.yourwebskills.com/htmlobject.php
+        if len(self.stack):
+            last_tag = self.stack[-1]
+            if last_tag == 'object':
+                adict = utils.CaselessDict(attrs)
+                link = adict.get('value','')
+                if link:
+                    self.urls.append(link)              
+
+    def start_iframe(self, attrs):
+        """ Parse <iframe> tags """
+
+        adict = utils.CaselessDict(attrs)
+        link = adict.get('src','')
+        if link:
+            self.urls.append(link)        
+        
     def start_meta(self, attrs):
         """ Parse meta tags """
         
