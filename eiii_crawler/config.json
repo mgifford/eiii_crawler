@@ -53,7 +53,8 @@
  "plugin_conf": {
   "circuitbreaker": {
    "min_hits": 10, 
-   "threshold": 20
+   "threshold": 20, 
+   "url_patterns": []
   }
  }, 
  "plugins": [
