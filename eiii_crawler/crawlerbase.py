@@ -181,7 +181,8 @@ class CrawlerConfig(object):
         self.plugins = ['circuitbreaker']
         # Plugin configuration
         self.plugin_conf = {'circuitbreaker': {'threshold': 20,
-                                               'min_hits': 10}}
+                                               'min_hits': 10,
+                                               'url_patterns': []}}
 
     def update(self, configdict):
         """ Update configuration from another dictionary """
