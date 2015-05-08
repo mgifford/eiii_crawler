@@ -28,7 +28,10 @@ log = utils.get_default_logger()
 # time the rule has been created). The dynamic rules are created only after the threshold
 # is hit.
 
-min_hits, threshold = 10, 20.0
+min_hits, threshold, url_patterns = 10, 20.0, []
+
+# Regex paths of URLs to exclude from dynamic filtering
+url_exclude_paths  = ('default\.[a-zA-Z]+', 'index\.[a-zA-Z]+', 'home\.[a-zA-Z]+', '/', '')
 
 def set_config(**kwargs):
     """ Set configuration for the plugin """
@@ -49,7 +52,23 @@ def check_circuit(event):
     urlp = urlparse.urlparse(url)
     # Take the query params
     query_p = urlp.query
-
+    lastpath = urlp.path.split('/')[-1]
+    
+    # Specific whitelisting - dont select this URL if its last path matches
+    # any of the whitelisted URL patterns.
+    
+    # If specific blacklist patterns are provided only look for them.
+    if url_patterns:
+        if (lastpath in url_patterns) or any([re.match(re.escape(pattern), lastpath) for pattern in url_patterns]):
+            log.extra("URL matches path blacklist. Checking for circuit", url)
+        else:
+            return False
+    else:
+        # If no blacklist patterns provided check for not whitelisted patterns.
+        if (lastpath in url_exclude_paths) or any([re.match(pattern, lastpath) for pattern in url_exclude_paths]):
+            log.extra("URL matches path whitelist. Not checking for circuit", url)
+            return False
+    
     if query_p:
         # Check against any of the existing regexes
         # Split and normalize the query parameter
@@ -70,6 +89,8 @@ def check_circuit(event):
         # If no hit found - make an entry for this URLs query parameter in the regex dictionary
         if not hit:
             # print 'Making entry for URL',url,'in regex dictionary...'
+            # Get last path of the URL
+            paths = urlp.path
             regex_s='\&'.join(map(lambda x:x.strip().split('=')[0] + '\=[a-zA-Z_0-9]+', query_p.split('&')))
             regex = re.compile(regex_s)
             # Insert entry into regex dictionary
@@ -94,6 +115,9 @@ def check_circuit(event):
                     # Drop this rule from the dictionary
                     del __regexurls__[regex]
                     del __regexes__[regex]
+
+
+        return True
             
     else:
         # print 'No query param found, not doing anything'
