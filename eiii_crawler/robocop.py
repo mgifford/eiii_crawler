@@ -67,8 +67,8 @@ class Robocop(object):
         """ Parse the robots.txt content """
         
         sitemap = ''
-        site_rules = []
-
+        site_rules, raw_rules = [], []
+        
         useragent = '*'
         state = ''
 
@@ -90,6 +90,7 @@ class Robocop(object):
                 continue
             if 'disallow' in line.lower():
                 state = 'disallow'
+                # Do we have a disallow: / ?
             elif 'allow' in line.lower():
                 state = 'allow'
             if (line.startswith('crawldelay:') or line.startswith('crawl-delay:')) and useragent in ('*',self.ua):
@@ -106,12 +107,20 @@ class Robocop(object):
                 for rule in rules:
                     # print 'Rule=>',rule
                     if rule.strip():
-                        if 'http' in rule:
-                            site_rules.append(rule + '.*')
-                        else:
-                            site_rules.append('https?://'+site+'/'+rule.lstrip('/')+'.*')
+                        raw_rules.append(rule)
 
         # Compile the rules and map it to the site
+        # print 'Rules =>',raw_rules
+        # Issue #432 - Ignore default block-all rule if specific rules are present
+        if '/' in raw_rules and len(raw_rules)>1:
+            raw_rules.remove('/')
+
+        for rule in raw_rules:
+            if 'http' in rule:
+                site_rules.append(rule + '.*')
+            else:
+                site_rules.append('https?://'+site+'/'+rule.lstrip('/')+'.*')
+
         # print 'Site rules =>',site_rules
         rules_c = [re.compile(i.lower()) for i in site_rules]
         self.rules[site] = rules_c
@@ -242,5 +251,9 @@ if __name__ == '__main__':
     # Test for frosta kommune.no
     r.parse_site('http://www.frosta.kommune.no')
     assert(r.can_fetch('http://www.frosta.kommune.no/xyz/'))
+
+    r.parse_site('http://www.trysil.kommune.no')
+    assert(r.can_fetch('http://www.trysil.kommune.no/'))
+    assert(not r.can_fetch('http://www.trysil.kommune.no/publishingimages/forms/'))     
     
     print 'All tests passed.'
