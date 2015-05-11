@@ -110,7 +110,16 @@ class CrawlerConfig(object):
                                  'application/xhtml+xml','application/xml',
                                  'application/pdf']
 
+        # Extended client mime-types for a/v sampling
+        audio_mimetypes =  map(lambda x: 'audio/' + x,
+                               ('basic','mid','mpeg','mp4','wav','x-wav','aiff','x-aiff','ogg','vorbis','m4a',
+                                'x-mpeg','vnd.rn-realaudio','vnd.wav','aac','ac3','mp3','x-mp3','mp2', 'webm'))
+        video_mimetypes = map(lambda x: 'video/' + x,
+                               ('mp4','ogg','webm','x-ms-asf','x-msvideo','x-la-asf','quicktime',
+                                'x-sgi-movie','mpeg'))
 
+        self.client_extended_mimetypes = audio_mimetypes + video_mimetypes
+        
         # Update Aug 11 2014 - fake mimetypes URLs are fetched using
         # a head request to get updated URL. For example this could be used to
         # get large sized URLs like PDF documents into the URL graph without
@@ -122,6 +131,8 @@ class CrawlerConfig(object):
         # NOTE: DON'T ADD HTML mime-types here as this means crawl will be
         # incomplete or mostly won't proceed at all!
         self.client_fake_mimetypes = ['application/pdf']
+        # Extend with audio/video mimetypes prefixes
+        self.client_fake_mimetypes_prefix = ['audio/', 'video/']
 
         # Cheats - Mime-types we want to deal with (get URLs) but don't want to
         # download - if a mime-type is added here its URLs will be processed
