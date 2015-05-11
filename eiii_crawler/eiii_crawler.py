@@ -427,7 +427,7 @@ class EIIICrawlerStats(CrawlerStats):
         
         for url in statsdict['urls_all']:
             ctype = mimetypes.guess_type(url)
-            if ctype == None or len(ctype) == 0: continue
+            if (len(ctype) == 0) or (ctype[0] == None): continue
             if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/'))):
                 # This is an A/V URL
                 statsdict['urls_audio_visual'].append((url, ctype[0]))              
