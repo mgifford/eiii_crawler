@@ -138,27 +138,27 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         self.nprocs = nprocs
         # Log level
         self.loglevel = loglevel
+        self.bus_url = None
+        self.bus_uri = None
         
         SimpleTTRPCServer.__init__(self)
-        try:
-            signal.signal(signal.SIGINT, self.sighandler)
-            signal.signal(signal.SIGTERM, self.sighandler)
-        except ValueError:
-            # "signal only works in main thread"
-            pass
         
         if bus_uri:
+            self.bus_uri = bus_uri
             # Register on bus
-            self.url='tcp://' + bind_addr + ':' + str(port)
+            self.bus_url='tcp://' + bind_addr + ':' + str(port)
             proxy = TTRPCProxy(bus_uri,retries=3,timeout=6000)
             if proxy.ping() == 'pong':
                 # We need to fork this off to a separate thread so that we are
                 # free to handle the call which the bus makes back to us
                 t = threading.Thread(target=proxy.Call(proxy,'add-crawler'),
-                                     args=(self.url,))
+                                     args=(self.bus_url,))
                 t.start()
 
         self.init_crawler_procs()
+
+        signal.signal(signal.SIGINT, self.sighandler)
+        signal.signal(signal.SIGTERM, self.sighandler)
         
     def _packer_default(self, obj):
         strtypes = (datetime.datetime, datetime.date, datetime.timedelta)
@@ -170,10 +170,19 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         """ Signal handler """
 
         if signum in (signal.SIGINT, signal.SIGTERM,):
-            for crawler in self.instances:
-                log.info("Stopping Crawler",crawler.id)
-                crawler.stop_server()
-                time.sleep(1)
+            # Close the queye
+            self.task_queue.close()
+            # Unregister from bus if defined
+            if self.bus_uri != None:
+                proxy = TTRPCProxy(self.bus_uri,retries=3,timeout=6000)
+                if proxy.ping() == 'pong':              
+                    print 'Unregsitering from bus.'
+                    # We need to fork this off to a separate thread so that we are
+                    # free to handle the call which the bus makes back to us
+                    t = threading.Thread(target=proxy.Call(proxy,'rm-crawler'),
+                                         args=(self.bus_url,))
+                t.start()
+                t.join()
                 
             sys.exit(1)
             
