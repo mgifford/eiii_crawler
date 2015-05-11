@@ -24,6 +24,7 @@ import signal
 import gc
 import warnings
 import copy
+import mimetypes
 
 import crawlerbase
 from crawlerevent import CrawlerEventRegistry
@@ -243,7 +244,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         if (parse) and content_type not in ('text/html','text/xhtml','application/xml','application/xhtml+xml'):
             return utils.StatusMessage(False, "Skipping URL for parsing as mime-type is not (X)HTML or XML", type='mime-type')
         
-        if content_type not in self.config.client_mimetypes:
+        if content_type not in self.config.client_mimetypes + self.config.client_extended_mimetypes:
             return utils.StatusMessage(False, 'Skipping URL ' + url + ' as content-type ' + content_type + ' is not valid.',
                                        type='content-type')
 
@@ -406,8 +407,7 @@ class EIIICrawlerStats(CrawlerStats):
         mapping = {'urls_a': 'urls_all',
                    'urls_f': 'urls_filtered',
                    'urls_d': 'urls_downloaded',
-                   'urls_e': 'urls_error' }
-
+                   'urls_e': 'urls_error'}
 
         # print 'URLS_E=>',statsdict['urls_e']
         # Convert sets to list
@@ -423,6 +423,15 @@ class EIIICrawlerStats(CrawlerStats):
             # Drop original key
             del statsdict[key]
 
+        statsdict['urls_audio_visual'] = []
+        
+        for url in statsdict['urls_all']:
+            ctype = mimetypes.guess_type(url)
+            if ctype == None or len(ctype) == 0: continue
+            if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/'))):
+                # This is an A/V URL
+                statsdict['urls_audio_visual'].append((url, ctype[0]))              
+            
         # Process URL graph - make a copy as we will be modifying it.
         graph = copy.deepcopy(self.url_graph)
         
