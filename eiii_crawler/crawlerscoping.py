@@ -285,7 +285,8 @@ class CrawlerLimitRules(object):
             self.update_counts(ctype, int(event.params.get('content_length', 0)))
 
             # Ignore if content-type in fake_mimetypes
-            if ctype in self.config.client_fake_mimetypes:
+            if ctype in self.config.client_fake_mimetypes or any(map(lambda x: ctype.startswith(x),
+                                                                     self.config.client_fake_mimetypes_prefix)):
                 log.debug('Ignoring limit check for fake mime-type =>', ctype)
                 return False
 
