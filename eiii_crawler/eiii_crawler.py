@@ -683,6 +683,10 @@ class EIIICrawler(multiprocessing.Process):
 
         if signum in (signal.SIGINT, signal.SIGTERM,):
            log.info('You interrupted me ! Stopping my work and cleaning up...')
+           # Close the queue and join background thread
+           self.taskq.close()
+           self.taskq.join_thread()
+           
            for worker in self.workers:
                worker.stop()
                
@@ -918,7 +922,13 @@ class EIIICrawler(multiprocessing.Process):
         
         while self.server_flag:
             log.info(self.id,"=> waiting on task queue from server ...")
-            execute = self.taskq.get()
+            try:
+                execute = self.taskq.get()
+            except (IOError, ValueError), e:
+                # To exit at shut-down (Ctrl-C, termination) times
+                print e
+                break
+            
             log.info(self.id,"=> obtained task queue from server ...")         
             # Execute consists of urls and configdict
             urls, configdict  = execute
