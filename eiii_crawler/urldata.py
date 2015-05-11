@@ -188,8 +188,9 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         try:
             # If a fake mime-type only do a HEAD request to get correct URL, dont
             # download the actual data using a GET.
-            
-            if self.given_content_type in self.config.client_fake_mimetypes:
+            if self.given_content_type in self.config.client_fake_mimetypes or \
+                   any(map(lambda x: self.given_content_type.startswith(x),
+                           self.config.client_fake_mimetypes_prefix)):              
                 log.info("Making a head request",self.url,"...")
                 fhead = urlhelper.head_url(self.url, headers=self.build_headers())
                 log.info("Obtained with head request",self.url,"...")
@@ -255,7 +256,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
         try:
             log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers(),
-                                     content_types=self.config.client_mimetypes,
+                                     content_types=self.config.client_mimetypes + self.config.client_extended_mimetypes,
                                      max_size = self.config.site_maxrequestsize*1024*1024,
                                      verify = self.config.flag_ssl_validate
                                      )
