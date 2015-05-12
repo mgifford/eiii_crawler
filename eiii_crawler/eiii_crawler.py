@@ -398,7 +398,25 @@ class EIIICrawlerStats(CrawlerStats):
         else:
             # Child itself is the parent - i.e top level URL, add empty children
             self.url_graph[url] = set()         
-        
+
+    def fix_content_type(self, entries):
+        """ Fix wrong content-type if any in the URL graph """
+
+        entries_fixed = []
+        for url,ctype in entries:
+            if ctype.startswith('text/'):
+                # Guess again
+                ctype_new = urlhelper.guess_content_type(url)
+                if ctype != ctype_new and not ctype_new.startswith('text/'):
+                    # Skip it
+                    log.debug('Content-type of',url,'fixed from',ctype,'to',ctype_new,'skipping.')
+                    continue
+
+            # Append as usual
+            entries_fixed.append((url, ctype))                  
+
+        return entries_fixed
+    
     def get_stats_dict(self):
         """ Get stats dictionary. """
 
@@ -428,7 +446,7 @@ class EIIICrawlerStats(CrawlerStats):
         for url in statsdict['urls_all']:
             ctype = mimetypes.guess_type(url)
             if (len(ctype) == 0) or (ctype[0] == None): continue
-            if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/'))):
+            if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/', 'application/x-shockwave-flash'))):
                 # This is an A/V URL
                 statsdict['urls_audio_visual'].append((url, ctype[0]))              
             
@@ -441,6 +459,9 @@ class EIIICrawlerStats(CrawlerStats):
             entries = list(entries)
             # Make URLs safe
             entries_safe =  [(utils.safedata(url), ctype) for url, ctype in entries]
+            # Fix wrong content-type for "text" types.
+            entries_safe = self.fix_content_type(entries_safe)
+            
             # Make entry safe
             parent_url_safe = utils.safedata(parent_url)
             if parent_url_safe != parent_url:
