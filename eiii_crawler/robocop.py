@@ -121,7 +121,14 @@ class Robocop(object):
                 site_rules.append('https?://'+site+'/'+rule.lstrip('/')+'.*')
 
         # print 'Site rules =>',site_rules
-        rules_c = [re.compile(i.lower()) for i in site_rules]
+        # rules_c = [re.compile(i.lower()) for i in site_rules]
+        rules_c = []
+        for i in site_rules:
+            try:
+                rules_c.append(re.compile(i.lower()))
+            except:
+                pass
+            
         self.rules[site] = rules_c
 
     def x_robots_check(self, url, headers):
@@ -221,7 +228,7 @@ class Robocop(object):
 if __name__ == '__main__':
     # Pass in init
     r = Robocop('http://www.askoy.kommune.no')
-    ## # Check if can fetch
+    # Check if can fetch
     assert(not r.can_fetch('www.askoy.kommune.no/cache/test'))
     assert(not r.can_fetch('www.askoy.kommune.no/logs/log1.log'))
     assert(r.can_fetch('www.askoy.kommune.no/pictres/1.jpg'))
@@ -254,5 +261,8 @@ if __name__ == '__main__':
     r.parse_site('http://www.trysil.kommune.no')
     assert(r.can_fetch('http://www.trysil.kommune.no/'))
     assert(not r.can_fetch('http://www.trysil.kommune.no/publishingimages/forms/'))     
-    
+
+    # Adding a test for this site where robocop crashed - Issue #433
+    r.parse_site('http://www.arbetsformedlingen.se')
+    assert(not r.can_fetch('http://www.arbetsformedlingen.se/sitevision/proxy/4.306228a513d6386d3d854dc.html'))
     print 'All tests passed.'
