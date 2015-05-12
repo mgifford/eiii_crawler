@@ -118,6 +118,8 @@ class CrawlerConfig(object):
                                ('mp4','ogg','webm','x-ms-asf','x-msvideo','x-la-asf','quicktime',
                                 'x-sgi-movie','mpeg'))
 
+        video_mimetypes.append('application/x-shockwave-flash')
+
         self.client_extended_mimetypes = audio_mimetypes + video_mimetypes
         
         # Update Aug 11 2014 - fake mimetypes URLs are fetched using
@@ -131,8 +133,8 @@ class CrawlerConfig(object):
         # NOTE: DON'T ADD HTML mime-types here as this means crawl will be
         # incomplete or mostly won't proceed at all!
         self.client_fake_mimetypes = ['application/pdf']
-        # Extend with audio/video mimetypes prefixes
-        self.client_fake_mimetypes_prefix = ['audio/', 'video/']
+        # Extend with audio/video mimetypes prefixes 
+        self.client_fake_mimetypes_prefix = ['audio/', 'video/', 'application/x-shockwave-flash']
 
         # Cheats - Mime-types we want to deal with (get URLs) but don't want to
         # download - if a mime-type is added here its URLs will be processed
