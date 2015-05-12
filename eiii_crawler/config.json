@@ -39,14 +39,16 @@
   "video/x-la-asf", 
   "video/quicktime", 
   "video/x-sgi-movie", 
-  "video/mpeg"
+  "video/mpeg", 
+  "application/x-shockwave-flash"
  ], 
  "client_fake_mimetypes": [
   "application/pdf"
  ], 
  "client_fake_mimetypes_prefix": [
   "audio/", 
-  "video/"
+  "video/", 
+  "application/x-shockwave-flash"
  ], 
  "client_mimetypes": [
   "text/html", 
