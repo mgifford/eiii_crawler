@@ -269,19 +269,19 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         # If URL include rules are given - the scenario is most likely
         # if these are filtered by some of the other rules - so we should
         # apply them first.
-        if any([re.match(rule, url) for rule in self.config._url_include_rules]):
+        if any([re.match(rule, url, re.IGNORECASE) for rule in self.config._url_include_rules]):
             return utils.StatusMessage(True, 'Allowing URL ' + url + ' due to specific inclusion rule.',
                                        type='inclusion-rule')
 
         # Apply exclude rules next
         # print 'Exclusion rules=>',self.config._url_exclude_rules
-        if any([re.match(rule, url) for rule in self.config._url_exclude_rules]):
+        if any([re.match(rule, url, re.IGNORECASE) for rule in self.config._url_exclude_rules]):
             # print 'Disallowing URL',url,'due to specific exclusion rule'
             return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to specific exclusion rule.',
                                        type='exclusion-rule')
 
         # Dynamic exclusion rules
-        if any([re.match(rule, url) for rule in self.config._url_dynamic_exclude_rules]):
+        if any([re.match(rule, url, re.IGNORECASE) for rule in self.config._url_dynamic_exclude_rules]):
             # Uncomment following for printing message during dynamic exclusion
             # log.extra('Disallowing URL ',url,' due to dynamic exclusion rule.')
             # Add this to a list
