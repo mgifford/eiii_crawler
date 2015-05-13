@@ -86,6 +86,8 @@ class CrawlerConfig(object):
         self.flag_detect_spurious_404 = True
         # Do SSL certificate validations for HTTPS requests ?
         self.flag_ssl_validate = False
+        # URLs case sensitive ?
+        self.flag_urls_case_sensitive = True
         
         # Network settings - Address of network proxy including port if any
         self.network_proxy = ''
