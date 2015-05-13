@@ -77,7 +77,11 @@ class Robocop(object):
             # print 'LINE =>',line
             line = line.lower().strip()
             if line.startswith('#'):
-                continue            
+                continue
+
+            # Issue #442, drop inline comments in rules
+            line = line.split('#')[0]
+            
             if line.startswith('sitemap:'):
                 # CHECKME: So ? This is not being used further or what...
                 sitemap = ':'.join(line.split(':')[1:]).strip()
@@ -94,7 +98,6 @@ class Robocop(object):
                 state = 'allow'
             if (line.startswith('crawldelay:') or line.startswith('crawl-delay:')) and useragent in ('*',self.ua):
                 # Remove any comments - Issue #439
-                line = line.split('#')[0]
                 self.crawldelay = float(':'.join(line.split(':')[1:]).strip())
                 continue
 
@@ -228,9 +231,14 @@ class Robocop(object):
         return not any(rule.match(url) for rule in site_rules)
                   
 if __name__ == '__main__':
-    # Pass in init
-    r = Robocop('http://www.askoy.kommune.no')
 
+    # These are unit-tests for robocop module.
+    # Issue #442
+    r = Robocop('https://www.epaslaugos.lt')
+    assert(r.can_fetch('https://www.epaslaugos.lt/portal/business'))
+    assert(not r.can_fetch('https://www.epaslaugos.lt/egovportal/business'))
+
+    r.parse_site('http://www.askoy.kommune.no')
     # Check if can fetch
     assert(not r.can_fetch('www.askoy.kommune.no/cache/test'))
     assert(not r.can_fetch('www.askoy.kommune.no/logs/log1.log'))
@@ -270,9 +278,10 @@ if __name__ == '__main__':
     assert(not r.can_fetch('http://www.arbetsformedlingen.se/sitevision/proxy/4.306228a513d6386d3d854dc.html'))
     # Issue #437 - Crawl delay as float.
     r.parse_site('http://www.gov.uk')
-    print 'All tests passed.'
 
     # Issue #439 - comment after crawl delay
     r.parse_site('http://www.cm-palmela.pt/')
+
+    print 'All tests passed.'
     
     
