@@ -307,6 +307,7 @@ def convert_config(crawler_rules):
                     'scoping-rules': 'url_filter',
                     'min-crawl-delay': 'time_sleeptime',
                     'loglevel': 'loglevel',
+                    'flag_urls_case_sensitive': 'urls_case_sensitive',
                     'sslvalidate': 'flag_ssl_validate'
                     }
 
