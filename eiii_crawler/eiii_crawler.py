@@ -399,11 +399,34 @@ class EIIICrawlerStats(CrawlerStats):
             # Child itself is the parent - i.e top level URL, add empty children
             self.url_graph[url] = set()         
 
-    def fix_content_type(self, entries):
-        """ Fix wrong content-type if any in the URL graph """
+    def normalize(self, entries):
+        """ Normalize the URLs in the URL graph. This drops duplicate URLs
+        based on trailing / and also fixes content-type errors """
 
+        urlbucket = {}
+        
         entries_fixed = []
+
         for url,ctype in entries:
+            # Fix for issue #434
+            # Drop trailing / from the URL if any
+            if url[-1] == '/':
+                url_entry = url[:-1]
+            else:
+                url_entry = url[:]
+
+            # If URLs are not case sensitive, convert to lower-case
+            # NOTE: Be careful disabling this as it might drop URLs which
+            # are not duplicates. 
+            if not config.flag_urls_case_sensitive:
+                url_entry = url_entry.lower()
+                
+            # Skip URLs already in the bucket
+            if url_entry in urlbucket: continue
+
+            # Make an entry
+            urlbucket[url_entry] = 1
+            
             if ctype.startswith('text/'):
                 # Guess again
                 ctype_new = urlhelper.guess_content_type(url)
@@ -452,15 +475,29 @@ class EIIICrawlerStats(CrawlerStats):
             
         # Process URL graph - make a copy as we will be modifying it.
         graph = copy.deepcopy(self.url_graph)
+        urlbucket = {}
         
         for parent_url in graph.keys():
+            # Fix for issue #434
+            # Drop trailing / from the URL if any
+            if parent_url[-1] == '/':
+                url_entry = parent_url[:-1]
+            else:
+                url_entry = parent_url[:]
+
+            # Skip URLs already in the bucket
+            if url_entry in urlbucket: continue
+
+            # Make an entry
+            urlbucket[url_entry] = 1
             entries = graph[parent_url]
+            
             # Child URLs
             entries = list(entries)
             # Make URLs safe
             entries_safe =  [(utils.safedata(url), ctype) for url, ctype in entries]
             # Fix wrong content-type for "text" types.
-            entries_safe = self.fix_content_type(entries_safe)
+            entries_safe = self.normalize(entries_safe)
             
             # Make entry safe
             parent_url_safe = utils.safedata(parent_url)
@@ -824,6 +861,9 @@ class EIIICrawler(multiprocessing.Process):
     def check_already_downloaded(self, url):
         """ Is a URL already downloaded """
 
+        # Fix #434 here as well
+        # Drop trailing / from the URL if any
+        # if url[-1] == '/': url = url[:-1]
         urlp = urlparse.urlparse(url)
         url_no_scheme = url.replace(urlp.scheme + '://', '')
         return self.url_bitmap.has_key(url_no_scheme)
