@@ -40,7 +40,7 @@
  "flag_randomize_sleep": true, 
  "flag_randomize_urls": false, 
  "flag_spoofua": true, 
- "flag_ssl_validate": false, 
+ "flag_ssl_validate": true, 
  "flag_storedata": true, 
  "flag_supplement_urls": true, 
  "flag_use_etags": true, 
@@ -117,6 +117,14 @@
   [
    "-", 
    ".*\\/login\\/.*"
+  ], 
+  [
+   "-", 
+   ".*\\/login\\.[a-zA-Z_]+.*"
+  ], 
+  [
+   "-", 
+   ".*\\/\\([^\\/]*\\)/.*"
   ], 
   [
    "-", 
