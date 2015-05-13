@@ -85,7 +85,7 @@ class CrawlerConfig(object):
         # Detect spurious 404s ?
         self.flag_detect_spurious_404 = True
         # Do SSL certificate validations for HTTPS requests ?
-        self.flag_ssl_validate = False
+        self.flag_ssl_validate = True
         
         # Network settings - Address of network proxy including port if any
         self.network_proxy = ''
@@ -167,6 +167,11 @@ class CrawlerConfig(object):
                             ('-', '.*\/js\/.*'),
                             ('-', '.*\/stylesheets\/.*'),
                             ('-', '.*\/login\/.*'),
+                            # like /Login.aspx
+                            ('-', '.*\/login\.[a-zA-Z_]+.*'),
+                            # URLs with paths that are fully enclosed in parens
+                            # Like https://www.auftrag.at/(X(1)S(jboqra55pxsmh5aqkhd54a55))/Login.aspx
+                            ('-', '.*\/\([^\/]*\)/.*'),
                             ('-', '.*\/_login\/.*')]
 
         # Crawler log options
