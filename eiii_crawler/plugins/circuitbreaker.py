@@ -31,7 +31,8 @@ log = utils.get_default_logger()
 min_hits, threshold, url_patterns = 10, 20.0, []
 
 # Regex paths of URLs to exclude from dynamic filtering
-url_exclude_paths  = ('default\.[a-zA-Z]+', 'index\.[a-zA-Z]+', 'home\.[a-zA-Z]+', '/', '')
+url_exclude_paths  = ('/', '')
+url_regexclude_paths = ('default\.[a-zA-Z]+', 'index\.[a-zA-Z]+', 'home\.[a-zA-Z]+')
 
 def set_config(**kwargs):
     """ Set configuration for the plugin """
@@ -65,7 +66,7 @@ def check_circuit(event):
             return False
     else:
         # If no blacklist patterns provided check for not whitelisted patterns.
-        if (lastpath in url_exclude_paths) or any([re.match(pattern, lastpath) for pattern in url_exclude_paths]):
+        if (lastpath in url_exclude_paths) or any([re.match(pattern, lastpath) for pattern in url_regexclude_paths]):
             log.extra("URL matches path whitelist. Not checking for circuit", url)
             return False
     
