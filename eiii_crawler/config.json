@@ -80,6 +80,7 @@
  "flag_ssl_validate": false, 
  "flag_storedata": true, 
  "flag_supplement_urls": true, 
+ "flag_urls_case_sensitive": true, 
  "flag_use_etags": true, 
  "flag_use_last_modified": true, 
  "flag_usecache": true, 
