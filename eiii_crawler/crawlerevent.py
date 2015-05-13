@@ -176,11 +176,11 @@ class CrawlerEventRegistry(object):
 
 def subscribe(*wargs):
     """ Subscription decorator """
-    print 'Wargs =>',wargs
+    # print 'Wargs =>',wargs
     
     def f(*fargs):
         func = fargs[0]
-        print 'FUNC =>',func
+        # print 'FUNC =>',func
         CrawlerEventRegistry.getInstance().subscribe(wargs[0], func)
         def wrapper(self, *args):
             return func(self, *args)
