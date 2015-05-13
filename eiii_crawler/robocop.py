@@ -93,7 +93,9 @@ class Robocop(object):
             elif 'allow' in line.lower():
                 state = 'allow'
             if (line.startswith('crawldelay:') or line.startswith('crawl-delay:')) and useragent in ('*',self.ua):
-                self.crawldelay = int(':'.join(line.split(':')[1:]).strip())
+                # Remove any comments - Issue #439
+                line = line.split('#')[0]
+                self.crawldelay = float(':'.join(line.split(':')[1:]).strip())
                 continue
 
             # Bug: this will catch ALL content, even if the content
@@ -228,6 +230,7 @@ class Robocop(object):
 if __name__ == '__main__':
     # Pass in init
     r = Robocop('http://www.askoy.kommune.no')
+
     # Check if can fetch
     assert(not r.can_fetch('www.askoy.kommune.no/cache/test'))
     assert(not r.can_fetch('www.askoy.kommune.no/logs/log1.log'))
@@ -265,4 +268,11 @@ if __name__ == '__main__':
     # Adding a test for this site where robocop crashed - Issue #433
     r.parse_site('http://www.arbetsformedlingen.se')
     assert(not r.can_fetch('http://www.arbetsformedlingen.se/sitevision/proxy/4.306228a513d6386d3d854dc.html'))
+    # Issue #437 - Crawl delay as float.
+    r.parse_site('http://www.gov.uk')
     print 'All tests passed.'
+
+    # Issue #439 - comment after crawl delay
+    r.parse_site('http://www.cm-palmela.pt/')
+    
+    
