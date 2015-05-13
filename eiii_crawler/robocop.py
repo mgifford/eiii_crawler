@@ -2,8 +2,9 @@
 """ Robots.txt parsing and META robots tags checking """
 
 import urlparse
-import urlhelper
 import re
+
+import eiii_crawler.urlhelper as urlhelper
 
 ___author__ = "Anand B Pillai"
 __maintainer__ = "Anand B Pillai"

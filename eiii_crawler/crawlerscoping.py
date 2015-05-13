@@ -8,7 +8,7 @@ import datetime
 import urlparse
 import os
 
-from crawlerevent import CrawlerEventRegistry
+from eiii_crawler.crawlerevent import CrawlerEventRegistry
 
 # Default logging object
 log = utils.get_default_logger()
@@ -100,7 +100,7 @@ class CrawlerScopingRules(object):
         to the configured site scoping rules """
 
         smsg = utils.StatusMessage(type='scoping', subtype='')
-        log.debug('Checking scope for',url,'against',self.url)
+        # log.debug('Checking scope for',url,'against',self.url)
         
         # Fix for issue #420
         # For some websites e.g http://www.vagsoy.kommune.no/ the
@@ -109,7 +109,7 @@ class CrawlerScopingRules(object):
         # We should generally assume that www.foo.com and foo.com
         # are the same - irrespective of any scope.
         if urlhelper.is_www_of(url, self.url):
-            log.debug(url,'is a www sister of',self.url,'or the same')
+            # log.debug(url,'is a www sister of',self.url,'or the same')
             smsg.msg = u'[%s] is a www sister of [%s] or same' % (url, self.url)
             return smsg
         
@@ -121,7 +121,7 @@ class CrawlerScopingRules(object):
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
                 smsg.msg = u'Same site, all site scope, returning True [%s] => [%s]' % (url, self.url)
-                log.debug('\t',smgs.msg)
+                # log.debug('\t',smgs.msg)
                 smsg.status &= True
             elif scope in CrawlPolicy.all_folder_scopes:
                 # NOTE - folder_link_scope check is not implemented
@@ -152,7 +152,7 @@ class CrawlerScopingRules(object):
                     smsg.msg = u'True: same root site, all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
                                                                                                                   self.url,
                                                                                                                   self.rootsite)
-                    log.debug('\t',smsg.msg)                   
+                    # log.debug('\t',smsg.msg)                   
                     smsg.status &= True
                 else:
                     smsg.status &= False
@@ -163,7 +163,7 @@ class CrawlerScopingRules(object):
                         smsg.msg = smsg.msg + ' (URL redirection)'
                         smsg.subtype = 'redirection'
                         
-                    log.debug('\t',smsg.msg)
+                    # log.debug('\t',smsg.msg)
             else:
                 smsg.msg = u'False: Different root site [URL:%s, ROOT:%s] => [SITE: %s]' % (url,
                                                                                            self.url,
@@ -174,7 +174,7 @@ class CrawlerScopingRules(object):
                     smsg.subtype = 'redirection'
                         
                 smsg.status &= False
-                log.debug('\t',smsg.msg)                   
+                # log.debug('\t',smsg.msg)                   
 
         # Depth scope
         url_depth = urlhelper.get_depth(url)
@@ -265,7 +265,7 @@ class CrawlerLimitRules(object):
         self.num_bytes += bytes
         self.num_urls += 1
         
-        log.debug('===> Updating count for',ctype,' <====', self.url_counts[ctype])
+        # log.debug('===> Updating count for',ctype,' <====', self.url_counts[ctype])
         
     def check_crawler_limits(self, event):
         """ Check whether enough URLs have been downloaded according to

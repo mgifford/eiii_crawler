@@ -3,14 +3,15 @@ FIFO Queues """
 
 import threading
 import uuid
-import utils
-import urlhelper
 import random
 import time
 import traceback
 
-from crawlerbase import CrawlerUrlData, CrawlerWorkerBase
-from crawlerevent import CrawlerEventRegistry
+from eiii_crawler import utils
+from eiii_crawler import urlhelper
+
+from eiii_crawler.crawlerbase import CrawlerUrlData, CrawlerWorkerBase
+from eiii_crawler.crawlerevent import CrawlerEventRegistry
 
 # Default logging object
 log = utils.get_default_logger()
@@ -170,6 +171,7 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                         # Key is the child URL itself
                         if self.push(ctype, curl, purl, curl):
                             log.debug("\tPushed new URL =>",curl,'('+ctype+')...')
+                            pass
                 else:
                     if url_data == None:
                         log.debug("URL data is null =>", url)
@@ -177,7 +179,8 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
                         log.debug("URL is disallowed =>", url)
 
             else:
-                log.debug('Skipping URL',url,'...')
+                # log.debug('Skipping URL',url,'...')
+                pass
 
             # State is 3, sleeping off
             self.state = 3

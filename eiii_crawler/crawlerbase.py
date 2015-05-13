@@ -15,8 +15,8 @@ import datetime
 import json
 import os
 
-from crawlerscoping import CrawlPolicy, CrawlerLimits
-from crawlerevent import CrawlerEventRegistry
+from eiii_crawler.crawlerscoping import CrawlPolicy, CrawlerLimits
+from eiii_crawler.crawlerevent import CrawlerEventRegistry
 
 class ConfigOutdatedException(Exception):
     """ Exception class indicating the config file is out-dated """
@@ -85,9 +85,10 @@ class CrawlerConfig(object):
         # Detect spurious 404s ?
         self.flag_detect_spurious_404 = True
         # Do SSL certificate validations for HTTPS requests ?
-        self.flag_ssl_validate = False
         # URLs case sensitive ?
         self.flag_urls_case_sensitive = True
+        # Set SSL validation by default on.
+        self.flag_ssl_validate = True
         
         # Network settings - Address of network proxy including port if any
         self.network_proxy = ''
@@ -182,6 +183,11 @@ class CrawlerConfig(object):
                             ('-', '.*\/js\/.*'),
                             ('-', '.*\/stylesheets\/.*'),
                             ('-', '.*\/login\/.*'),
+                            # like /Login.aspx
+                            # ('-', '.*\/login\.[a-zA-Z_]+.*'),
+                            # URLs with paths that are fully enclosed in parens
+                            # Like https://www.auftrag.at/(X(1)S(jboqra55pxsmh5aqkhd54a55))/Login.aspx
+                            ('-', '.*\/\([^\/]*\)/.*'),
                             ('-', '.*\/_login\/.*')]
 
         # Crawler log options
@@ -191,6 +197,13 @@ class CrawlerConfig(object):
         # 3. site_task - Mix of task id + site name (default)
         # 4. site_folder - Sub-folders with site names and log files with task ids
         self.logfile_theme = 'site_task'
+
+        # List of enabled plugins
+        self.plugins = ['circuitbreaker']
+        # Plugin configuration
+        self.plugin_conf = {'circuitbreaker': {'threshold': 20,
+                                               'min_hits': 10,
+                                               'url_patterns': []}}
 
     def update(self, configdict):
         """ Update configuration from another dictionary """

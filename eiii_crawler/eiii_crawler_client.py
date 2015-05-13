@@ -4,10 +4,10 @@ the crawler server """
 from ttrpc.client import *
 import sys
 
-crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 50)],
+crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 100)],
                  'scoping-rules': [('+','^anand.*')], 'min-crawl-delay': 2,
                  'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
-                 'seeds': ['http://english.mofa.gov.qa/'], 'obey-robotstxt': False,
+                 'seeds': ['http://english.mofa.gov.qa/'], 'obey-robotstxt': True,
                  'loglevel': 'debug'}
 
 # Wait for 3 hours for crawl to end.
