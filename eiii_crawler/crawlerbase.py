@@ -168,7 +168,7 @@ class CrawlerConfig(object):
                             ('-', '.*\/stylesheets\/.*'),
                             ('-', '.*\/login\/.*'),
                             # like /Login.aspx
-                            ('-', '.*\/login\.[a-zA-Z_]+.*'),
+                            # ('-', '.*\/login\.[a-zA-Z_]+.*'),
                             # URLs with paths that are fully enclosed in parens
                             # Like https://www.auftrag.at/(X(1)S(jboqra55pxsmh5aqkhd54a55))/Login.aspx
                             ('-', '.*\/\([^\/]*\)/.*'),
