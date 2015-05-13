@@ -824,7 +824,9 @@ class EIIICrawler(multiprocessing.Process):
     def check_already_downloaded(self, url):
         """ Is a URL already downloaded """
 
-        return self.url_bitmap.has_key(url)
+        urlp = urlparse.urlparse(url)
+        url_no_scheme = url.replace(urlp.scheme + '://', '')
+        return self.url_bitmap.has_key(url_no_scheme)
 
     def url_filtered(self, event):
         """ Event callback for notifying when a URL is filtered """
@@ -866,12 +868,19 @@ class EIIICrawler(multiprocessing.Process):
         orig_url = event.params.get('orig_url')
         parent_url = event.params.get('parent_url')
         content_type = event.params.get('content_type','text/html')
+
+        # Issue #438 - drop scheme when storing in bitmap
+        urlp = urlparse.urlparse(url)
+        url_no_scheme = url.replace(urlp.scheme + '://', '')
         
         # log.debug('Making entry for URL',url,'in bitmap...')
-        self.url_bitmap[url] = 1
+        self.url_bitmap[url_no_scheme] = 1
+
         if (orig_url != None) and (url != orig_url):
+            urlp = urlparse.urlparse(orig_url)          
+            orig_url_no_scheme = orig_url.replace(urlp.scheme + '://', '')            
             # log.debug('Making entry for URL',orig_url,'in bitmap...')           
-            self.url_bitmap[orig_url] = 1
+            self.url_bitmap[orig_url_no_scheme] = 1
 
         self.stats.update_url_download(parent_url, url, content_type)
                         
