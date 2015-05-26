@@ -15,7 +15,7 @@ class Robocop(object):
 
     meta_re = re.compile(r'\<meta\s+name=\"robots\"\s+content=\"([a-zA-Z,\s]+)\"\s*', re.IGNORECASE)
     
-    def __init__(self, url=None, useragent=None):
+    def __init__(self, url=None, useragent=None, debug=False):
 
         # An instance of this class is meant to be persisted
         # against a crawler and used. Don't reinitialize this
@@ -27,15 +27,20 @@ class Robocop(object):
         # Compiled rules - dictionary with the site
         # as key and list of compiled rules as values
         self.rules = {}
+        # Debug flag
+        self.debug = debug
         if url: self.parse_site(url)
         
     def parse_site(self, url):
         """ Parse robots.txt rules for a site or URL """
 
-        # print 'Parsing site =>',url
+        if self.debug:
+            print 'Parsing site =>',url
+
         site = urlhelper.get_website(url, scheme=True)
         # Site without scheme
-        site_nos = urlhelper.get_website(url)
+        site_nos = urlhelper.get_website(url, remove_www=False)
+        # print 'Site no scheme =>',site_nos
         # print 'Robocop rules =>',self.rules
         # If rules already exist, don't parse again
         if self.rules.has_key(site_nos):
@@ -121,6 +126,10 @@ class Robocop(object):
             raw_rules.remove('/')
 
         for rule in raw_rules:
+            # Ignore rules like .* _* etc i.e any rule ending with an asterik
+            # Fix for issue #447
+            if rule.strip().endswith('*'): continue
+            
             if 'http' in rule:
                 site_rules.append(rule + '.*')
             else:
@@ -211,7 +220,7 @@ class Robocop(object):
         avoids another fetch of the URL """
 
         # Pick up the rules
-        site = urlhelper.get_website(url)
+        site = urlhelper.get_website(url, remove_www=False)
 
         # Prefix scheme in front of URL
         url = urlhelper.get_full_url(url)
@@ -235,7 +244,10 @@ if __name__ == '__main__':
 
     # These are unit-tests for robocop module.
     # Issue #442
-    r = Robocop('https://www.epaslaugos.lt')
+    r = Robocop('http://kildare.ie', debug=True)
+    assert(r.can_fetch('http://kildare.ie/contact/'))
+    r.parse_site('https://www.epaslaugos.lt')
+    
     assert(r.can_fetch('https://www.epaslaugos.lt/portal/business'))
     assert(not r.can_fetch('https://www.epaslaugos.lt/egovportal/business'))
 
