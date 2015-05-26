@@ -44,6 +44,9 @@ entity_re = re.compile(r'\&#[a-zA-Z0-9]+\;')
 quoted_re=re.compile('\%\d[a-zA-Z]')
 # URLs starting with relative paths
 relpath_url_re = re.compile(r'\.{2,}\/?')
+# Regexp for ports at end of domains. E.g: www.bmf.gv.at:443
+domain_port_re = re.compile(r'\:\d{2,}\/?$')
+
 
 # List of TLD (top-level domain) name endings from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 # courtesy HarvestMan, stored in base64 encoded, compressed, string form
@@ -54,24 +57,24 @@ To1\nfYfi3fmZ7KKFUlAaykTKHBLUAMXpkTCCW8fsSg18tnLg7ZQnjIj7Xp/qeDCNBwaoCEULSRuqp2E
 hoNPNvYx9C+06OrauVnEY2z7ySnq1DfFUnNT1aW4C83X/YAUa94D13XSdMwl3wnvmBqXaY12cnOl\nn96gX\
 lAL1BuMqtqgRVSGdLenyZmQVKYrtBOBpxcy2fQjVugH9AQdoOMMnYiwR1RvMApGt/7Rhf2W\nfKOxMFTw2L0\
 45/0G5tncHDgDPq/LpdLnMJS5/cUFzr1nk2sfUjEag8gBgyPKuJN+1eGBYcLgnR25\nY/CpxwMDFRPRoj6uM\
-WQMrUq6xArCe8N3WAmrYQ3sAGthR1hHDBWWel6UAhtgI2x6wc6wT9hMiHl0\nimsEVRvhqqDrbcsUFtgVo2g\
-F44QxYIwYk9e8bOmM04LLjJQhbZ1mjBVjA9PdGdBPLhAhSeediXAd\nujHwjn5ykQ9zceJXqqvMDnK1fybH/a\
-2sT0eVJ1yG44aKhyHqRibgkQhWymPGJNpA+yywyWIaMTki\n8KvMbc67hROUySbjSbklEwzFtGBaMW3wgogaX\
-sIreIc9ED0w3oVEwpt6oudvhM/wBb7CN+LdGAP/\ngl8RBOEKVYKIbDV7YpC1iTRPZrcYFIJGMATThCoNgbMj\
-AlPUkXqECYE0INAS99KHJJrWE7fRN8wc\nFnx4ImSEgkA7tMIwNO55ISwIb7ALhg1REDatfeChUYF1GnlyNAw\
-GO1kcwFtFR8QHtTxiAisicqkh\nrtywoRejWARY34kaKVuwTc4i19ibTWdIDeYBM5dGItV00D3T1oOnUs+5uT\
-t0JjzRgux+mQPmCNZI\nxZyJ1D99dInS+V5FPXdmgjpsRvOCecVT4DnT59kQys1U6cHNpk/FKnyXZ8E84pBYi\
-bm36Gxezixc\ncuyCPIxnsS/yLUz+3JjNeUERhMh7ahSJolDIGOK9olgwDCzfqYzUGxPPLY6I1nf2gTKheJSA\
-ElES\noRyzuiQWSUmeridtx/MKhYrChTbPvr9yZ9Z96HcuL5Q3CifWUg1jXjaw1dSUUBWqRjVqjL0Nr2Q9\n6\
-oBqUUfQZeweHOi2+kCdULkaUCMYoJp6Hdc0rZ1PdFWdUTPBn9FO3f4bQObVjVbUF+qCuqEJNIs2\noTFd2CXa\
-irbhJYijZxa8FF6GsPxd6a2w0fF4WbwcIR5dcN73RVd6d3sRSU80kdgPSPrRr55HL+Yv\nG9yrYWE1kbC2sRj\
-J3z0OGsuApTeZxbH6l5SnAob2Hf/770OWejqFg9flev2wB29O8uv0ZXbh+inz\n4652/vPzuVwv9pd/f+qdvQ1\
-5+/6Zvj2f9++b/Hj7Xfw+iXQ5i1++mFHLP2E5ttxP4kMcB6izeB2T\nyl4l77uzXo3qZMRJXuxF3K06TlVbbpe\
-D1WehHh+H4cE9L5dv9TmWX/F2/Vsp33+z2/2HnVV/38dh\nadjURd3N5biONerv7ePlnx/cWd7kWdzE5fCRSyfx\
-dVz2cRZsVzt3W873H49Oc17OP0eQXz+/Dt7z\n4odJb6UU9Sz092OXg5V3sfC/0o9AF12H8038ySJ8ie/xT5QXq\
-f+Edfyy85+qHM/i62x+RXUSd7Ep\n+yvz9/oqPvWVNfcz874qfRKH0yI3fIrtsB2fr6/hH1dOJ/7q73L6UMv1uE\
-2ych6+hyP+81kcfpmt\nLCd9aDzvj1Vej3fn8fm6347LlPs/F7fY5uu6s4vlC9Qv63988J7URfiPcTWXfxPaf4hP\
-Y07HOeuQ\n09XdvtIhWekuIrD5d2kb8nlPjDfldcNqsFZsAlvAlvgzsC3/A+nsAxc=\n'
+WQMrUq6xArCe8N3WAmrYQ3sAGthR1hHDBWWel6UAhtgI2x6wc6wT9hMiHl0\nimsEVRvhqqDrbcsUqLrArhhF\
+KxgnjAFjxJi85n1LZ5wWXGawDGnrNGOsGBuY8c6ArnKBCEk670yE\n69CNsXd0lYt8m4sTv1JdZYKQq/0zOe7\
+PZYk6qjzhMhw3VDwMUTcyAY9EsFgeMybRBtpnjU0W04jJ\nEYFfZXpz3i2coEw2GU/KLZlgNKYF04ppgxdE1P\
+ASXsE77LHosfEuJBLe1BM9hSN8hi/wFb4R78Yw\n+Bf8iiAIV6gSRGS32XODrE2keTK7xaAQNIIhmClUaQicHR\
+GYpY7UI0wIpAGBlriXPiTRtJ64jb5h\n8rDmwxMhIxQE2qEVhqFxzwthQXiDjTBsiIKwae0DD40KLNXIk6NhMN\
+jM4gDeKjoiPqjlERNYFJFL\nDXHlhg29HsUiwBJP1EjZgp1yFrnG3m86Q2owD5i5NBKppoPuybYePJV62s3doT\
+PhiRZk98scMEew\nTCrmTKT+6aNRlM73Quq5MxPUYT+aF8wrngLPmT7PhlBupkoPbjZ9KlbhuzwL5hGHxGLMvUt\
+n83Jm\n4ZJjI+RhPIutkW9h/ufGbM4LiiBE3lOjSBSFQsYQ7xXFgmFgBU9lpN6YeG5xRLS+sw+UCcWjBJSI\nkg\
+jlmNUlsUhK8nQ9aTueVyhUFC60efb9lTuz7kO/c3mhvFE4sZZqGPOygd2mpoSqUDWqUWPsnXgl\n61EHVIs6gi5\
+jA+FAt9UH6oTK1YAawQDV1Ou4pmntfKKr6oyaCf6Sdur2nwEyr260or5QF9QNTaBZ\ntAmN6cIu0Va0DS9BHG2z\
+4KXwMoTlT0vvho2Ox8vi5Qjx6ILzvi+60hvci0h6oonEfkDSj371PHox\nf9njXg0Lq4mEtY3FSP70cdBYBiy9y\
+SyO1b+kPBUwtO/4338fstTTKRy8Ltfrhz14c5Jfpy+zC9dP\nmR93tfOfn8/lerG//PtT7+xtyNv3z/Tt+bx/3+\
+TH2+/i90mky1n88sWMWv4Jy7HlfhIf4jhAncXr\nmFT2KnnfnfVqVCcjTvJiL+Ju1XGq2nK7HKw+C/X4OAwP7nm\
+5fKvPsfyKt+vfSvn+m93uP+ys+vs+\nDkvDpi7qbi7HdaxRf28fL//84M7yJs/iJi6Hj1w6ia/jso+zYLvaudty\
+vv94dJrzcv45gvz6+XXw\nnhc/THorpahnob8fuxysvIuFf5d+BLroOpxv4k8W4Ut8j3+ivEj9J6zjl53/VOV4F\
+l9n8yuqk7iL\nTdlfmT/ZV/Gpr6y5n5n3VemTOJwWueFTbIft+Hx9Df+4cjrxh3+X04darsdtkpXz8D0c8Z/P4v\
+DL\nbGU56UPjeX+s8nq8O4/P1/12XKbc/7m4xTZf151dLF+gfln/44P3pC7Cf4yrufyb0P5DfBpzOs5Z\nh5yu7\
+vaVDslKdxGBzb9L25DPe2K8Ka8bVoO1YhPYArbEn4Ft+R/KpQQi\n'
 
 __tlds__ = zlib.decompress(base64.decodestring(__tldstring__)).split('.')
 
@@ -388,11 +391,16 @@ def is_www_of(url1, url2):
 
     return (left.lower() == 'www.' or left=='')
     
-def get_root_website(site):
+def get_root_website(site, include_port=False, scheme=False):
     """ Get the root website. For example this returns
     foo.com if the input is images.foo.com or static.foo.com
     i.e <anything>.foo.com """
 
+    # Remove port number if include port is not enabled
+    # So http://bmf.gv.at:443 => bmf.gv.at
+    if not include_port:
+        site = domain_port_re.sub('', site)
+        
     # Code courtesy HarvestMan web crawler.
     if site.count('.') > 1:
         dotstrings = site.split('.')
@@ -410,17 +418,30 @@ def get_root_website(site):
                 idx += 1
 
         # Lowercase! E.g: http://www.gig.com.qa/                
-        return '.'.join(dotstrings[idx::-1]).lower()
+        root_site = '.'.join(dotstrings[idx::-1]).lower()
     else:
         # The server is of the form foo.com or just "foo"
         # so return it straight away
 
         # Lowercase! E.g: http://www.gig.com.qa/                        
-        return site.lower()
+        root_site = site.lower()
+
+    site_p = urlparse.urlparse(root_site)
+    if site_p.netloc=='':
+        # Missing scheme, add it
+        root_site = 'http://' + root_site
+        site_p = urlparse.urlparse(root_site)
+
+    if not scheme:
+        return site_p.netloc
+    else:
+        return root_site
     
-    
-def get_website(url, scheme=False):
+def get_website(url, scheme=False, remove_www=True):
     """ Given the URL, return the site """
+
+    # Remove port number if found
+    url = domain_port_re.sub('', url)
 
     # No scheme in front, add scheme
     # Get site root
@@ -434,11 +455,15 @@ def get_website(url, scheme=False):
         # => http://www.foo.com
         website = urlp.scheme + '://' + urlp.netloc
         # Lower-case!
-        return website.lower()
+        site = website.lower()
     else:
         # => www.foo.com
         # Lowercase !
-        return urlp.netloc.lower()
+        site = urlp.netloc.lower()
+
+    # Remove any www prefix
+    # So foo.com <=> www.foo.com 
+    return www_re.sub('', site)
 
 def get_full_url(url):
     """ Prefix HTTP scheme in front of URL
