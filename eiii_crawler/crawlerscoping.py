@@ -116,7 +116,7 @@ class CrawlerScopingRules(object):
         scope = self.config.site_scope
         # Get the website of the URL
         url_site = urlhelper.get_website(url)
-
+        
         # If both sites are same
         if self.site == url_site:
             if scope in CrawlPolicy.all_site_scopes:
@@ -143,20 +143,21 @@ class CrawlerScopingRules(object):
                 # Either ret1 or ret2
                 smsg.status &= (ret1 or ret2)
         else:
+            # print 'X:',self.site, url_site
             # Different site - work out root site
             # If root site is same for example images.foo.com and static.foo.com
             # crawling is allowed if scope is site_full_scope or site_full_link_scope
             url_root_site = urlhelper.get_root_website(url_site)
             if url_root_site == self.rootsite:
                 if scope in CrawlPolicy.all_fullsite_scopes:
-                    smsg.msg = u'True: same root site, all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
+                    smsg.msg = u'True: same root site, all full site scope [URL_SITE:%s, ROOT_URL:%s] => [ROOT:%s]' % (url_root_site,
                                                                                                                   self.url,
                                                                                                                   self.rootsite)
                     # log.debug('\t',smsg.msg)                   
                     smsg.status &= True
                 else:
                     smsg.status &= False
-                    smsg.msg = u'False: same root site, but not all full site scope [URL_SITE:%s, ROOT:%s] => [SITE:%s]' % (url_root_site,
+                    smsg.msg = u'False: same root site, but not all full site scope [URL_SITE:%s, URL:%s] => [ROOT:%s]' % (url_root_site,
                                                                                                                            self.url,
                                                                                                                            self.rootsite)
                     if redirection:
@@ -165,9 +166,9 @@ class CrawlerScopingRules(object):
                         
                     # log.debug('\t',smsg.msg)
             else:
-                smsg.msg = u'False: Different root site [URL:%s, ROOT:%s] => [SITE: %s]' % (url,
-                                                                                           self.url,
-                                                                                           self.rootsite)
+                smsg.msg = u'False: Different root site [URL:%s, ROOT_URL:%s] => [SITE: %s]' % (url,
+                                                                                                self.url,
+                                                                                                self.rootsite)
 
                 if redirection:
                     smsg.msg = smsg.msg + ' (URL redirection)'
