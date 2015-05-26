@@ -42,6 +42,8 @@ title_re = re.compile('\<title\>(.*?)\<\/title\>',re.UNICODE)
 entity_re = re.compile(r'\&#[a-zA-Z0-9]+\;')
 # Match quoted entities of the form %0D
 quoted_re=re.compile('\%\d[a-zA-Z]')
+# URLs starting with relative paths
+relpath_url_re = re.compile(r'\.{2,}\/?')
 
 # List of TLD (top-level domain) name endings from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
 # courtesy HarvestMan, stored in base64 encoded, compressed, string form
@@ -868,8 +870,8 @@ class URLBuilder(object):
         u'http://www.yahoo.com/images/public/index.php'
         >>> URLBuilder('http://www.foo.com/foo/../index.php').build()
         u'http://www.foo.com/index.php'
-        >>> 
-
+        >>> URLBuilder('../storitve/izobrazevanje.html','http://www.ctk.uni-lj.si/knjizne-novosti.html').build()
+        u'http://www.ctk.uni-lj.si/storitve/izobrazevanje.html'
         """
 
         # Courtesy: HarvestMan
@@ -882,7 +884,7 @@ class URLBuilder(object):
             return u''
 
         # Plain anchor URLs or other types of 'junk' URLs
-        if any([url.startswith(item) for item in ('#','mailto:','javascript:','tel:', 'file:')]):
+        if any([url.startswith(item) for item in ('#', 'mailto:','javascript:','tel:', 'file:')]):
             return u''
 
         # If the URL consists of HTML entities, then convert them to their proper form.
@@ -891,21 +893,10 @@ class URLBuilder(object):
         if entity_re.search(url):
             url = utils.unescape(url)
 
-        # This unquoting is probably unnecessary and caused issue #457
-        # The problem is unless string casted, it returns a unicode string
-        # which actually contains byte characters which then can't be further
-        # encoded or decoded in proper ascii or unicode.
-        #if quoted_re.search(url):
-        #    url = urllib.unquote(url)
-
         # Do same for parent URL
         if entity_re.search(parent_url):
             parent_url = utils.unescape(parent_url)
 
-        # This unquoting is probably unnecessary and caused issue #457
-        #if quoted_re.search(parent_url):
-        #    parent_url = urllib.unquote(parent_url)
-            
         # Strip again as unescape or unquote could have introduced newline characters.
         url = url.strip()
         if not url:
@@ -913,8 +904,7 @@ class URLBuilder(object):
         
         parent_url = parent_url.strip()
         
-        # If the URL has many quoted characters, unquote it.
-        # Seriously I am surprised we don't handle anchor links properly yet.
+        # Handling of anchors in URLs
         if '#' in url:
             items = anchor_re.split(url)
             if len(items):
@@ -963,6 +953,14 @@ class URLBuilder(object):
                 # Quote URL
                 url = protocol + '://' + domain + urllib.quote(url)
         else:
+            # Fix for issue #444 - dumb URLs starting with ../ etc when the
+            # If child URL starts with .. and there are no proper paths in the parent URL
+            # then drop the .. prefix oft he child URL.
+            if relpath_url_re.match(url) and path.count('/')<2:
+                # Drop the ../ prefixes of the URL.
+                url = relpath_url_re.sub('', url)
+                # print 'NEW URL =>',url
+                
             path = path[:path.rfind('/')]
             try:
                 url = protocol +'://' + domain + '/' + path +'/' + url
