@@ -440,9 +440,6 @@ def get_root_website(site, include_port=False, scheme=False):
 def get_website(url, scheme=False, remove_www=True):
     """ Given the URL, return the site """
 
-    # Remove port number if found
-    url = domain_port_re.sub('', url)
-
     # No scheme in front, add scheme
     # Get site root
     urlp = urlparse.urlparse(url)
@@ -460,6 +457,9 @@ def get_website(url, scheme=False, remove_www=True):
         # => www.foo.com
         # Lowercase !
         site = urlp.netloc.lower()
+
+    # Remove port number if found
+    site = domain_port_re.sub('', site)
 
     # Remove any www prefix
     # So foo.com <=> www.foo.com 
