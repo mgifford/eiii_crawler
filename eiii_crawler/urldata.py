@@ -312,6 +312,15 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                                code=200,
                                event_key=self.url,
                                params=self.__dict__)
+                
+            elif status_code in range(500, 1000):
+                # There is an error but if we got data then fine - Fix for issue #445
+                self.status = True
+                eventr.publish(self, 'download_complete',
+                               message='URL has been downloaded but with an error',
+                               code=500,
+                               event_key=self.url,
+                               params=self.__dict__)
             else:
                 log.error("Error downloading URL =>",self.url,"status code is ", status_code)
                 eventr.publish(self, 'download_error',
