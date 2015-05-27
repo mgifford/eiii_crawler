@@ -136,29 +136,14 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
     def _parse(self, data, url):
         """ Parse the HTML and return child URLs """
 
-        # Fix for issue #449 - let us put sgmlop
-        # as first parser in line as the default parser
-        # seems to be able to pick up only CSS URLs.
-        parser = urlhelper.SgmlOpParser()
+        # Fix for issue #449 - Use Super parser
+        parser = urlhelper.SuperHTMLParser()
 
-        # try:
         log.info("Parsing URL", url)
         parser.feed(data)
-        parser.close()
         
         self.eventr.publish(self, 'url_parsed',
                             params=locals())
-            
-        ## except sgmllib.SGMLParseError, e:
-        ##     log.error("Error parsing data for URL =>",url)
-        ##     # Try parsing with beautiful soup
-
-        ##     log.info("Parsing with fall-back parser ...")
-        ##     parser = urlhelper.URLLister()
-        ##     parser.feed(data)
-        ##     # print 'URLS =>', parser.urls
-        ##     self.eventr.publish(self, 'url_parsed',
-        ##                         params=locals())
             
         # Do we have a redirect ?
         if parser.redirect:
@@ -168,6 +153,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         else:
             urls = list(set(parser.urls))
 
+        # print 'URLs =>',urls
         # Has the base URL changed ?
         if parser.base_changed:
             url = parser.source_url
