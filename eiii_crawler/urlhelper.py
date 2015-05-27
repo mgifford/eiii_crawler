@@ -768,7 +768,11 @@ class SgmlOpParser(HtmlParserMixin):
 
     def feed(self, data):
         self._parser.feed(data)
-        
+
+    def close(self):
+        # Dummy method to imitate most parsers      
+        pass
+    
     def unknown_starttag(self, tag, attrs):
         pass
 
