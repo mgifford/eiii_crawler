@@ -758,16 +758,24 @@ class BeautifulLister(HtmlParserMixin):
         """ Return the URL map """
         return self.urldict
 
-class SgmlOpParser(HtmlParserMixin):
-    """ Parser based on sgmlop library """
+class SuperHTMLParser(sgmllib.SGMLParser, HtmlParserMixin):
+    """ Super HTML parser which is a child of Python's own
+    SGML parser plus has the features of sgmlop parser via
+    aggregation """
 
     def __init__(self):
+        # Aggregated sgmlop parser
         self._parser = sgmlop.SGMLParser()
         self._parser.register(self)
-        self.reset()
+        # Initialize behaviour of both the mixin and SGMLParser
+        HtmlParserMixin.reset(self)
+        sgmllib.SGMLParser.__init__(self)
 
     def feed(self, data):
+        # Feed to sgmlop's parser
         self._parser.feed(data)
+        # Feed to SGMLParser as well
+        sgmllib.SGMLParser.feed(self, data)
 
     def close(self):
         # Dummy method to imitate most parsers      
@@ -779,9 +787,7 @@ class SgmlOpParser(HtmlParserMixin):
     def unknown_endtag(self, tag):
         pass
 
-    def handle_starttag(self, tag, method, attrs):
-        return method(attrs)
-    
+                     
 class CSSLister(object):
     """ Class to parse stylesheets and extract URLs """
 
