@@ -132,7 +132,47 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
                 return [dir_url]
 
         return []
-        
+
+    def _parse(self, data, url):
+        """ Parse the HTML and return child URLs """
+
+        # First try with SGML lib based parser
+        parser = urlhelper.URLLister()
+
+        try:
+            log.info("Parsing URL", url)
+            parser.feed(data)
+            parser.close()
+
+            self.eventr.publish(self, 'url_parsed',
+                                params=locals())
+            
+        except sgmllib.SGMLParseError, e:
+            log.error("Error parsing data for URL =>",url)
+            # Try parsing with beautiful soup
+
+            log.info("Parsing with fall-back parser ...")
+            parser = urlhelper.SgmlOpParser()
+            parser.feed(data)
+            # print 'URLS =>', parser.urls
+            self.eventr.publish(self, 'url_parsed',
+                                params=locals())
+            
+
+        # Do we have a redirect ?
+        if parser.redirect:
+            # Then only the follow URL
+            urls = [parser.follow_url]
+            log.info("Page redirected to =>",urls[0])                        
+        else:
+            urls = list(set(parser.urls))
+
+        # Has the base URL changed ?
+        if parser.base_changed:
+            url = parser.source_url
+            
+        return (url, urls)
+    
     def parse(self, data, url):
         """ Parse the URL data and return an iterator over child URLs """
 
@@ -159,41 +199,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
         if redirect:
             return (url, urls)
         
-        parser = urlhelper.URLLister()
-
-        try:
-            log.info("Parsing URL", url)
-            parser.feed(data)
-            parser.close()
-
-            self.eventr.publish(self, 'url_parsed',
-                                params=locals())
-            
-        except sgmllib.SGMLParseError, e:
-            log.error("Error parsing data for URL =>",url)
-            # Try parsing with beautiful soup
-
-            log.info("Parsing again with fall-back parser ...")
-            parser = urlhelper.BeautifulLister()
-            parser.feed(data)
-            # print 'URLS =>', parser.urls
-            self.eventr.publish(self, 'url_parsed',
-                                params=locals())
-            
-
-        # Do we have a redirect ?
-        if parser.redirect:
-            # Then only the follow URL
-            urls = [parser.follow_url]
-            log.info("Page redirected to =>",urls[0])                        
-        else:
-            urls = list(set(parser.urls))
-
-        # Has the base URL changed ?
-        if parser.base_changed:
-            url = parser.source_url
-            
-        return (url, urls)
+        return self._parse(data, url)
 
     def should_stop(self):
         """ Should stop now ? """
