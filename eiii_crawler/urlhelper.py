@@ -15,15 +15,11 @@ import base64
 import zlib
 import mimetypes
 import re
+import sgmlop
 
 from eiii_crawler import urlnorm
 import eiii_crawler.utils as utils
 from bs4 import BeautifulSoup
-
-# Filter warnings by requests library on certificate issue.
-# import warnings
-# warnings.filterwarnings("ignore") # NOTE: This is BAD, so it is a workaround to be worked around
-                                  # later once we add certficate verification.
 
 
 ___author__ = "Anand B Pillai"
@@ -49,7 +45,6 @@ domain_port_re = re.compile(r'\:\d{2,}\/?$')
 
 
 # List of TLD (top-level domain) name endings from http://data.iana.org/TLD/tlds-alpha-by-domain.txt
-# courtesy HarvestMan, stored in base64 encoded, compressed, string form
 __tldstring__ = 'eJxFVgly6yoQPNHvsh3HiY/DJoTFIrNYlk7/GynJq2oNMzAMMJstFIQS2oSVY00ZQ\
 kMYIieIAcIS\nJiquOggPESAiBNeeEFTOauR8ngVEIRzHCtEgFog3QXmDFETunxUuFkgJqSENkb2LHEqFH\
 CAt5Ajp\nCC67iQqOux+QXqiJtHEmQHJHIlp1zz5Dy7RJC815fVCTOdM2bn5BLpAr5AYlCMkvmNzZMJNkX\
@@ -462,8 +457,11 @@ def get_website(url, scheme=False, remove_www=True):
     site = domain_port_re.sub('', site)
 
     # Remove any www prefix
-    # So foo.com <=> www.foo.com 
-    return www_re.sub('', site)
+    # So foo.com <=> www.foo.com
+    if remove_www:
+        site = www_re.sub('', site)
+
+    return site
 
 def get_full_url(url):
     """ Prefix HTTP scheme in front of URL
@@ -559,50 +557,12 @@ def check_page_error(title, content):
         # Error in connection
         raise FetchUrlException, title
 
-class BeautifulLister(object):
-    """ An HTML parser using BeautifulSoup """
+class HtmlParserMixin(object):
+    """ Mixin class for HTML parsers """
     
-    def __init__(self):
-        self.reset()
-
-    def feed(self, content):
-        """ Feed parser with data """
-        
-        soup=BeautifulSoup(content, "lxml")
-        # Text of links mapped to the link text
-        # Caveat - right now this is a fallback parser so it parses only
-        # anchor tags ('a') and nothing else. 
-        self.urlmap = {item['href']:item.text for item in soup.findAll('a') if item.has_attr('href')}
-        self.urls = self.urlmap.keys()      
-
-    def close(self):
-        # Dummy method to imitate most parsers
-        pass
-    
-    def reset(self):
-        """ Reset the state """
-        
-        self.urlmap = {}
-        self.urls = []
-        # Redirect URL if any
-        self.follow_url = ''
-        # Replaced source URL
-        self.source_url = ''
-        # Should we redirect to the follow URL ?
-        self.redirect = False
-        # Should we replace the source (parent) URL ?
-        self.base_changed = False               
-
-    def get_url_map(self):
-        """ Return the URL map """
-        return self.urlmap
-    
-class URLLister(sgmllib.SGMLParser):
-    """ Simple HTML parser using sgmllib's SGMLParser """
-
     def reset(self):                             
-        sgmllib.SGMLParser.reset(self)
         self.urls = []
+        self.stack = []
         self.urldict = {}
         self.lasthref = ''
         # Redirect URL if any
@@ -767,10 +727,56 @@ class URLLister(sgmllib.SGMLParser):
         if url:
             self.urls.append(url)           
 
-    # Skipped tags - embed, option, object, applet etc.
-    # Former 3 because they deal with embeddable URL like flash.
-    # latter because it typically is used to load a Java applet class.
+class URLLister(sgmllib.SGMLParser, HtmlParserMixin):
+    """ Simple HTML parser using sgmllib's SGMLParser """
+
+    def reset(self):
+        sgmllib.SGMLParser.reset(self)
+        HtmlParserMixin.reset(self)
+
+class BeautifulLister(HtmlParserMixin):
+    """ An HTML parser using BeautifulSoup """
     
+    def __init__(self):
+        self.reset()
+
+    def feed(self, content):
+        """ Feed parser with data """
+        
+        soup=BeautifulSoup(content, "lxml")
+        # Text of links mapped to the link text
+        # Caveat - right now this is a fallback parser so it parses only
+        # anchor tags ('a') and nothing else. 
+        self.urldict = {item['href']:item.text for item in soup.findAll('a') if item.has_attr('href')}
+        self.urls = self.urldict.keys()      
+
+    def close(self):
+        # Dummy method to imitate most parsers
+        pass
+    
+    def get_url_map(self):
+        """ Return the URL map """
+        return self.urldict
+
+class SgmlOpParser(HtmlParserMixin):
+    """ Parser based on sgmlop library """
+
+    def __init__(self):
+        self._parser = sgmlop.SGMLParser()
+        self._parser.register(self)
+        self.reset()
+
+    def feed(self, data):
+        self._parser.feed(data)
+        
+    def unknown_starttag(self, tag, attrs):
+        pass
+
+    def unknown_endtag(self, tag):
+        pass
+
+    def handle_starttag(self, tag, method, attrs):
+        return method(attrs)
     
 class CSSLister(object):
     """ Class to parse stylesheets and extract URLs """
