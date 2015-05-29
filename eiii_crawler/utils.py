@@ -20,6 +20,15 @@ from eiii_crawler import logger
 
 __logprefix__ = 'logs'
 
+# Script cleanup regular expressions
+javascriptcleanup = re.compile('<script\\b[^>]*>(.*?)</script>', re.MULTILINE|re.DOTALL)
+noscriptcleanup = re.compile('<noscript\\b[^>]*>(.*?)</noscript>', re.MULTILINE|re.DOTALL)
+
+def clean_noscript(data):
+    """ Remove all <noscript>...</noscript> tags and their content """
+
+    return noscriptcleanup.sub('', data).strip()
+
 def get_default_logger(name='eiii_crawler'):
     """ Return the default logging object """
 
