@@ -104,7 +104,7 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
             if self.allowed(url, parent_url, content_type, download=True):
                 # Refresh content-type
                 content_type = urlhelper.get_content_type(url, {})             
-                log.info('Downloading URL',url,'=>',content_type,'...')
+                log.info('Downloading URL',url,'=>',content_type,'...','from parent =>',parent_url)
                 
                 urlobj = self.download(url, parent_url, content_type)
                 
