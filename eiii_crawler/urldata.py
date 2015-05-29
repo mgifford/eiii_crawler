@@ -8,6 +8,7 @@ import crawlerbase
 import hashlib
 import zlib
 import os
+import re
 
 from eiii_crawler import urlhelper
 from eiii_crawler import utils
@@ -16,6 +17,8 @@ from eiii_crawler.crawlerscoping import CrawlerScopingRules
 
 # Default logging object
 log = utils.get_default_logger()
+# HTTP refresh headers
+http_refresh_re = re.compile(r'\s*\d+\;\s*url\=([^<>]*)', re.IGNORECASE)
 
 class CachingUrlData(crawlerbase.CrawlerUrlData):
     """ Caching URL data which implements caching of the downloaded
@@ -251,8 +254,6 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             # Satisfied already through cache or fake mime-types
             return ret
 
-        # print 'SSL validate flag =>',self.config.flag_ssl_validate
-        
         try:
             log.debug("Waiting for URL",self.url,"...")
             freq = urlhelper.get_url(self.url, headers = self.build_headers(),
@@ -265,25 +266,55 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             self.content = freq.content
             self.headers = freq.headers
 
-            # print self.url,type(self.url)
-            # print freq.url,type(freq.url)
+            # Initialize refresh url
+            mod_url = refresh_url = self.url
+            hdr_refresh = False
             
-            # Is the URL modified ? if so set it 
+            # First do regular URL redirection and then header based.
+            # Fix for issue #448, test URL: http://gateway.hamburg.de
             if self.url != freq.url:
+                # Modified URL
+                mod_url = freq.url
+
+            # Look for URL refresh headers
+            if 'Refresh' in self.headers:
+                log.debug('HTTP Refresh header found for',self.url)
+                refresh_val = self.headers['Refresh']
+                refresh_urls = http_refresh_re.findall(refresh_val)
+                if len(refresh_urls):
+                    hdr_refresh = True
+                    # This could be a relative URL
+                    refresh_url = refresh_urls[0]
+                    # Build the full URL
+                    mod_url = urlhelper.URLBuilder(refresh_url, mod_url).build()
+                    log.info("HTTP header Refresh URL set to",mod_url)
+                
+            # Is the URL modified ? if so set it 
+            if self.url != mod_url:
                 # Flexi scope - no problem
                 # Allow external domains only for flexible site scope
                 if self.config.site_scope == 'SITE_FLEXI_SCOPE':
-                    self.url = freq.url
-                    log.info("URL updated to",self.url)                 
+                    self.url = mod_url
+                    log.info("URL updated to", mod_url)                
                 else:
-                    scoper = CrawlerScopingRules(self.config, self.url)
-                    if scoper.allowed(freq.url, parent_url, redirection=True):
-                        self.url = freq.url
+                    scoper = CrawlerScopingRules(self.config, mod_url)
+                    if scoper.allowed(mod_url, parent_url, redirection=True):
+                        self.url = mod_url
                         log.info("URL updated to",self.url)
                     else:
-                        log.extra('Site scoping rules does not allow URL=>', freq.url)
-                        return False                            
-                
+                        log.extra('Site scoping rules does not allow URL=>', mod_url)
+                        return False
+
+                # If refresh via headers, we need to fetch this as content as it
+                # is similar to a URL redirect from the parser.
+                if hdr_refresh:
+                    log.info('URL refreshed via HTTP headers. Downloading refreshed URL',mod_url,'...')
+                    parent_url, self.url = self.url, mod_url
+                    # NOTEME: The only time this method calls itself is here.
+                    # We set the URL to modified one and parent URL to the current one
+                    # and re-download. Look out for Buggzzzies here.
+                    return self.download(crawler, parent_url)
+
             # Add content-length also for downloaded content
             self.content_length = max(len(self.content),
                                       self.headers.get('content-length',0))
@@ -351,6 +382,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             
     def get_data(self):
         """ Return the data """
+
         return self.content
 
     def get_headers(self):
