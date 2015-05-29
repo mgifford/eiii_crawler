@@ -203,7 +203,8 @@ class JSParser(object):
    # jQuery functions of the form
    # jQuery(document).func(function(...))
    jquery_func = re.compile(r'jQuery\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
-
+   # Javascript function taking arguments
+   jsfunc_withargs = re.compile(r'function\([a-zA-Z0-9_]+[^\)]*\)')
    # Comments of the form <!-- content -->
    js_comments = re.compile(r'\<\!--.*\s*\/\/--\>', re.MULTILINE)
    
@@ -391,6 +392,9 @@ class JSParser(object):
       if all(getattr(p, field) == '' for field in p._fields):
          return False
 
+      # Further validation - no part of the URL should be a JS variable such as $x
+      if any(map(lambda x: x.strip()[0]=='$', urlstring.split())):
+         return False
              
       return True
 
@@ -471,6 +475,13 @@ class JSParser(object):
             prev_line = line
             continue
 
+         # If previous line is a function taking arguments then less chance it supports
+         # an un-conditional redirect...
+         if self.jsfunc_withargs.search(prev_line):
+            # print 'Skipping since previous line is function taking non-empty argumeents'
+            prev_line = line
+            continue
+         
          # Check if start of function
          fmatch = self.jsfunction_re.findall(line)
          if len(fmatch):
@@ -538,7 +549,7 @@ class JSParser(object):
                   url = self.make_valid_url(url)
                   location_changed = True
                   self.page.location.replace(url)
-                  # print 'Replacing location with',url
+                  print 'Replacing location with',url
                   self.locations.append(url)                  
                   location_changed = True
                else:
@@ -827,10 +838,15 @@ def localtests():
     P.parse(open('samples/sor-varanger_kommune.html').read())
     assert(P.location_changed==False)                
     # print P.getLocation().href 
-    
 
     P.parse(open('samples/tysver_kommune.html').read())
     print P.getLocation().href
+
+    P.parse(open('samples/lehavre_fr.html').read())
+    print P.getLocation().href
+
+    P.parse(open('samples/policija_lt.html').read())
+    print P.getLocation().href        
     
     print 'All local tests passed.'
 
