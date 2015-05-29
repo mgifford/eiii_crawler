@@ -840,13 +840,16 @@ def localtests():
     # print P.getLocation().href 
 
     P.parse(open('samples/tysver_kommune.html').read())
-    print P.getLocation().href
+    assert(P.location_changed==False)                    
+    # print P.getLocation().href
 
     P.parse(open('samples/lehavre_fr.html').read())
-    print P.getLocation().href
+    assert(P.location_changed==False)                        
+    # print P.getLocation().href
 
     P.parse(open('samples/policija_lt.html').read())
-    print P.getLocation().href        
+    assert(P.location_changed==False)                        
+    # print P.getLocation().href        
     
     print 'All local tests passed.'
 
