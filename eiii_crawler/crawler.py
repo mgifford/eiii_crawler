@@ -500,11 +500,16 @@ class EIIICrawlerStats(CrawlerStats):
                 entries_safe[regex] = urls_safe
 
             statsdict[mapping.get(key)] = entries_safe
-            
+
         # Process URL graph - make a copy as we will be modifying it.
-        graph = copy.deepcopy(self.url_graph)
+        # Fix for issue #454 - convert everything into lists when copying from
+        # original graph.
+        graph = {}
+        for parent_url, child_set in self.url_graph.items():
+            graph[parent_url] = list(child_set)
+
         urlbucket = {}
-        
+
         for parent_url in graph.keys():
             # Fix for issue #434
             # Drop trailing / from the URL if any
