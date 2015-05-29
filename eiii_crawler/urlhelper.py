@@ -680,7 +680,7 @@ class HtmlParserMixin(object):
                     if items[0]=='url':
                         # We should follow this URL and NOT parse the
                         # current page.
-                        self.follow_url = items[1]
+                        self.follow_url = items[1].replace("'", "").replace('"', '')
                         self.redirect = True
                 except:
                     pass
