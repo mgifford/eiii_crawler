@@ -850,6 +850,9 @@ def localtests():
     P.parse(open('samples/policija_lt.html').read())
     assert(P.location_changed==False)                        
     # print P.getLocation().href        
+
+    P.parse(open('samples/guichet_public_lu.html').read())
+    assert(P.location_changed==False)
     
     print 'All local tests passed.'
 
