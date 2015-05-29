@@ -138,7 +138,8 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
 
         # Fix for issue #449 - Use Super parser
         parser = urlhelper.SuperHTMLParser()
-
+        # Remove content between '<noscript>...</noscript>' tags
+        data = utils.clean_noscript(data)
         log.info("Parsing URL", url)
         parser.feed(data)
         
