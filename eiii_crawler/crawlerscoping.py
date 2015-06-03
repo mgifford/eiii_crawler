@@ -170,6 +170,8 @@ class CrawlerScopingRules(object):
                                                                                                 self.url,
                                                                                                 self.rootsite)
 
+                # Mark scope as 1 for different root site
+                smsg.scope = 1
                 if redirection:
                     smsg.msg = smsg.msg + ' (URL redirection)'
                     smsg.subtype = 'redirection'
