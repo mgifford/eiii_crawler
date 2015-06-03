@@ -89,6 +89,8 @@ class CrawlerConfig(object):
         self.flag_urls_case_sensitive = True
         # Set SSL validation by default on.
         self.flag_ssl_validate = True
+        # Log & write external URLs graph ?
+        self.flag_ext_url_graph = True
         
         # Network settings - Address of network proxy including port if any
         self.network_proxy = ''
