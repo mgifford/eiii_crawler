@@ -69,6 +69,7 @@
  "configdir": "~/.eiii/crawler", 
  "disable_dynamic_scope": false, 
  "flag_detect_spurious_404": true, 
+ "flag_ext_url_graph": false, 
  "flag_httpcompress": true, 
  "flag_ignorerobots": false, 
  "flag_ignoretlds": false, 
