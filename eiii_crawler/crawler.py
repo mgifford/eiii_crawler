@@ -293,7 +293,7 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
                 # Get the message
                 error_msg = str(m_allowed)
                 return utils.StatusMessage(False, 'Scoping rules does not allow URL [Error: %s]'  % error_msg,
-                                           type=m_allowed.type, subtype=m_allowed.subtype)
+                                           type=m_allowed.type, subtype=m_allowed.subtype, scope=m_allowed.scope)
         else:
             log.extra('Parent URL is none =>', url)
                         
@@ -370,6 +370,8 @@ class EIIICrawlerStats(CrawlerStats):
         self.urls_e = set()
         # URL graph
         self.url_graph = collections.defaultdict(set)
+        # External URL graph
+        self.ext_url_graph = collections.defaultdict(set)
         
     def update_total_urls_downloaded(self, event):
         """ Update total number of URLs downloaded """
@@ -381,8 +383,15 @@ class EIIICrawlerStats(CrawlerStats):
         """ Update total number of URLs skipped """     
 
         error_msg = event.message
+        # print error_msg, error_msg.scope
         super(EIIICrawlerStats, self).update_total_urls_skipped(event)
         url = event.params.get('url')
+        parent_url = event.params.get('parent_url')
+        # If this is an external URL, log it to the external URL graph if config option is enabled.
+        if self.config.flag_ext_url_graph and error_msg.scope == 1:
+            # print 'EXTERNAL URL:',url,'<=>',parent_url
+            self.ext_url_graph[parent_url].add((url, event.params.get('content_type')))
+            
         self.urls_f.add(url)
         
         # Add to dynamic URLs filtered dictionary if dynamic filtering
@@ -455,7 +464,50 @@ class EIIICrawlerStats(CrawlerStats):
                 entries_fixed.append((url, ctype))                  
 
         return entries_fixed
-    
+
+    def clean_url_graph(self, url_graph):
+        """ Clean the URL graph for writing it as JSON """
+
+        graph = {}
+        
+        for parent_url, child_set in url_graph.items():
+            graph[parent_url] = list(child_set)
+
+        urlbucket = {}
+
+        for parent_url in graph.keys():
+            # Fix for issue #434
+            # Drop trailing / from the URL if any
+            if parent_url[-1] == '/':
+                url_entry = parent_url[:-1]
+            else:
+                url_entry = parent_url[:]
+
+            # Skip URLs already in the bucket
+            if url_entry in urlbucket: continue
+
+            # Make an entry
+            urlbucket[url_entry] = 1
+            entries = graph[parent_url]
+            
+            # Child URLs
+            entries = list(entries)
+            # Make URLs safe
+            entries_safe =  [(utils.safedata(url), ctype) for url, ctype in entries]
+            # Fix wrong content-type for "text" types.
+            entries_safe = self.normalize(entries_safe)
+            
+            # Make entry safe
+            parent_url_safe = utils.safedata(parent_url)
+            if parent_url_safe != parent_url:
+                # Delete original key
+                del graph[parent_url]
+
+            # Add entry
+            graph[parent_url_safe] = entries_safe
+
+        return graph
+            
     def get_stats_dict(self):
         """ Get stats dictionary. """
 
@@ -467,6 +519,8 @@ class EIIICrawlerStats(CrawlerStats):
                    'urls_d': 'urls_downloaded',
                    'urls_e': 'urls_error'}
 
+        # Create another graph for external URLs - Issue #456
+        
         # print 'URLS_E=>',statsdict['urls_e']
         # Convert sets to list
         for key in ('urls_f', 'urls_e','urls_d','urls_a'):
@@ -504,44 +558,10 @@ class EIIICrawlerStats(CrawlerStats):
         # Process URL graph - make a copy as we will be modifying it.
         # Fix for issue #454 - convert everything into lists when copying from
         # original graph.
-        graph = {}
-        for parent_url, child_set in self.url_graph.items():
-            graph[parent_url] = list(child_set)
-
-        urlbucket = {}
-
-        for parent_url in graph.keys():
-            # Fix for issue #434
-            # Drop trailing / from the URL if any
-            if parent_url[-1] == '/':
-                url_entry = parent_url[:-1]
-            else:
-                url_entry = parent_url[:]
-
-            # Skip URLs already in the bucket
-            if url_entry in urlbucket: continue
-
-            # Make an entry
-            urlbucket[url_entry] = 1
-            entries = graph[parent_url]
-            
-            # Child URLs
-            entries = list(entries)
-            # Make URLs safe
-            entries_safe =  [(utils.safedata(url), ctype) for url, ctype in entries]
-            # Fix wrong content-type for "text" types.
-            entries_safe = self.normalize(entries_safe)
-            
-            # Make entry safe
-            parent_url_safe = utils.safedata(parent_url)
-            if parent_url_safe != parent_url:
-                # Delete original key
-                del graph[parent_url]
-
-            # Add entry
-            graph[parent_url_safe] = entries_safe
+        graph, ext_graph = map(self.clean_url_graph, (self.url_graph, self.ext_url_graph))
 
         statsdict['url_graph'] = graph
+        statsdict['ext_url_graph'] = ext_graph
         
         # delete copy
         del statsdict['config']
