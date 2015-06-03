@@ -391,11 +391,15 @@ class StatusMessage(object):
     """ A class having behaviours of both a boolean
     status (True, False) and an error message """
 
-    def __init__(self, status=True, msg='', type='error', subtype=''):
+    def __init__(self, status=True, msg='', type='error', subtype='', scope=0):
         self.status = status
         self.msg = msg
         self.type = type
         self.subtype = subtype
+        # Scoping information
+        # 0 - same root site
+        # 1 - different root site
+        self.scope = scope
 
     def __str__(self):
         return self.msg.encode('ascii','xmlcharrefreplace')
