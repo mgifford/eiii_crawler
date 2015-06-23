@@ -151,8 +151,8 @@ class EIIICrawlerServer(SimpleTTRPCServer):
             if proxy.ping() == 'pong':
                 # We need to fork this off to a separate thread so that we are
                 # free to handle the call which the bus makes back to us
-                t = threading.Thread(target=proxy.Call(proxy,'add-crawler'),
-                                     args=(self.bus_url,))
+                t = threading.Thread(target=proxy.Call(proxy,'add-component'),
+                                     args=('crawler', self.bus_url))
                 t.start()
 
         self.init_crawler_procs()
