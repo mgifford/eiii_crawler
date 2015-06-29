@@ -46,9 +46,9 @@ class CrawlerStats(object):
 
         # Time
         # Start time-stamp
-        self.start_timestamp = ''
+        self.start_timestamp = datetime.datetime.now()
         # End time-stamp
-        self.end_timestamp = ''
+        self.end_timestamp = datetime.datetime.now()
         # Time taken for total crawl
         self.crawl_time = 0
         # Time taken for download
