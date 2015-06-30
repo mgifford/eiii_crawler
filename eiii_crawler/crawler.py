@@ -666,13 +666,15 @@ class EIIICrawler(multiprocessing.Process):
         # Insert task id
         self.config._task_id = task_id
 
+        # Prepare it
+        if not self.prepare_config():
+            sys.exit(2)
+        
         if len(urls):
             self.task_logfile = utils.get_logfilename(task_id, urls, self.config)
             log.addLogFile(self.task_logfile)
             log.info("Log file for this crawl can be found at", os.path.abspath(self.task_logfile))
         
-        # Prepare it
-        self.prepare_config()
         # Prepare config
         self.urls = urls
         # Add to config
@@ -800,10 +802,31 @@ class EIIICrawler(multiprocessing.Process):
         # Convert URL filter to separate include and exclude ones
         with utils.ignored(AttributeError,):
             for rule_type, rule in self.config.url_filter:
+                # log.info('RULE =>',rule_type, rule)
+                # Check the rules
+                try:
+                    re.compile(rule)
+                except re.error, e:
+                    rt = 'exclusion' if rule_type == '-' else 'inclusion'
+                    print 'Malformed regular expression => "%s", please correct your configuration.' % rule
+                    print 'Fatal Error: Crawler cannot continue, aborting.'
+                    self.fatal_msg = { 'msg': 'Malformed regular expression => "%s"' % rule,
+                                       'type': 'malformed-rule',
+                                       'subtype': rt,
+                                       'url': '' }
+
+                    if self.value_dict != None:
+                        # log.info("SETTING VALUE DICT")
+                        self.value_dict[self.config._task_id] = {'stats': {},
+                                                                 'graph': {},
+                                                                 'error': self.fatal_msg}                    
+                    return False
+                
                 if rule_type == '+':
                     plus_rules.append(rule)
                 else:
                     minus_rules.append(rule)
+
         
         self.config._url_exclude_rules = minus_rules
         self.config._url_include_rules = plus_rules
@@ -811,7 +834,9 @@ class EIIICrawler(multiprocessing.Process):
         # Initialize dynamic exclusion rules 
         self.config._url_dynamic_exclude_rules = []
         self.config._dynamic_rules_stats = collections.defaultdict(int)
-            
+
+        return True
+    
     def sighandler(self, signum, stack):
         """ Signal handler """
 
@@ -1118,16 +1143,18 @@ class EIIICrawler(multiprocessing.Process):
         self.config._task_id = task_id
         
         # Prepare it
-        self.prepare_config()
-        # Prepare config
-        self.urls = urls
-        # Add to config
-        self.config._urls = urls
-        self.config.save('crawl.json')
+        if self.prepare_config():
+            # log.info("STARTING STUFF")
 
-        log.setConsole(False)
-        self.reset()        
-        self.crawl()
+            # Prepare config
+            self.urls = urls
+            # Add to config
+            self.config._urls = urls
+            self.config.save('crawl.json')
+            
+            log.setConsole(False)
+            self.reset()        
+            self.crawl()
         # log.setConsole(True)        
                     
     def crawl(self):
