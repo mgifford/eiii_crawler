@@ -259,10 +259,11 @@ class EIIICrawlerServer(SimpleTTRPCServer):
         except Exception, e:
             log.error(traceback.format_exc())
         
-        return { 'result': make_directed_graph(url_graph),
+        result = { 'result': make_directed_graph(url_graph),
                  'error': error_msg,
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
+        return (result,self.load(None))
 
     def crawl(self, ctl, crawler_rules, threaded=True):
         """ Accepts a crawler control object, dictionary of
