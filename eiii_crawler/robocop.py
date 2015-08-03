@@ -133,8 +133,12 @@ class Robocop(object):
             if 'http' in rule:
                 site_rules.append(rule + '.*')
             else:
-                site_rules.append('https?://'+site+'/'+rule.lstrip('/')+'.*')
-
+                try:
+                    site_rules.append('https?://'+site+'/'+rule.lstrip('/')+'.*')
+                except UnicodeDecodeError:
+                    rule = rule.decode('utf-8')
+                    site_rules.append('https?://'+site+'/'+rule.lstrip('/')+'.*')
+                    
         # print 'Site rules =>',site_rules
         # rules_c = [re.compile(i.lower()) for i in site_rules]
         rules_c = []
@@ -145,6 +149,7 @@ class Robocop(object):
                 pass
             
         self.rules[site] = rules_c
+        # print 'RULES =>',site,len(rules_c)
 
     def x_robots_check(self, url, headers):
         """ Check X-Robots-Tag header """
@@ -246,8 +251,8 @@ if __name__ == '__main__':
     # Issue #442
     r = Robocop('http://kildare.ie', debug=True)
     assert(r.can_fetch('http://kildare.ie/contact/'))
-    r.parse_site('https://www.epaslaugos.lt')
     
+    r.parse_site('https://www.epaslaugos.lt')
     assert(r.can_fetch('https://www.epaslaugos.lt/portal/business'))
     assert(not r.can_fetch('https://www.epaslaugos.lt/egovportal/business'))
 
@@ -284,7 +289,7 @@ if __name__ == '__main__':
 
     r.parse_site('http://www.trysil.kommune.no')
     assert(r.can_fetch('http://www.trysil.kommune.no/'))
-    assert(not r.can_fetch('http://www.trysil.kommune.no/publishingimages/forms/'))     
+    assert(r.can_fetch('http://www.trysil.kommune.no/publishingimages/forms/'))     
 
     # Adding a test for this site where robocop crashed - Issue #433
     r.parse_site('http://www.arbetsformedlingen.se')
@@ -292,9 +297,17 @@ if __name__ == '__main__':
     # Issue #437 - Crawl delay as float.
     r.parse_site('http://www.gov.uk')
 
-    # Issue #439 - comment after crawl delay
+    ## # Issue #439 - comment after crawl delay
     r.parse_site('http://www.cm-palmela.pt/')
 
+    # Issue #466
+    r.parse_site(u'http://www.vfu.bg')
+    assert(not r.can_fetch('http://www.vfu.bg/lightbox/'))
+    
+    # Issue #466
+    r.parse_site(u'http://www.slovenska-bistrica.si/')
+    assert(not r.can_fetch(u'http://www.slovenska-bistrica.si/portal'))
+    
     print 'All tests passed.'
     
     
