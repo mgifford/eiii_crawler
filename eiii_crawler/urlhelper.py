@@ -775,7 +775,10 @@ class SuperHTMLParser(sgmllib.SGMLParser, HtmlParserMixin):
         # Feed to sgmlop's parser
         self._parser.feed(data)
         # Feed to SGMLParser as well
-        sgmllib.SGMLParser.feed(self, data)
+        try:
+            sgmllib.SGMLParser.feed(self, data)
+        except sgmllib.SGMLParseError, e:
+            pass
 
     def close(self):
         # Dummy method to imitate most parsers      
