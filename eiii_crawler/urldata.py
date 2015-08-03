@@ -9,6 +9,8 @@ import hashlib
 import zlib
 import os
 import re
+import httplib
+import time
 
 from eiii_crawler import urlhelper
 from eiii_crawler import utils
@@ -242,7 +244,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
 
         return False         
 
-    def download(self, crawler, parent_url=None):
+    def download(self, crawler, parent_url=None, download_count=0):
         """ Overloaded download method """
 
         eventr = crawlerbase.CrawlerEventRegistry.getInstance()
@@ -313,7 +315,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                     # NOTEME: The only time this method calls itself is here.
                     # We set the URL to modified one and parent URL to the current one
                     # and re-download. Look out for Buggzzzies here.
-                    return self.download(crawler, parent_url)
+                    return self.download(crawler, parent_url, download_count=download_count+1)
 
             # Add content-length also for downloaded content
             self.content_length = max(len(self.content),
@@ -335,7 +337,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             status_code = freq.status_code
             if self.config.flag_detect_spurious_404:
                 status_code = urlhelper.check_spurious_404(self.headers, self.content, status_code)
-            
+
             if status_code in range(200, 300):
                 self.status = True
                 eventr.publish(self, 'download_complete',
@@ -370,6 +372,21 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                            is_error = True,
                            code=0,
                            params=self.__dict__)
+        except httplib.IncompleteRead, e:
+            log.error("Error downloading",self.url,'=>',str(e))
+            # Try 1 more time
+            time.sleep(1.0)
+            if download_count == 0:
+                log.info('Retrying download for',self.url,'...')
+                return self.download(crawler, parent_url, download_count=download_count+1)
+            else:
+                # Raise error
+                eventr.publish(self, 'download_error',
+                               message=str(e),
+                               is_error = True,
+                               code=0,
+                               params=self.__dict__)
+            
         except (urlhelper.InvalidContentType, urlhelper.MaxRequestSizeExceeded), e:
             log.error("Error downloading",self.url,'=>',str(e))
             eventr.publish(self, 'download_error',
