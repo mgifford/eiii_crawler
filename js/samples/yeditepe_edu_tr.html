@@ -1,0 +1,335 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<link rel="shortcut icon" type="image/ico" href="/home/favicon.ico"> 
+<title>Yeditepe Üniversitesi</title>
+<link href="/design/css/uhu.css" type="text/css" rel="stylesheet"/>
+<link rel="stylesheet" href="/design/css/slimbox.css" type="text/css" media="screen" />
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script type="text/javascript" src="/design/js/jquery.timers-1.1.2.js"></script>
+<!-- 
+/* Gereksiz kullanımdamı¿ */
+<script type="text/javascript" src="/design/js/jquery-1.3.2.min.js"></script>
+-->
+<script type="text/javascript" src="/design/js/jquery.galleryview-1.1.js"></script>
+<script type="text/javascript" src="/design/js/language.js"></script>
+<script type="text/javascript" src="/design/js/jquery.easing.1.3.js"></script>
+<script type="text/javascript" src="/design/js/gallerific-settings.js"></script>
+<SCRIPT type="text/javascript" src="/design/js/slimbox.js"></SCRIPT>
+<style>
+body {
+background: #f1f1f1;
+list-style: none; 
+width: 1271px; 
+height: 1025px;
+position: relative;
+margin:auto;
+padding:auto;
+}
+</style>
+<!--lightbox-->
+<!--
+<script language="javascript" type="text/javascript">
+(function($)
+{
+$(document).ready(function()
+{
+jQuery.slimbox("http://www.yeditepe.edu.tr/dotAsset/321633.png" , "");
+});
+}(jQuery)); 
+$(document).ready(function() {
+$("#lbCenter").css('cursor','pointer');
+$("#lbCenter").attr('title','DUYURU');
+$("#lbCenter").css('left','calc(50% + 0px)');
+$("#lbCenter").css('margin-left','0');
+$("#lbBottomContainer").css('left','calc(50% + 0px)');
+$("#lbBottomContainer").css('margin-left','0');
+$( "#lbCenter" ).click(function() {
+window.location.href = "#";
+});
+});
+</script>
+-->
+<!-- lightbox son--> 
+<!-- bxSlider-->
+<link href="/design/slider/jquery.bxslider.css" rel="stylesheet" />
+<!-- Scripts -->
+<!-- bxSlider -->
+<script src="/design/slider/jquery.bxslider.min.js"></script>
+</head>
+<div id="container">
+<div id="header">
+<!-- Menu Ust Başlangıç -->
+<div id="menuust">
+<div id="menusag">
+<form action="/home/index.dot" name="languageForm" id="languageForm" method="post">
+<script type="text/javascript" src="/design/js/language.js"></script>
+<input type="hidden" name="language_id" id="language_id" value="1">
+<div class="haritalarc"><div><a href="javascript://"onclick="javascript:window.open('http://yeditepe.edu.tr/map/tr/index.html','HB','toolbar=0, location=0, scrollbars=0,resizable=0, width=1024,height=600');">Haritalar</a></div></div>
+<div class="yeditepebultenc"><div><a href="http://ebulten.yeditepe.edu.tr" target="blank">Yeditepebülten</a></div></div>
+<div class="haberlerc"><div><a href="/home/haberler.dot">Haberler</a></div></div>
+<div class="adayc"><div><a href="/aday-ogrenciler">Aday Öğrenciler</a></div></div>
+<div class="mezunlarc"><div><a href="http://www.yumed.org.tr" target="blank">Mezunlar</a></div></div>
+<div class="englishc"><div><a href="javascript:insertParam('language_id',2)">English</a></div></div>
+</div>
+<div id="menusol">
+<div id="logo" class="floatLeft">
+<a href="/"> <img src="/design/css/images/yeditepelogo.png" class="ana" width="330" height="38" alt="Yeditepe Üniversitesi" /></a>
+</div></div></div>
+<div class="clear"></div>
+<br/>
+<!-- Menu Ust Bitiş-->
+<div id="anasayfa" class=" floatRight" >
+<!--
+<form action="http://www.yeditepe.edu.tr/home/arama.dot" id="cse-search-box">
+<div>
+<input type="hidden" name="cx" value="008144669040774963462:oz0p69trtlw" />
+<input type="hidden" name="cof" value="FORID:10" />
+<input type="hidden" name="ie" value="UTF-8" />
+<input type="text" size="20" maxlength="50" class="ara" name="q" value="" />
+<input type="submit" name="sa" value="&raquo; site içi" class="arama"/>
+</div>
+</form>
+-->
+</div> 
+</div>
+<div id="contentana">
+<style>
+ul.bxslider li a img {
+display:none;
+width:100%;
+height:auto;
+max-height:370px;
+}
+ul.bxslider li.first a img{
+display:block;
+}
+</style>
+<script> 
+$(document).ready(function(){
+var slider=$('.bxslider').bxSlider({
+onSlideBefore:function(){
+$("ul.bxslider li a img").css("display","block");
+}, 
+pause:10000,
+auto: true, 
+controls: false,
+mode: 'fade', 
+captions:true,
+pager:true,
+} );
+$('.bx-pager-item a').click(function(e){
+slider.stopAuto();
+restart=setTimeout(function(){
+slider.startAuto();
+},5000);
+});
+});
+</script>
+<div id="bxslider">
+<ul class="bxslider">
+<li class="first">
+<a href="/home/haberler.dot?storyId=371360"> 
+<img src="/dotAsset/371277.jpg" title="Yeditepe Ailesine Hoş Geldiniz" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=371319"> 
+<img src="/dotAsset/371318.jpg" title="Duyuru: Eğiticilerin Eğitimi Programı Sertifika Töreni Düzenlendi" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=371130"> 
+<img src="/dotAsset/371129.jpg" title="Eczacılık Fakültesi Öğretim Üyemiz Prof. Dr. Hasan Kırmızıbekmez, Sağlık Bilimleri alanında TÜBİTAK 2015 yılı Teşvik Ödülü'nü kazandı" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=371111"> 
+<img src="/dotAsset/371103.jpg" title="Duyuru: 2015-2016 Yılı Güzel Sanatlar Fakültesi Özel Yetenek Sınavı Sonuçları" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=371356"> 
+<img src="/dotAsset/370962.jpg" title="Başarı: Yeditepe Üniversitesi Teknopark Kurucu Heyeti Protokolü imzalandı" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=371307"> 
+<img src="/dotAsset/371305.jpg" title="Pilotaj Yüksek Lisans Programı Kayıtlarımız Devam Ediyor" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=371324"> 
+<img src="/dotAsset/369779.jpg" title="Duyuru: Sağlık Bilimleri Enstitüsü 2015-2016 Güz Yarıyılı Yüksek Lisans ve Doktora Programları" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=369766"> 
+<img src="/dotAsset/369765.jpg" title="Duyuru: Atatürk İlkeleri ve İnkilap Tarihi Enstitüsü Yüksek Lisans Başvuru Bilgileri" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=369347"> 
+<img src="/dotAsset/360070.jpg" title="Başarı: 286 iş dünyası temsilcisi ile yapılan araştırmada üniversitemiz en itibarlı üniversiteler sıralamasında ilk 10'da yer aldı." alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=369868"> 
+<img src="/dotAsset/369867.jpg" title="Herkesten önce üniversiteli oldular" alt="" /> 
+</a>
+</li>
+<li>
+<a href="/home/haberler.dot?storyId=369356"> 
+<img src="/dotAsset/364026.jpg" title="İŞLETME ÇİFT DİPLOMA PROGRAMLARI BAŞLIYOR" alt="" /> 
+</a>
+</li>
+</ul>
+</div> 
+<div class="clear"></div>
+</div>
+<div id="menu">
+<div class="floatLeft"> 
+<div class="baslik"> <img src="/design/img/yeditepe-hakkinda.gif" height="11" width="11" alt="Yeditepe Hakkında" /> Yeditepe Hakkında</div> 
+<a href="/yeditepe-hakkinda/yeditepe" >Yeditepe</a> <br />
+<a href="/yeditepe-hakkinda/kurulus" >Kuruluş</a> <br /> 
+<a href="/yeditepe-hakkinda/genel-bilgiler/egitime-bakis" >Eğitime Bakış</a> <br /> 
+<a href="/yeditepe-hakkinda/yonetim/universite-yonetim" >Yönetim </a> <br /> 
+<a href="/yeditepe-hakkinda/idari-ofisler" >İdari Ofisler </a> <br /> 
+<a href="http://www.istek.org.tr" >İSTEK Vakfı</a> <br /> 
+<a href="http://www.istek.k12.tr" class="paddingLeftMenu" target="_blank">İSTEK Okulları</a> <br /> 
+<a href="http://www.yeditepehastanesi.com.tr" class="paddingLeftMenu" target="_blank">Üniversite Hastanesi</a> <br /> 
+<a href="http://www.yeditepeepilepsisiz.com" class="paddingLeftMenu" target="_blank">Yeditepe EpilepsiSİZ</a> <br />
+<a href="http://www.yeditepehastanesi.com.tr/v2/Icerik/Goz-Merkezi/Hakkimizda.aspx" class="paddingLeftMenu" target="_blank">Göz Hastalıkları Arş. Merk.</a> <br /> 
+<a href="http://www.yeditepedishastanesi.com/" class="paddingLeftMenu" target="_blank">Diş Hastanesi</a> <br /> 
+<a href="http://www.dogatatilkoyu.com/" class="paddingLeftMenu" target="_blank">Doğa Tatil Köyü</a> <br /> 
+<a href="http://www.istekkart.com/" class="paddingLeftMenu" target="_blank">İSTEK Kart</a> <br /> 
+<a href="http://www.istekservis.com.tr/" class="paddingLeftMenu" target="_blank">İSTEK Servis</a> <br />
+</div> 
+<div class="floatLeft paddingLeftMenu"> 
+<div class="baslik"> <img src="/design/img/kampus-hayati.gif" height="11" width="11" alt="Kampüs Hayatı" /> Kampüs Hayatı</div> 
+<a href="/kampus-hayati/yerlesim-hakkinda" >26 Ağustos Yerleşimi</a> <br /> 
+<a href="/kampus-hayati/sayilarla-kampus" >Sayılarla Yeditepe</a> <br /> 
+<a href="/kampus-hayati/sosyal-tesisler" >Sosyal Tesisler </a> <br />
+<a href="http://kariyerdestekmerkezi.yeditepe.edu.tr" >Kariyer Gelişim Ofisi</a> <br />
+<a href="http://kariyerdestekmerkezi.yeditepe.edu.tr" >Mezunlarla İletişim Ofisi</a> <br />
+<a href="/kampus-hayati/eczacilik-muzesi" >Eczacılık Müzesi </a> <br />
+<a href="/kampus-hayati/ogrenci-konseyi" >Öğrenci Konseyi </a> <br />
+<a href="/kampus-hayati/ogrenci-kulupleri" >Öğrenci Kulüpleri </a> <br /> 
+<a href="http://engelsiz.yeditepe.edu.tr/" target="_blank" >Engelsiz Yeditepe</a> <br />
+<a href="/kampus-hayati/saglik" >Sağlık </a> <br /> 
+<a href="/kampus-hayati/konaklama" >Konaklama </a> <br /> 
+<a href="/kampus-hayati/ulasim" >Ulaşım </a> <br /> 
+<a href="/kampus-hayati/guvenlik" >Güvenlik </a> <br /> 
+<a href="http://www.yumed.org.tr/" target="_blank" >Mezunlar Derneği</a> <br />
+<a href="http://www.yutmed.org.tr/" target="_blank" >Tıp Fak. Mezunlar Derneği</a> <br />
+</div> 
+<div class="floatLeft paddingLeftMenu"> 
+<div class="baslik"> <img src="/design/img/ogrenim.gif" height="11" width="11" alt="Öğrenim" /> Öğrenim</div> 
+<a href="/ogrenim/lisans" >Lisans </a> <br /> 
+<a href="/ogrenim/lisans-ustu" >Lisans Üstü </a> <br /> 
+<a href="/ogrenim/hazirlik-programi/genel" >Hazırlık Okulu</a> <br />
+<a href="/lise-yaz-okulu/index.dot?yid=genel&id=lise-yaz-okulu&catId=ogrenim" >Lise Yaz Okulu	</a> <br /> 
+<a href="/ogrenim/yabanci-diller-yuksek-okulu/mudur-mesaji" >Yabancı Dil. Yük. Ok. </a> <br /> 
+<a href="/ogrenim/akademik-takvim" >Akademik Takvim </a> <br /> 
+<a href="http://international.yeditepe.edu.tr" target="_blank">Uluslararası Ofis </a> <br />
+<a href="/ogrenci-kabul/bologna-sureci" >Bologna Süreci </a> <br /> 
+<a href="/ogrenim/yaz-okulu" >Yaz Okulu </a> <br /> 
+<a href="http://sem.yeditepe.edu.tr/" >Sürekli Eğitim Merkezi </a><br /> 
+<a href="/ogrenim/yonetmelikler" >Yönetmelikler </a> <br /> 
+<a href="/ogrenci-kabul/formlar" >Formlar</a> <br />
+<a href="/ogrenci-kabul/erasmus-charter" >Erasmus Charter</a> 
+</div> 
+<div class="floatLeft paddingLeftMenu"> 
+<div class="baslik"> <img src="/design/img/ogrenci-kabul.gif" height="11" width="11" alt="Öğrenci Kabul" /> Öğrenci Kabul</div> 
+<a href="/ogrenci-kabul/aday-ogrenciler" >Aday Öğrenciler </a> <br />
+<a href="/ogrenci-kabul/aftan-yararlanma" >Aftan Yararlanma </a> <br />
+<a href="/ogrenci-kabul/burslar" >Burslar </a> <br /> 
+<a href="/ogrenci-kabul/puanlar" >Kontenjan ve Puanlar </a> <br />
+<a href="/ogrenci-kabul/basvuru-kosullari" >Başvuru Koşulları </a> <br /> 
+<a href="/ogrenci-kabul/kayit" >Kayıt </a> <br /> 
+<a href="/ogrenci-kabul/kayit-yenileme" >Kayıt Yenileme</a> <br /> 
+<a href="/ogrenci-kabul/ucretler" >Ücretler </a> <br /> 
+<a href="/ogrenci-kabul/yatay-gecis" >Yatay Geçiş</a> <br />
+</div> 
+<div class="floatLeft paddingLeftMenu"> 
+<div class="baslik"> <img src="/design/img/arastirma.gif" height="11" width="11" alt="Araştırma" /> Araştırma</div> 
+<a href="http://bilgimerkezi.yeditepe.edu.tr/" >Bilgi Merkezi</a> <br />
+<a href="http://yukoz.yeditepe.edu.tr/" >Kozmetik Arş.ve Ürt.Birimi</a> <br /><a href="http://www.yeditepebudem.net/form.php" >Biyosidal ve Hijyen Lab.</a> <br />
+<a href="/arastirma/index.dot?dipId=akademik-yayın-tesviki&catId=arastirma&inode=66810" >Akademik Yayın Teşviki</a> <br />
+<a href="/arastirma/index.dot?dipId=arastirma-altyapimiz&catId=arastirma&inode=66801" >Araştırma Altyapımız</a> <br />
+<a href="/arastirma/index.dot?dipId=arastirma-ciktiklari&catId=arastirma&inode=66807" >Araştırma Çıktıları</a> <br /> 
+<a href="/arastirma/index.dot?dipId=arastirma-merkezleri&catId=arastirma&inode=341569" >Araştırma Merkezleri</a> <br />
+<a href="/arastirma/index.dot?dipId=ar-ge-faaliyetleri&catId=arastirma&inode=66802" >AR-GE Faaliyetleri</a> <br />
+<a href="http://yuagam.yeditepe.edu.tr/ " target="_blank" >AR-GE ve Analiz Lab.</a> <br />
+<a href="/arastirma/index.dot?dipId=doner-sermaye-isletmesi&catId=arastirma&inode=66809" >Döner Sermaye İşletmesi</a> <br />
+<a href="/arastirma/index.dot?dipId=patent-fikri-mulki-haklar&catId=arastirma&inode=66806" >Patent ve Fikri Mülki Haklar</a> <br />
+<a href="/arastirma/index.dot?dipId=sanayi-sektor-iliskileri&catId=arastirma&inode=66808" >Sanayi-Sektör İlişkileri</a> <br />
+<a href="/arastirma/index.dot?dipId=sikca-sorulan-sorular&catId=arastirma&inode=66812" >Sıkça Sorulan Sorular</a> <br />
+</div>
+</div>
+<div class="clear" style="height:30px;" ></div>
+</div>
+<div id="footer">
+<div style="background:#003366; z-index:5; width:960px; margin: auto; ">
+<div style=" height:70px; " id="footerana">
+<div class="footerLeft" id:"footersol">
+<ul style="padding-top:5px;" id="footersol">
+<li> <a target="_blank" href="https://www.facebook.com/yeditepeuniversitesi?ref=hl"><img height="16" width="16" src="/dotAsset/90163.png" /></a> </li>
+<li> <a target="_blank" href="http://twitter.com/YeditepeUni"><img height="16" width="16" src="/dotAsset/90165.png" /> </a> </li>
+<li> <a target="_blank" href="http://www.yumed.org.tr"><img height="16" width="16" alt="YUMED - Yeditepe &Uuml;niversitesi Mezunlar Derneği" src="/dotAsset/92965.png" /> </a> </li>
+<li> <a target="_blank" href="http://www.yutmed.org.tr"><img height="16" width="16" alt="YUTMED - Yeditepe &Uuml;niversitesi Tıp Fak&uuml;ltesi Mezunları Derneği" src="/dotAsset/102045.png" /> </a> </li>
+</br>
+<div class="footerLeft" id:"footersol">
+<ul>
+<li><a style=" text-align:left;" target="_blank" href="/ogrenci-kabul/erasmus-charter"><img height="16" width="16" alt="Erasmus University Charter" src="dotAsset/294921.png" /> 
+</a>
+</li></ul></div>
+</ul>
+<div>
+</div>
+<div class="floatRight" id:"floatRight">
+<ul style="padding-top:0px;">
+<li><a href="https://pos.yeditepe.edu.tr">Sanal POS</a><a></a></li>
+<li><a href="http://yeditepe.edu.tr/ogrenci-kabul/yatay-gecis">Yatay Ge&ccedil;iş</a><a></a></li>
+<a> </a>
+<li><a></a><a href="http://www.yeditepe.edu.tr/ogrenim/akademik-takvim">Akademik Takvim</a></li>
+<li></li>
+<li> <a href="http://ed.yeditepe.edu.tr">E-D&ouml;n&uuml;ş&uuml;m</a></li>
+<li></li>
+<li> <a href="http://obs.yeditepe.edu.tr">OBS</a></li>
+<li></li>
+<li> <a href="/home/rehber-arama.dot">Rehber</a></li>
+<li></li>
+<li><a href="/ogrenci-kabul/sikca-sorulan-sorular">SSS</a></li>
+<li></li>
+<li><a target="_blank" href="http://mail.google.com/a/std.yeditepe.edu.tr"> &Ouml;ğrenci E-posta</a></li>
+<li></li>
+<li><a href="https://eposta.yeditepe.edu.tr/owa"> E-posta</a></li>
+<li></li>
+<li><a href="/home/iletisim.dot"> İletişim</a> </li>
+</ul>
+</div>
+</div>
+<p>
+<script src="http://www.google.com/jsapi" type="text/javascript"></script>
+<script type="text/javascript"><!--
+google.load("elements", "1", {packages: "transliteration"});
+// --></script>
+<script src="http://www.google.com/coop/cse/t13n?form=cse-search-box&amp;t13n_langs=tr" type="text/javascript"></script>
+</p>
+</div>
+<!-- Piwik --> 
+<script type="text/javascript">
+var pkBaseURL = (("https:" == document.location.protocol) ? "https://195.49.216.238/" : "http://195.49.216.238/");
+document.write(unescape("%3Cscript src='" + pkBaseURL + "piwik.js' type='text/javascript'%3E%3C/script%3E"));
+</script><script type="text/javascript">
+try {
+var piwikTracker = Piwik.getTracker(pkBaseURL + "piwik.php", 2);
+piwikTracker.trackPageView();
+piwikTracker.enableLinkTracking();
+} catch( err ) {}
+</script><noscript><p><img src="http://195.49.216.238/piwik.php?idsite=2" style="border:0" alt="" /></p></noscript>
+<!-- End Piwik Tracking Code -->
+</body>
+</html>
