@@ -65,7 +65,7 @@ class HTMLJSParser(object):
 
    script_content = Literal("<") + Literal("script") + ZeroOrMore(Word(alphas) + Literal("=") + Word(alphanums + "."+ "/"  + '"' + "'")) + Literal(">") + SkipTo(Literal("</") + Literal("script") + Literal(">"), True)
 
-   comment_open = Literal("<!--") + SkipTo("\n", True)
+   comment_open = Literal("<!--") + SkipTo("\n", include=True)
    comment_close = Literal("//") + ZeroOrMore(Word(alphanums)) + Literal("-->")
 
    brace_open = Literal("{")
@@ -85,7 +85,20 @@ class HTMLJSParser(object):
        self.buffer = ''
        self.statements = []
        self.positions = []
-       
+       self.last_comment = ''
+
+   def commentAction(self, string, loc, tokens):
+      # print 'Strin =>',string
+      # print 'LOC =>',loc,len(string), tokens
+      if loc == 0:
+         self.last_comment = ''.join(map(lambda x: x.strip(), string.split('\n', 1)))
+         # print 'LAST COMMENT =>',self.last_comment
+      else:
+         if self.last_comment == string:
+            self.last_comment = ""
+            # This string is enclosed in quotes, so skip it
+            # return ""
+      
    def feed(self, data):
 
        self.rawdata = self.rawdata + data
@@ -114,17 +127,20 @@ class HTMLJSParser(object):
       # behaviour of a browser (Firefox) as closely as possible.
       
       flag  = True
+      # print 'STATEMENTS =>',self.statements
+      # print '\tLENGTH =>',len(self.statements)
       for x in range(len(self.statements)):
          s = self.statements[x]
+         # print 'Statement =>',s
          # Remove any braces
          # UPDATE: We need the { and } for detecting functions so commenting this.
-         # s = self.brace_close.transformString(self.brace_open.transformString(s))
          s = self.comment_open.transformString(s)
          s = self.comment_close.transformString(s)         
 
          # Clean up any syntax end chars
          s = self.syntaxendre.sub('', s).strip()
-         
+
+         # print 'S =>',s
          if s:self.statements[x] = s
       
 class JSParserException(Exception):
@@ -149,7 +165,9 @@ class JSParser(object):
    the modified DOM text """
 
    # TODO: Rewrite this using pyparsing
-   
+
+   # URL starting with http or https
+   protocol_re = re.compile('https?')
    # Start signature of document.write* methods
    re1 = re.compile(r"(document\.write\s*\()|(document\.writeln\s*\()")
    
@@ -202,11 +220,13 @@ class JSParser(object):
    anon_jquery_func2 = re.compile(r'\$\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
    # jQuery functions of the form
    # jQuery(document).func(function(...))
-   jquery_func = re.compile(r'jQuery\(\s*[\'\"]{1}[a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
+   jquery_func = re.compile(r'jQuery\(\s*[\'\"]{1}[\#a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
    # Javascript function taking arguments
    jsfunc_withargs = re.compile(r'function\([a-zA-Z0-9_]+[^\)]*\)')
    # Comments of the form <!-- content -->
    js_comments = re.compile(r'\<\!--.*\s*\/\/--\>', re.MULTILINE)
+   # Punctuations we dont want in our redirect expressions
+   unwanted_punctuations = ['|','||','+']
    
    # Maximum number of lines in a function for a redirection
    # NOTE - This is totally arbitrary and is not really a good workaround!
@@ -277,7 +297,11 @@ class JSParser(object):
       body_handler = self.bodyonload_re.findall(data)
       # print 'BODY HANDLER =>',body_handler
       if len(body_handler):
-         self.onload_handler = body_handler[0].replace('(','').replace(')','').strip()
+         if body_handler[0].startswith('location.replace'):
+            # E.g: http://www.valdepenas.es/ (issue #468)
+            self.onload_handler = body_handler[0].strip()
+         else:
+            self.onload_handler = body_handler[0].replace('(','').replace(')','').strip()
          # print 'ONload handler =>',self.onload_handler
       else:
          jquery_handler = self.documentready_re.findall(data)
@@ -292,7 +316,9 @@ class JSParser(object):
       
       # print 'Extracted js content.'
       if self.onload_handler != None and len(self.onload_handler):
+         # print 'ONLOAD HANDLER APPENDED =>',self.onload_handler
          self.js.append(self.onload_handler)
+         # print 'JS =>',self.js
 
       # print 'Found %d JS statements.' % len(self.js)
       
@@ -376,8 +402,9 @@ class JSParser(object):
       # 2. anything starting with document.
       # 3. value
       # 4. Unresolved JS method calls on string as part of URL
-      
-      if urlstring in ('url','value') or any(x in urlstring for x in __jssmethods__):
+
+      # print 'URL STRING =>',urlstring
+      if urlstring in ('url','value', 'loc') or any(x in urlstring for x in __jssmethods__):
          return False
 
       # Anything that looks like a method call or attribute access.
@@ -394,6 +421,10 @@ class JSParser(object):
 
       # Further validation - no part of the URL should be a JS variable such as $x
       if any(map(lambda x: x.strip()[0]=='$', urlstring.split())):
+         return False
+
+      if not self.protocol_re.search(urlstring) and (not '/' in urlstring) and (not '.' in urlstring):
+         print '## Skipping',urlstring
          return False
              
       return True
@@ -516,8 +547,17 @@ class JSParser(object):
                # print 'Onload handler not found, skipping function => {',fname,'} anyway.'
                continue
             
-            
+
+         # If line contains some punctuations like || then skip the line.
+         if any(map(lambda x: x in line, self.unwanted_punctuations)):
+            # print 'Skipping line',line
+            continue
+         
          # print 'Expression=>',line
+
+         # The URL has to have either http in it or end with something '.html'
+         # or have a slash in it etc.
+         
          m1 = self.jsredirect1.search(line)
          if m1:
             tokens = self.jsredirect1.findall(line)
@@ -849,10 +889,35 @@ def localtests():
 
     P.parse(open('samples/policija_lt.html').read())
     assert(P.location_changed==False)                        
-    # print P.getLocation().href        
+    print P.getLocation().href        
 
     P.parse(open('samples/guichet_public_lu.html').read())
     assert(P.location_changed==False)
+
+    P.parse(open('samples/welfare_ie.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/metalib.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/uhu_es.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/udbudsavisen_dk.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/statistics_gr.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/yeditepe_edu_tr.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/valdepenas_es.html').read())
+    assert(P.location_changed== True)
+    print P.getLocation().href
+    
+    P.parse(open('samples/rtu_lv.html').read())
+    assert(P.location_changed==False)                    
     
     print 'All local tests passed.'
 
