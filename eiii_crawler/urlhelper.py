@@ -32,6 +32,8 @@ anchor_re = re.compile(r'\#+')
 www_re = re.compile(r'^www(\d*)\.')
 # Regular expression for www prefixes anywhere
 www2_re = re.compile(r'www(\d*)\.')
+# Regular expression for wrong base URLs starting as //www etc
+www_base_re = re.compile(r'\/+www\d*', re.IGNORECASE)
 # Page titles
 title_re = re.compile('\<title\>(.*?)\<\/title\>',re.UNICODE)
 # Match HTML entities of the form &#xyz; 
@@ -703,6 +705,9 @@ class HtmlParserMixin(object):
         base_href = adict.get('href','')
         if base_href:
             # This needs to replace the source URL
+            # Fix for URLs like //www.smm.lt/web/lt - issue #469
+            if www_base_re.match(base_href):
+                base_href = 'http:' + base_href
             self.source_url = base_href
             self.base_changed = True
 
