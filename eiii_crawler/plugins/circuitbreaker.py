@@ -4,6 +4,16 @@ Circuit breaker - Detect crawl loops and break them.
 This is used to come out of a series of URLs sharing the same pattern
 typically produced from a single parent URL or a few parent URLs.
 
+Problems:
+
+1. Assumes that a URL pattern matches to a content pattern.
+This may not be true so you end up having false negatives. (filtering
+URLs wrongly).
+2. Modify this plugin to,
+
+a. Also take care of content of URLs - ?
+b. Only use content of the URL and dont bother with URL patterns.
+
 """
 
 import urlparse
@@ -32,15 +42,21 @@ min_hits, threshold, url_patterns = 10, 20.0, []
 
 # Regex paths of URLs to exclude from dynamic filtering
 url_exclude_paths  = ('/', '')
-url_regexclude_paths = ('default\.[a-zA-Z]+', 'index\.[a-zA-Z]+', 'home\.[a-zA-Z]+')
+url_regexclude_paths = ('default\.[a-zA-Z]+', 'index\.[a-zA-Z]+', 'home\.[a-zA-Z]+', 'frontend\.[a-zA-Z]+')
 
 def set_config(**kwargs):
     """ Set configuration for the plugin """
+
+    # Reset global state
+    global __regexes__, __regexurls__
 
     for key,value in kwargs.items():
         # Set globally
         log.info("\tSetting configuration",key,"to",value)
         globals()[key] = value
+
+    __regexurls__.clear()
+    __regexes__.clear()
     
 @subscribe('download_complete')
 def check_circuit(event):
@@ -66,7 +82,7 @@ def check_circuit(event):
             return False
     else:
         # If no blacklist patterns provided check for not whitelisted patterns.
-        if (lastpath in url_exclude_paths) or any([re.match(pattern, lastpath) for pattern in url_regexclude_paths]):
+        if (lastpath in url_exclude_paths) or any([re.match(pattern, lastpath, re.IGNORECASE) for pattern in url_regexclude_paths]):
             log.extra("URL matches path whitelist. Not checking for circuit", url)
             return False
     
