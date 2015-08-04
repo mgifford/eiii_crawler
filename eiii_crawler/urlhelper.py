@@ -979,8 +979,16 @@ class URLBuilder(object):
         # URLs not starting with https?: or ftp: but with www, i.e http
         # omitted - we need to treat them as HTTP.
         if www_re.match(url):
-            url = 'http://' + url
-            return self.normalize(url)          
+            # Check if this is a proper www scheme or some trickly thing
+            # like www.vpis.uni-lj.si%20v-na%20'uniwebinetpub'%20(W)/kazalo.htm
+            # Issue #463 fix
+            
+            # urluq = urllib.unquote(url)
+            # If ' in the URL or space in the unquoted URL then problem
+            # (Note - for time being only looking for ')
+            if not "'" in url:
+                url = 'http://' + url
+                return self.normalize(url)          
             
         # Urls relative to server might begin with a //. Then prefix the
         # protocol string to them.
