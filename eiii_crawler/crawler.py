@@ -18,6 +18,7 @@ import sqlite3
 import cPickle
 import socket
 import multiprocessing
+import marshal
 import signal
 import gc
 import warnings
@@ -366,6 +367,8 @@ class EIIICrawlerStats(CrawlerStats):
         self.urls_fd = collections.defaultdict(list)
         # All URLs
         self.urls_a = set()
+        # All URLs with children graph
+        self.urls_ag = collections.defaultdict(list)
         # URLs with error
         self.urls_e = set()
         # URL graph
@@ -403,7 +406,21 @@ class EIIICrawlerStats(CrawlerStats):
 
         # NOTE: This also includes duplicates, URLs with errors - everything.
         super(EIIICrawlerStats, self).update_total_urls(event)
-        self.urls_a.add(event.params.get('url'))
+        parent_url = event.params.get('parent_url')
+        url = event.params.get('url')
+        self.urls_a.add(url)
+
+        ctype = mimetypes.guess_type(url)
+        if (len(ctype) == 0) or (ctype[0] == None):
+            return
+
+        # Only keep A/V URLs in this graph
+        if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/', 'application/x-shockwave-flash'))):
+            if parent_url:
+                self.urls_ag[parent_url].append(url)
+            else:
+                # Child itself is the parent - i.e top level URL, add empty children
+                self.url_ag[parent_url] = []
 
     def update_total_urls_error(self, event):
         """ Update total number of URLs that failed to download with error """
@@ -458,6 +475,7 @@ class EIIICrawlerStats(CrawlerStats):
                     # Skip it
                     log.debug('Content-type of',url,'fixed from',ctype,'to',ctype_new,'skipping.')
                     continue
+                    
 
             # Only append valid client mime-types
             if ctype in self.config.client_mimetypes:
@@ -514,6 +532,7 @@ class EIIICrawlerStats(CrawlerStats):
         statsdict = self.__dict__.copy()
 
         mapping = {'urls_a': 'urls_all',
+                   'urls_ag': 'urls_ag',
                    'urls_f': 'urls_filtered',
                    'urls_fd': 'urls_dynamic_filtered',
                    'urls_d': 'urls_downloaded',
@@ -535,14 +554,19 @@ class EIIICrawlerStats(CrawlerStats):
             # Drop original key
             del statsdict[key]
 
-        statsdict['urls_audio_visual'] = []
+        statsdict['urls_audio_visual'] = {}
         
-        for url in statsdict['urls_all']:
-            ctype = mimetypes.guess_type(url)
-            if (len(ctype) == 0) or (ctype[0] == None): continue
-            if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/', 'application/x-shockwave-flash'))):
+        for parent_url, curls in statsdict['urls_ag'].items():
+            av = []
+            for url in curls:
+                ctype = mimetypes.guess_type(url)
+                if (len(ctype) == 0) or (ctype[0] == None): continue
+                if any(map(lambda x: ctype[0].startswith(x), ('audio/','video/', 'application/x-shockwave-flash'))):
+                    av.append((url, ctype[0]))
+
+            if len(av):
                 # This is an A/V URL
-                statsdict['urls_audio_visual'].append((url, ctype[0]))              
+                statsdict['urls_audio_visual'][parent_url] = av
 
         # Dictionary items
         for key in ('urls_fd',):
@@ -559,7 +583,8 @@ class EIIICrawlerStats(CrawlerStats):
         # Fix for issue #454 - convert everything into lists when copying from
         # original graph.
         graph, ext_graph = map(self.clean_url_graph, (self.url_graph, self.ext_url_graph))
-
+        # Dump the graph
+        # marshal.dump(graph, open('urlgraph.dump','wb'))
         statsdict['url_graph'] = graph
         statsdict['ext_url_graph'] = ext_graph
         
