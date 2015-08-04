@@ -974,7 +974,8 @@ class EIIICrawler(multiprocessing.Process):
 
         url = event.params.get('url')
         parent_url = event.params.get('parent_url')
-
+        parent_url2 = parent_url
+        
         # If this is the start URL (parent_url==None) then keep
         # the error message.
 
@@ -984,10 +985,11 @@ class EIIICrawler(multiprocessing.Process):
         # If parent URL has / at end, also check for one without /
 
         # Fix for issue #462 - Heisenbug!
-        if parent_url.endswith('/'):
-            parent_url2 = parent_url[:-1]
-        else:
-            parent_url2 = parent_url + '/'          
+        if parent_url != None:
+            if parent_url.endswith('/'):
+                parent_url2 = parent_url[:-1]
+            else:
+                parent_url2 = parent_url + '/'          
         
         # Log it at debug level
         if len(str(error_msg)):
@@ -1042,16 +1044,19 @@ class EIIICrawler(multiprocessing.Process):
         url = event.params.get('url')
         orig_url = event.params.get('orig_url')
         parent_url = event.params.get('parent_url')
+        parent_url2 = parent_url
+        
         error_msg = event.message
         # print 'Error message =>',error_msg
         # print '#Parent =>',parent_url
 
         # If parent URL has / at end, also check for one without /
-        # Fix for issue #462 - Heisenbug!       
-        if parent_url.endswith('/'):
-            parent_url2 = parent_url[:-1]
-        else:
-            parent_url2 = parent_url + '/'
+        # Fix for issue #462 - Heisenbug!
+        if parent_url != None:
+            if parent_url.endswith('/'):
+                parent_url2 = parent_url[:-1]
+            else:
+                parent_url2 = parent_url + '/'
             
         # log.debug('Making entry for URL',url,'in bitmap...')
         self.url_bitmap[url] = 1
