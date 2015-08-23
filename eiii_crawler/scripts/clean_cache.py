@@ -3,6 +3,7 @@
 """ Clean crawler cache at ~/.eiii folder periodically """
 
 import os
+import shutil
 import sys
 import time
 import datetime
@@ -16,7 +17,7 @@ def files_to_clean(limit=7):
         cache_f = os.path.join(CACHE_ROOT, dirf)
         now = datetime.datetime.now()
     
-        for root, files, dirs in os.walk(cache_f):
+        for root, dirs, files in os.walk(cache_f):
             for fpath in files:
                 fullfpath = os.path.join(root, fpath)
                 time_m = datetime.datetime.fromtimestamp(os.stat(fullfpath).st_mtime)
@@ -31,7 +32,10 @@ def clean_files(limit=7):
     for fpath in files_to_clean(limit=limit):
         try:
             print 'Cleaning',fpath,'...'
-            os.remove(fpath)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+            else:
+                shutil.rmtree(fpath)
         except Exception, e:
             print '\t',e
             pass
