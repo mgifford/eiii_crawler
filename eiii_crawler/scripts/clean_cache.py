@@ -37,5 +37,4 @@ def clean_files(limit=7):
             pass
     
 if __name__ == "__main__":
-    for f in files_to_clean():
-        print f
+    clean_files()
