@@ -9,7 +9,7 @@ import datetime
 
 CACHE_ROOT=os.path.expanduser('~/.eiii/crawler/')
 
-def files_to_clean(limit=14):
+def files_to_clean(limit=7):
     """ Return files which are older than <limit> days as a generator """
 
     for dirf in ('store','stats'):
@@ -25,10 +25,10 @@ def files_to_clean(limit=14):
                 if delta.days > limit:
                     yield fullfpath
 
-def clean_files(limit=14):
+def clean_files(limit=7):
     """ Clean up files older than <limit> days from crawler cache """
 
-    for fpath in files_to_clean():
+    for fpath in files_to_clean(limit=limit):
         try:
             print 'Cleaning',fpath,'...'
             os.remove(fpath)
