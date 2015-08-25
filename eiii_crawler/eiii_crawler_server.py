@@ -263,6 +263,13 @@ class EIIICrawlerServer(SimpleTTRPCServer):
                  'error': error_msg,
                  'stats': stats_dict,
                  '__type__': "crawler-result"}
+
+        # Clean the data from the result dict
+        try:
+            del self.return_dict[task_id]
+        except KeyError, e:
+            print 'Could not remove data for',task_id,'from crawler shared dictionary.'
+        
         return (result,self.load(None))
 
     def crawl(self, ctl, crawler_rules, threaded=True):
