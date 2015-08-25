@@ -27,6 +27,16 @@ noscriptcleanup = re.compile('<noscript\\b[^>]*>(.*?)</noscript>', re.MULTILINE|
 def clean_noscript(data):
     """ Remove all <noscript>...</noscript> tags and their content """
 
+    # Check if meta is present between noscript
+    try:
+        noscript_content = noscriptcleanup.search(data).groups(0)[0].strip().lower()
+        if '<meta' in noscript_content and 'refresh' in noscript_content:
+            # Could be an HTTP refresh via meta tags
+            # Dont cleanup - issue #479 - problem with http://www.frittsykehusvalg.no
+            return data
+    except:
+        pass
+
     return noscriptcleanup.sub('', data).strip()
 
 def get_default_logger(name='eiii_crawler'):
