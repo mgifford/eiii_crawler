@@ -222,7 +222,7 @@ class JSParser(object):
    # jQuery(document).func(function(...))
    jquery_func = re.compile(r'jQuery\(\s*[\'\"]{1}[\#a-zA-Z0-9_\.]+[\'\"]{1}\)\.[a-zA-Z_]+\(\s*function\s*\(\s*[a-zA-Z0-9_]*\s*\)')
    # Javascript function taking arguments
-   jsfunc_withargs = re.compile(r'function\([a-zA-Z0-9_]+[^\)]*\)')
+   jsfunc_withargs = re.compile(r'function\s*\([a-zA-Z0-9_]+[^\)]*\)')
    # Comments of the form <!-- content -->
    js_comments = re.compile(r'\<\!--.*\s*\/\/--\>', re.MULTILINE)
    # Punctuations we dont want in our redirect expressions
@@ -451,7 +451,7 @@ class JSParser(object):
       # code so skip straight away.
       # print statement
       statement = statement.strip()
-      # print 'Statement =>', statement
+      #print 'Statement =>', statement
       if statement.startswith('if '):
          return False
 
@@ -508,6 +508,7 @@ class JSParser(object):
 
          # If previous line is a function taking arguments then less chance it supports
          # an un-conditional redirect...
+         # print 'PREV LINE =>',prev_line
          if self.jsfunc_withargs.search(prev_line):
             # print 'Skipping since previous line is function taking non-empty argumeents'
             prev_line = line
@@ -917,6 +918,10 @@ def localtests():
     print P.getLocation().href
     
     P.parse(open('samples/rtu_lv.html').read())
+    assert(P.location_changed==False)
+
+    P.parse(open('samples/mu_edu_tr.html').read())
+    print P.getLocation().href
     assert(P.location_changed==False)                    
     
     print 'All local tests passed.'
