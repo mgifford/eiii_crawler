@@ -390,6 +390,7 @@ class EIIICrawlerStats(CrawlerStats):
         super(EIIICrawlerStats, self).update_total_urls_skipped(event)
         url = event.params.get('url')
         parent_url = event.params.get('parent_url')
+
         # If this is an external URL, log it to the external URL graph if config option is enabled.
         if self.config.flag_ext_url_graph and error_msg.scope == 1:
             # print 'EXTERNAL URL:',url,'<=>',parent_url
@@ -435,7 +436,9 @@ class EIIICrawlerStats(CrawlerStats):
 
         if parent_url:
             log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
-            self.url_graph[parent_url].add((url, content_type))
+            # Bug #480 - dont show duplicate URLs without www
+            url_sans_www = utils.remove_www(url)
+            self.url_graph[parent_url].add((url_sans_www, content_type))
         else:
             # Child itself is the parent - i.e top level URL, add empty children
             self.url_graph[url] = set()         
