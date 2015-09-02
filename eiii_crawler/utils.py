@@ -25,11 +25,19 @@ javascriptcleanup = re.compile('<script\\b[^>]*>(.*?)</script>', re.MULTILINE|re
 noscriptcleanup = re.compile('<noscript\\b[^>]*>(.*?)</noscript>', re.MULTILINE|re.DOTALL)
 www_re = re.compile(r'www\d*\.', re.IGNORECASE)
 
-def remove_www(url):
-	""" Remove www from the URL """
+def git_hash():
+    """ Return git hash for current crawler """
 
-	return www_re.sub('', url).strip()
-	
+    data = os.popen('git rev-parse HEAD 2>/dev/null').read().strip()
+    if len(data) == 0:
+        return '==> no hash <=='
+    return data
+    
+def remove_www(url):
+    """ Remove www from the URL """
+
+    return www_re.sub('', url).strip()
+    
 def clean_noscript(data):
     """ Remove all <noscript>...</noscript> tags and their content """
 
