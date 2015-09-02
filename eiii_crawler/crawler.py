@@ -438,11 +438,18 @@ class EIIICrawlerStats(CrawlerStats):
             log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
             # Bug #480 - dont show duplicate URLs without www
             url_sans_www = utils.remove_www(url)
-            # Keep the URL with the trailing /
-            if url_sans_www[-1] != '/':
-                url_sans_www = url_sans_www + '/'
-                
-            self.url_graph[parent_url].add((url_sans_www, content_type))
+            # Keep the URL without the trailing /
+            if url[-1] == '/':
+                url = ur[:-1]
+
+            if url_sans_www[-1] == '/':
+                url_sans_www = url_sans_www[:-1]               
+
+            entry = self.url_graph[parent_url]
+            present = ((url, content_type) in entry) or ((url_sans_www, content_type) in entry)
+
+            if not present:
+                self.url_graph[parent_url].add((url, content_type))
         else:
             # Child itself is the parent - i.e top level URL, add empty children
             self.url_graph[url] = set()         
