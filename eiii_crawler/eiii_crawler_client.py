@@ -4,7 +4,7 @@ the crawler server """
 from ttrpc.client import *
 import sys
 
-crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 100)],
+crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 1000)],
                  # 'scoping-rules': [('+','^anand.*'),('-', "*./contact/addresses/[0-9].cfm")], 'min-crawl-delay': 2,
                  'min-crawl-delay': 2,
                  'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
