@@ -5,7 +5,8 @@ from ttrpc.client import *
 import sys
 
 crawler_rules = {'max-pages': [(['text/html', 'application/xhtml+xml', 'application/xml'], 100)],
-                 'scoping-rules': [('+','^anand.*')], 'min-crawl-delay': 2,
+                 # 'scoping-rules': [('+','^anand.*'),('-', "*./contact/addresses/[0-9].cfm")], 'min-crawl-delay': 2,
+                 'min-crawl-delay': 2,
                  'size-limits': [(['text/html', 'application/xhtml+xml', 'application/xml'], 500)],
                  'seeds': ['http://english.mofa.gov.qa/'], 'obey-robotstxt': True,
                  'loglevel': 'debug'}
@@ -22,7 +23,7 @@ print crawler_rules['seeds']
 task_id = proxy.crawl(crawler_rules)
 # Wait for results.
 print 'Task_id=>',task_id
-crawl_graph = proxy.poll(task_id)
+crawl_graph, load = proxy.poll(task_id)
 
 print 'Crawl graph=>',crawl_graph['result']
 
