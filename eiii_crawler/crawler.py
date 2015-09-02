@@ -54,6 +54,9 @@ __version__ = '1.0a'
 __author__ = 'Anand B Pillai'
 __maintainer__ = 'Anand B Pillai'
 
+# Regex paths of URLs to exclude from dynamic filtering
+url_exclude_paths  = ('/', '')
+url_regexclude_paths = ('default\.[a-zA-Z]+', 'index\.[a-zA-Z]+', 'home\.[a-zA-Z]+', 'frontend\.[a-zA-Z]+')
     
 class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
     """ EIII Crawler worker using a shared FIFO queue as
@@ -281,6 +284,14 @@ class EIIICrawlerQueuedWorker(threaded.ThreadedWorkerBase):
             # Uncomment following for printing message during dynamic exclusion
             # log.extra('Disallowing URL ',url,' due to dynamic exclusion rule.')
             # Add this to a list
+
+            # Fix for #483 - need to check for whitelisting paths here also.
+            urlp = urlparse.urlparse(url)
+            lastpath = urlp.path.split('/')[-1]         
+            if (lastpath in url_exclude_paths) or any([re.match(pattern, lastpath, re.IGNORECASE) for pattern in url_regexclude_paths]):
+                log.extra("URL matches path whitelist. Not checking for circuit", url)
+                return utils.StatusMessage(True, 'URL matches path whitelist', type='white-list')           
+        
             return utils.StatusMessage(False, 'Disallowing URL ' + url + ' due to dynamic exclusion rule.',
                                        type='dynamic-exclusion-rule', subtype=rule)
 
