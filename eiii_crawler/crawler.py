@@ -1255,6 +1255,7 @@ class EIIICrawler(multiprocessing.Process):
         # Wait for some time
         time.sleep(10)
 
+        count = 0
         while self.work_pending():
             time.sleep(5)
                 
@@ -1299,8 +1300,15 @@ class EIIICrawler(multiprocessing.Process):
         # Wait for some time
         time.sleep(10)
 
+        count = 0
         while self.work_pending():
             time.sleep(5)
+            
+            # Every 2 minutes raise heartbeat event
+            count += 5
+            if count == 120:
+                self.eventr.publish(self, 'heartbeat')
+                count = 0           
 
         # Push empty values
         [w.stop() for w in self.workers]
