@@ -678,11 +678,12 @@ class HtmlParserMixin(object):
             pieces = content.split(';')
             if len(pieces)>1:
                 try:
-                    items = pieces[1].strip().split('=')
+                    items = pieces[1].strip().split('=', 1)
                     if items[0].lower()=='url':
                         # We should follow this URL and NOT parse the
                         # current page.
                         self.follow_url = items[1].replace("'", "").replace('"', '')
+                        print 'FOLLOW =>',self.follow_url
                         self.redirect = True
                 except:
                     pass
