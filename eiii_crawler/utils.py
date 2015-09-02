@@ -23,7 +23,13 @@ __logprefix__ = 'logs'
 # Script cleanup regular expressions
 javascriptcleanup = re.compile('<script\\b[^>]*>(.*?)</script>', re.MULTILINE|re.DOTALL)
 noscriptcleanup = re.compile('<noscript\\b[^>]*>(.*?)</noscript>', re.MULTILINE|re.DOTALL)
+www_re = re.compile(r'www\d*\.', re.IGNORECASE)
 
+def remove_www(url):
+	""" Remove www from the URL """
+
+	return www_re.sub('', url).strip()
+	
 def clean_noscript(data):
     """ Remove all <noscript>...</noscript> tags and their content """
 
