@@ -438,6 +438,10 @@ class EIIICrawlerStats(CrawlerStats):
             log.debug("Adding URL ==>",url,"<== to graph for parent ==>",parent_url,"<==")
             # Bug #480 - dont show duplicate URLs without www
             url_sans_www = utils.remove_www(url)
+            # Keep the URL with the trailing /
+            if url_sans_www[-1] != '/':
+                url_sans_www = url_sans_www + '/'
+                
             self.url_graph[parent_url].add((url_sans_www, content_type))
         else:
             # Child itself is the parent - i.e top level URL, add empty children
@@ -1212,7 +1216,9 @@ class EIIICrawler(multiprocessing.Process):
     def crawl(self):
         """ Do the actual crawling """
 
-        log.info("Crawler",self.id,"starting crawl of task id",self.config._task_id,"...")
+        chash = utils.git_hash()
+        
+        log.info("Crawler",self.id,"hash",chash,"starting crawl of task id",self.config._task_id,"...")
         
         self.busy = True
         # Demarcating text
