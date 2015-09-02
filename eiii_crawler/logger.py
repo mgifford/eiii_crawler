@@ -53,7 +53,11 @@ class LoggerWrapper(object):
         self.__console = console
         # Additional file handle
         self._extrafhandle = None
-        
+
+    def reset(self):
+        """ Reset state """
+
+        self._startt = time.time()
 
     def myrepr(self, string):
         return self.squote_re.sub('',repr(string))
