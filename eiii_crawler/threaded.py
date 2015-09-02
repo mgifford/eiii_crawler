@@ -87,10 +87,14 @@ class ThreadedWorkerBase(threading.Thread, CrawlerWorkerBase):
         overriding this method though it is not suggested.
         """
 
+        eventr = CrawlerEventRegistry.getInstance()
+
         while self.work_pending() and (not self.should_stop()):
             # State is 0 - about to get data
             self.state = 0
             data = self.get()
+
+            eventr.publish(self, 'heartbeat')
             
             if data==((None,None,None)):
                 log.info('No URLs to crawl.')
