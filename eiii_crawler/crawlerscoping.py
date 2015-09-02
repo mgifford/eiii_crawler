@@ -211,12 +211,11 @@ class CrawlerLimitRules(object):
         self.config = config
         # Subscribe to events       
         self.eventr = CrawlerEventRegistry.getInstance()
-        self.eventr.subscribe('download_complete', self.check_crawler_limits)
+        self.eventr.subscribe('heartbeat', self.check_crawler_limits)       
         self.eventr.subscribe('crawl_started', self.mark_start_time)
         # Do we need to apply URL limits also for retrievel from cache ?
         # Maybe we should since that also includes a HEAD request for the URL.
         # Anyway for the time being this is enabled.
-        self.eventr.subscribe('download_cache', self.check_crawler_limits)      
         self.reset()
 
     def reset(self):
@@ -250,7 +249,7 @@ class CrawlerLimitRules(object):
 
         tdelta = (datetime.datetime.now() - self.start_timestamp)
         self.duration = tdelta.total_seconds()/60.0
-        log.debug("*** Duration of crawl -",self.duration,"minutes ***")
+        log.debug("*** Duration of crawl -",self.duration,"(max: " + str(self.time_limit) + ") minutes ***")
 
         # If time of crawling exceeded, abort crawling
         if self.duration > self.time_limit:
