@@ -771,6 +771,8 @@ class EIIICrawler(multiprocessing.Process):
         self.stats.reset()
         self.limit_checker.reset()
         self.eventr.reset()
+
+        log.reset()
         
         try:
             signal.signal(signal.SIGINT, self.sighandler)
