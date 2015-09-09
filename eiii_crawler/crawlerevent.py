@@ -104,7 +104,8 @@ class CrawlerEventRegistry(object):
                   'crawl_started': "Published when the crawl is started, no events can be published before this event",
                   'crawl_ended': "Published when the crawl ends, no events can be published after this event",
                   'abort_crawling': "Published if the crawl has to be aborted midway",
-                  'worker_threw_exception': 'Published if a crawler worker thread dies due to an uncaught exception.'
+                  'worker_threw_exception': 'Published if a crawler worker thread dies due to an uncaught exception.',
+                  'heartbeat': 'Heartbeat of the crawler'
                   
                   # More to come
                   }
