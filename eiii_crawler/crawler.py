@@ -451,7 +451,7 @@ class EIIICrawlerStats(CrawlerStats):
             url_sans_www = utils.remove_www(url)
             # Keep the URL without the trailing /
             if url[-1] == '/':
-                url = ur[:-1]
+                url = url[:-1]
 
             if url_sans_www[-1] == '/':
                 url_sans_www = url_sans_www[:-1]               
