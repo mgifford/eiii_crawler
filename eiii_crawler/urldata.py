@@ -209,6 +209,7 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
                 if self.url != fhead.url:
                     # Flexi scope - no problem
                     # Allow external domains only for flexible site scope
+                    print "SCOPE =>", self.config.site_scope
                     if self.config.site_scope == 'SITE_FLEXI_SCOPE':
                         self.url = fhead.url
                         log.info("URL updated to",self.url)                     
@@ -295,12 +296,15 @@ class CachingUrlData(crawlerbase.CrawlerUrlData):
             if self.url != mod_url:
                 # Flexi scope - no problem
                 # Allow external domains only for flexible site scope
+                # print 'Scope =>',self.config.site_scope, parent_url
                 if self.config.site_scope == 'SITE_FLEXI_SCOPE':
                     self.url = mod_url
                     log.info("URL updated to", mod_url)                
                 else:
-                    scoper = CrawlerScopingRules(self.config, mod_url)
-                    if scoper.allowed(mod_url, parent_url, redirection=True):
+                    scoper = CrawlerScopingRules(self.config, self.url)
+                    status = scoper.allowed(mod_url, parent_url, redirection=True)
+                    # print 'SCOPER STATUS =>',status,status.status
+                    if status:
                         self.url = mod_url
                         log.info("URL updated to",self.url)
                     else:
