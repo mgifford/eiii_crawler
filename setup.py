@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-import shutil
 
 try:
     from setuptools import setup
@@ -20,7 +19,3 @@ setup(name = "eiii-crawler",
       packages = ['eiii_crawler','js','eiii_crawler.plugins'],
       scripts = ['eiii_crawler/eiii_crawler_server.py', 'eiii_crawler/eiii_crawler_server']
       )
-
-# Copy eiii_crawler_serverd to /etc/init.d/
-print 'Copying init.d script ...'
-shutil.copy('eiii_crawler/scripts/eiii_crawler_serverd', '/etc/init.d/')
