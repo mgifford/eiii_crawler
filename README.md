@@ -41,9 +41,12 @@ Stand-alone mode is useful if you want to crawl a site directly using the defaul
 and save its files or dump its URLs.
 
 $ cd eiii_crawler
+
 $ python crawler.py -h (for options)
 
-$ python crawler.py http://site.com
+Crawl a site, say example.com
+
+$ python crawler.py http://example.com
 
 Crawler server mode can be used to run many crawlers in parallel.
 
@@ -59,6 +62,8 @@ Use the eiii_crawler_client program to run a crawl for a site.
 $ python eiii_crawler_client.py http://mysite.com
 
 Using this, you can run multiple crawls in parallel.
+
+NOTE: eiii_crawler running in server mode has a dependency on the ttrpc project.
 
 ## Configuration
 
@@ -87,4 +92,4 @@ if-modified-since and etag HTTP header options.
 
 ## Further information
 
-For any further information write to contact@tingtun.no .
+For any further information write to eiii@tingtun.no .
