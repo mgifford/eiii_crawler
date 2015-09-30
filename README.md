@@ -63,7 +63,7 @@ $ python eiii_crawler_client.py http://mysite.com
 
 Using this, you can run multiple crawls in parallel.
 
-NOTE: eiii_crawler running in server mode has a dependency on the ttrpc project.
+NOTE: eiii_crawler running in server mode has a dependency on the py-ttrpc project.
 
 ## Configuration
 
