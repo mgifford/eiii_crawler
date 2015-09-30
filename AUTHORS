@@ -1,0 +1,12 @@
++---------------------+
+Authors of eiii-crawler
++---------------------+
+
+Anand B Pillai <abp@tingtun.no> designed & implemented the EIII crawler project.
+
+With valuable early design inputs from:
+     - Mikael Snaprud <mikael.snaprud@tingtun.no>
+     - Christian Amble <cra@cra.no>
+
+Principal Tester: Bjornar Hansen <bjornar.hansen@tingtun.no>
+     - Who also wrote parts of EIII crawler server and the original setup.py .
