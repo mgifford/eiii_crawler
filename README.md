@@ -87,4 +87,4 @@ if-modified-since and etag HTTP header options.
 
 ## Further information
 
-For any further information write to eiii@tingtun.no .
+For any further information write to contact@tingtun.no .
