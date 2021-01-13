@@ -15,9 +15,9 @@ setup(name = "eiii-crawler",
       url = "http://gitlab.tingtun.no/eiii_source/eiii_crawler",
       install_requires = [
           'pyparsing>=2.0.1',
-          'requests>=2.0.1, !=2.4.0',
+          'requests>=2.20.0, !=2.4.0',
           'pyparsing>=2.0.1',
-          'requests>=2.0.1',
+          'requests>=2.20.0',
           'BeautifulSoup4>=4.3.2',
           'lxml>=3.3.5',
           'sgmlop>=1.1.1'
